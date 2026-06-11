@@ -1,0 +1,8 @@
+go 1.26
+
+use (
+	../lattice-sdk
+	../lattice-server
+	../lattice-node-agent
+	../lattice-plugin-template/system-go
+)
