@@ -1,11 +1,17 @@
 # Roadmap
 
+> **2026-06-11 security hardening pass** delivered the items marked *(Delivered)*
+> below plus a broad set of fixes (authz bugs, rate limiting, O(1) PAT auth,
+> session persistence, nft/storage input validation, TLS/HSTS, real CPU metrics,
+> agent timeouts). See [`SECURITY-HARDENING.md`](./SECURITY-HARDENING.md).
+
+
 ## V1 Hardening
 
 - Replace JSON storage with SQLite WAL migrations.
 - Add protobuf/ConnectRPC transport and generated TypeScript clients.
 - Add TOTP setup and recovery codes.
-- Add PAT creation/revocation UI.
+- Add PAT creation/revocation UI. (API delivered 2026-06-11: `POST/GET /api/tokens`, `/api/tokens/revoke`; UI pending.)
 - Add approval re-authentication for `network:apply` and `task:run`.
 - Add systemd units and install scripts.
 - Add end-to-end browser QA.
@@ -29,6 +35,6 @@
 - Historical metrics retention.
 - Fleet latency matrix.
 - SSH login alert stream.
-- Multi-channel notifications.
+- Multi-channel notifications. (Delivered 2026-06-11: `internal/notify` + `POST /api/notify/test`; persistent channel config + event triggers pending.)
 - Backup hub replication.
 

@@ -1,0 +1,42 @@
+name: ci-integration
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout lattice
+        uses: actions/checkout@v4
+        with: { path: lattice }
+      - name: checkout lattice-sdk
+        uses: actions/checkout@v4
+        with: { repository: LatticeNet/lattice-sdk, path: lattice-sdk }
+      - name: checkout lattice-server
+        uses: actions/checkout@v4
+        with: { repository: LatticeNet/lattice-server, path: lattice-server }
+      - name: checkout lattice-node-agent
+        uses: actions/checkout@v4
+        with: { repository: LatticeNet/lattice-node-agent, path: lattice-node-agent }
+      - name: checkout lattice-plugin-template
+        uses: actions/checkout@v4
+        with: { repository: LatticeNet/lattice-plugin-template, path: lattice-plugin-template }
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+      - name: gofmt
+        run: test -z "$(gofmt -l lattice-sdk lattice-server lattice-node-agent)" || (gofmt -l lattice-sdk lattice-server lattice-node-agent && exit 1)
+      - name: make test
+        working-directory: lattice
+        run: make test
+      - name: make build
+        working-directory: lattice
+        run: make build
+      - name: gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./lattice-server/... ./lattice-node-agent/...
