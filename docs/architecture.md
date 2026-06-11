@@ -52,6 +52,20 @@ mode should require a separate explicit `apply=true` request and a rollback note
 - `worker`: lightweight route handlers. The bootstrap runtime supports safe
   template rendering and KV interpolation, not arbitrary JavaScript execution.
 
+## Cloudflare Tunnel
+
+A `TunnelProfile` maps public hostnames to node-local services
+(`http://localhost:8088`, `ssh://localhost:22`, ...). The server renders a
+cloudflared `config.yml` from it (validated hostnames/services, mandatory
+catch-all `http_status:404`). Because cloudflared dials out to Cloudflare's
+edge, a NAT-bound node can expose services with no inbound ports.
+
+Deployment uses the shared `plan -> approve -> apply` flow:
+`/api/tunnels` CRUD and `/api/tunnels/plan` (scope `tunnel:admin`) produce an
+approval; approving with `queue_apply` writes `/etc/cloudflared/config.yml`,
+runs `cloudflared ingress validate`, and reloads the service. Tunnel credentials
+stay node-local (referenced by path); the server stores only the topology.
+
 ## WireGuard Mesh
 
 The server is the mesh's topology brain. From each node's reported public key,
