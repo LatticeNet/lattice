@@ -52,6 +52,27 @@ mode should require a separate explicit `apply=true` request and a rollback note
 - `worker`: lightweight route handlers. The bootstrap runtime supports safe
   template rendering and KV interpolation, not arbitrary JavaScript execution.
 
+## DDNS
+
+`lattice-server` can publish a node's public IP to DNS when it changes. A
+`DDNSProfile` is bound to a node and a provider:
+
+- **cloudflare** — Cloudflare API v4 with a scoped API token (Zone:Read +
+  DNS:Edit). Zero external dependency (no libdns); the longest matching zone is
+  resolved from the token's zone list, then A/AAAA records are created/updated
+  (never proxied).
+- **webhook** — a templated request (`#ip#`, `#domain#`, `#type#`) to an
+  operator URL. Because the URL is operator-supplied it is screened by an SSRF
+  guard that rejects loopback/private/link-local/metadata destinations.
+
+IP source: the agent may report `public_ip`/`public_ipv6`, but when it does not,
+the server uses the agent's observed source address (it dials out, so its source
+IP is its public IP) — giving zero-config DDNS. When a bound node's public IP
+changes, the server applies every bound profile asynchronously with retries;
+`POST /api/ddns/run` triggers a profile synchronously. Credentials are stored in
+the state file and never returned by the list API. All DDNS endpoints require the
+`ddns:admin` scope.
+
 ## Storage
 
 The bootstrap build uses a JSON state file so the project builds without network
