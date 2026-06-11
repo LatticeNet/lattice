@@ -52,6 +52,25 @@ mode should require a separate explicit `apply=true` request and a rollback note
 - `worker`: lightweight route handlers. The bootstrap runtime supports safe
   template rendering and KV interpolation, not arbitrary JavaScript execution.
 
+## Notifications and Alerts
+
+Notification channels are persisted (`NotifyChannel`: kind + config + enabled)
+and reused by every alert. Supported kinds are telegram, bark, discord, and a
+generic webhook, all delivered by the dependency-free `internal/notify` package.
+The list API returns only the configured key names, never the secret values.
+
+Two event sources currently drive alerts, fanned out to every enabled channel:
+
+- **Monitor state changes** — when a monitor's success flips (or on the first
+  observed failure) the server emits a down/recovery alert, so a flapping target
+  does not spam every probe result.
+- **SSH logins** — agents started with `-ssh-alerts` stream sshd accepted-login
+  lines from journald (or `auth.log`) and report them to `/api/agent/event`; the
+  server records an `ssh.login` audit event and notifies.
+
+Channel management (`/api/notify/channels`, `/api/notify/test`) requires the
+`notify:send` scope.
+
 ## Service Monitoring
 
 `lattice-server` distributes periodic reachability/latency monitors to agents,
