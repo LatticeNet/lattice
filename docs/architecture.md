@@ -52,6 +52,23 @@ mode should require a separate explicit `apply=true` request and a rollback note
 - `worker`: lightweight route handlers. The bootstrap runtime supports safe
   template rendering and KV interpolation, not arbitrary JavaScript execution.
 
+## WireGuard Mesh
+
+The server is the mesh's topology brain. From each node's reported public key,
+mesh IP, and optional public endpoint it generates a per-node `wg0.conf`:
+
+- one `[Peer]` per other keyed node, `AllowedIPs` pinned to the peer's `/32` (a
+  node can only claim its own mesh IP), `PersistentKeepalive = 25` so NAT-bound
+  nodes hold the tunnel open, and `Endpoint` only for directly-reachable peers.
+- the node's **private key never reaches the server** — the config carries a
+  placeholder the agent substitutes from its local key file at apply time.
+
+Deployment follows the same `plan -> approve -> apply` flow as nft:
+`POST /api/network/wireguard/plan` records a pending approval with the full
+config (safe to diff — no secret), and approving with `queue_apply` dispatches a
+bounded task that substitutes the private key and runs `wg-quick`. Keys/ports are
+reported by the agent via `-wg-pubkey` / `-wg-endpoint` / `-wg-port`.
+
 ## Notifications and Alerts
 
 Notification channels are persisted (`NotifyChannel`: kind + config + enabled)
