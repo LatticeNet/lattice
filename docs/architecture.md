@@ -52,6 +52,24 @@ mode should require a separate explicit `apply=true` request and a rollback note
 - `worker`: lightweight route handlers. The bootstrap runtime supports safe
   template rendering and KV interpolation, not arbitrary JavaScript execution.
 
+## Service Monitoring
+
+`lattice-server` distributes periodic reachability/latency monitors to agents,
+mirroring the continuous ping/tcping pattern of NodeGet/nezha.
+
+- A `Monitor` has a type (`tcp` or `http`; `icmp` is pending because it needs
+  elevated privileges), a target (`host:port` or URL), an interval, a timeout,
+  and an assignment (every node via `assign_all`, or an explicit `node_ids`
+  list). Assigning members a monitor that targets their group leader is how the
+  group's intra-region latency matrix is collected.
+- Agents poll `/api/agent/monitors` for their assignment and run each monitor on
+  its own schedule in a dedicated goroutine (started/stopped/restarted as the
+  assignment changes), reporting `MonitorResult`s to
+  `/api/agent/monitor-result`.
+- The server keeps a capped history (most recent 500 per monitor) for trend
+  display. Operator endpoints (`/api/monitors` CRUD, `/api/monitors/results`)
+  require `monitor:read` / `monitor:admin`.
+
 ## DDNS
 
 `lattice-server` can publish a node's public IP to DNS when it changes. A
