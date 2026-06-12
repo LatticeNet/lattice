@@ -30,6 +30,33 @@ allow/deny host-call events. `http:egress` is only a permission to ask the
 server-owned HTTP host to dial; that host must still apply the outbound SSRF and
 egress guard.
 
+## Lifecycle
+
+The server now keeps a metadata-only lifecycle record for each bundle that
+passes manifest signature and artifact digest verification:
+
+```txt
+verified -> installed -> active -> disabled -> active
+                      \-> disabled
+```
+
+The lifecycle API is deliberately conservative:
+
+- `GET /api/plugins/lifecycle` requires `plugin:admin` and returns plugin
+  identity, capabilities, artifact digest, availability, status, and timestamps.
+- The response does not include the local `bundle_path`; filesystem layout stays
+  server-private.
+- `POST /api/plugins/lifecycle` requires `plugin:admin` and accepts
+  `{ "id": "...", "status": "installed|active|disabled" }`.
+- Installing or activating requires the bundle to be present in the current
+  verified loader set (`available:true`); stale records can be disabled, not
+  activated.
+- Invalid transitions are rejected and status changes are audited as
+  `plugin.status`.
+- Lifecycle transitions do not execute plugin code yet. Runtime start/stop,
+  subprocess/wasm isolation, rate limits, and per-call capability enforcement
+  are the next Phase B slice.
+
 ## System Plugins
 
 System plugins are trusted built-ins. Planned system plugins:

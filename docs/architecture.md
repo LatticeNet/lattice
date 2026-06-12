@@ -68,8 +68,8 @@ Current broker surfaces:
 - `log:write` for plugin-authored structured logs; the broker stamps the
   verified plugin id.
 
-The broker is a contract and enforcement point, not a runtime by itself. Plugin
-install, activation, subprocess/wasm execution, rate limits, and lifecycle state
+The broker is a contract and enforcement point, not a runtime by itself.
+Subprocess/wasm execution, per-plugin runtime limits, and process isolation
 remain separate Phase B work.
 
 `lattice-server/internal/server/plugin_host.go` provides the first server-owned
@@ -84,6 +84,40 @@ adapter for this contract:
   are capped at 256 KiB.
 - Broker capability allow/deny events are persisted as `plugin.host.*` audit
   events with plugin id, capability, decision, and correlation id.
+
+## Plugin Lifecycle
+
+Verified plugin bundles are persisted as `PluginInstallation` records in the
+store. This lifecycle registry is metadata-only: it records manifest identity,
+capabilities, artifact digest, local bundle path, status timestamps, and audit
+history, but it does **not** execute plugin code.
+
+Status transitions are intentionally narrow:
+
+```txt
+verified -> installed -> active -> disabled -> active
+                      \-> disabled
+```
+
+Skipping install (`verified -> active`) and downgrading trust
+(`active/disabled -> verified`) are rejected. Server startup registers only
+bundles that passed the signed manifest/digest loader; rejected bundles are
+audited and are not added to the lifecycle store. Existing lifecycle state is
+preserved across restart, so a disabled plugin is not re-enabled just because its
+bundle is still present on disk.
+
+Operator API:
+
+- `GET /api/plugins/lifecycle` (scope `plugin:admin`) returns a public view of
+  installation metadata and timestamps. It includes `available` to show whether
+  the bundle is present in the current verified loader set. It deliberately
+  omits `bundle_path` so local filesystem layout is not leaked to the dashboard
+  or API clients.
+- `POST /api/plugins/lifecycle` (scope `plugin:admin`) accepts `{id, status}`
+  and performs a validated state transition. Moving to `installed` or `active`
+  requires `available:true`; stale records for missing bundles can be disabled
+  but not activated. The endpoint records `plugin.status` audit events, but does
+  not start, stop, fork, load, or run plugin code.
 
 ## Cloudflare Tunnel
 
