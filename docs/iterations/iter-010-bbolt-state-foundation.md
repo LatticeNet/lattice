@@ -3,15 +3,15 @@
 - **Date:** 2026-06-12
 - **Phase:** C1 storage foundation
 - **Repos:** `lattice-server`, `lattice`
-- **Status:** Verified foundation / default store not switched
+- **Status:** Verified foundation + ops CLI / default store not switched
 
 ## Goal
 
 Start the Phase C storage migration without destabilizing the current JSON
-store. This slice introduces a bbolt-backed state import/export boundary plus
-JSON→bbolt migration and bbolt→JSON rollback/export helpers. It preserves the
-existing encryption semantics and stores each top-level collection in its own
-bucket.
+store. This slice introduces a bbolt-backed state import/export boundary,
+JSON→bbolt migration, bbolt→JSON rollback/export helpers, and a local
+`lattice-server migrate` ops CLI. It preserves the existing encryption
+semantics and stores each top-level collection in its own bucket.
 
 ## Scope
 
@@ -26,6 +26,10 @@ bucket.
   default.
 - Export bbolt state back to encrypted JSON without overwriting existing targets
   by default.
+- Add `lattice-server migrate json-to-bolt` and `lattice-server migrate
+  bolt-to-json` as explicit-path local ops commands.
+- Refuse to auto-generate a new master key in migration commands; operators must
+  use the existing key source or explicitly opt into legacy plaintext handling.
 - Reuse the existing AES-256-GCM `encryptedState` / `decryptState` boundary so
   reversible secrets are still encrypted at rest.
 
@@ -34,7 +38,7 @@ bucket.
 - Do not switch `cmd/lattice-server` or `store.OpenWithCipher` to bbolt yet.
 - Do not rewrite every Store method to record-level bbolt transactions yet.
 - Do not remove the JSON state file or audit WAL.
-- Do not add retention/migration CLI yet.
+- Do not add retention policy CLI yet.
 - Do not add `-data-engine=bolt` yet.
 
 ## Security Notes
@@ -68,18 +72,30 @@ Targeted tests added in `lattice-server/internal/store/bolt_migration_test.go`:
 - migrations refuse to overwrite existing targets unless `Overwrite` is set.
 - wrong-key migration fails closed and does not leave a target bbolt file.
 
+Targeted tests added in `lattice-server/cmd/lattice-server/migrate_test.go`:
+
+- CLI JSON→bbolt→JSON round-trip uses the same master key and preserves
+  encrypted-at-rest secrets.
+- missing implicit `master.key` fails before any target file or new key is
+  created.
+- ambiguous `-json`/`-data` path input is rejected.
+
 Commands run:
 
 ```sh
 GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go test ./internal/store -run TestBoltState -count=1
 GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go test ./internal/store -run 'TestMigrate|TestMigration' -count=1
+GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go test ./cmd/lattice-server -run TestRunMigrationCLI -count=1
 GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go test ./internal/store -count=1
+GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go test ./... -count=1
+GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go vet ./...
+GOCACHE=/tmp/lattice-review-go-build GOWORK=/Users/cdcd/roobli/RTFS_justTaste/Probe-Dashboards/Lattice/lattice/go.work go test -race ./... -count=1
 ```
 
 ## Residuals
 
 - JSON remains the default server store.
-- Next slice should add a migration/export CLI or an opt-in `-data-engine=bolt`
-  path using the tested helpers.
+- Next storage slice should add an opt-in `-data-engine=bolt` path or start
+  record-level bbolt writes using the tested migration/export boundary.
 - Record-level bbolt writes are still pending; `BoltStateStore.ImportState` is a
   migration bridge, not the final hot-path API.

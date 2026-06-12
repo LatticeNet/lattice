@@ -24,7 +24,7 @@ separately.
 - Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, approvals, and audit views.
 - nftables plan generation with explicit approval before apply.
 - Static TypeScript source and dependency-free browser assets.
-- Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint.
+- Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint, and the server now has an explicit JSON↔bbolt migration/export CLI for operator testing and rollback drills.
 
 ## Quick Start
 
@@ -59,6 +59,14 @@ Task execution is disabled by default on the agent. Start with
 - Dangerous operations follow `plan -> diff -> approve -> apply`.
 - Plugins must pass signed-manifest verification before lifecycle registration. Active plugins receive only a capability-scoped broker through the runtime runner contract; artifact execution is still disabled by default.
 - Management APIs should live on WireGuard/private addresses or behind a hardened reverse proxy.
+
+## Operator Docs
+
+- [Server install](./docs/tutorials/server-install.md)
+- [Agent install](./docs/tutorials/agent-install.md)
+- [Storage migration drills](./docs/tutorials/storage-migration.md)
+- [Plugins](./docs/tutorials/plugins.md)
+- [Network guard](./docs/tutorials/network-guard.md)
 
 ## Repository Creation Order
 
