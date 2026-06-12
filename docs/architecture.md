@@ -68,9 +68,10 @@ Current broker surfaces:
 - `log:write` for plugin-authored structured logs; the broker stamps the
   verified plugin id.
 
-The broker is a contract and enforcement point, not a runtime by itself.
-Subprocess/wasm execution, per-plugin runtime limits, and process isolation
-remain separate Phase B work.
+The broker is a contract and enforcement point, not a runtime by itself. The
+server runtime manager binds active plugins to this broker and reports runtime
+health, but subprocess/wasm execution, per-plugin runtime limits, and process
+isolation remain separate Phase B work.
 
 `lattice-server/internal/server/plugin_host.go` provides the first server-owned
 adapter for this contract:
@@ -117,7 +118,29 @@ Operator API:
   and performs a validated state transition. Moving to `installed` or `active`
   requires `available:true`; stale records for missing bundles can be disabled
   but not activated. The endpoint records `plugin.status` audit events, but does
-  not start, stop, fork, load, or run plugin code.
+  not fork, load, or run plugin code.
+
+## Plugin Runtime Manager
+
+`lattice-server/internal/plugin.RuntimeManager` is the first runtime control
+surface. It is intentionally an execution-safe skeleton:
+
+- `active` lifecycle state arms a capability-scoped `plugin.Broker` for the
+  verified plugin and records runtime health as `armed`.
+- `disabled` stops the in-memory runtime handle and records health as `stopped`.
+- Existing `active` plugins are armed again on server startup only when their
+  bundle is still in the verified loader set.
+- Runtime health is returned in the lifecycle API as `runtime` with
+  `plugin_id`, `state`, timestamps, and message. It omits `bundle_path` and raw
+  broker handles.
+- If arming fails after a lifecycle activation request, the server moves the
+  plugin back to `disabled`, records a denied `plugin.runtime` audit event, and
+  returns an error.
+
+This manager does **not** execute plugin artifacts. Future system/wasm/worker
+runners must use this manager as the only path to a `plugin.Broker`, then add
+explicit process/wasm isolation, cancellation, rate limits, log/output caps, and
+health reporting before any artifact code runs.
 
 ## Cloudflare Tunnel
 

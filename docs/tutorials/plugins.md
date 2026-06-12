@@ -53,9 +53,12 @@ The lifecycle API is deliberately conservative:
   activated.
 - Invalid transitions are rejected and status changes are audited as
   `plugin.status`.
-- Lifecycle transitions do not execute plugin code yet. Runtime start/stop,
-  subprocess/wasm isolation, rate limits, and per-call capability enforcement
-  are the next Phase B slice.
+- Activating a plugin arms the server runtime manager and exposes
+  `runtime.state` (currently `armed`, `stopped`, or `failed`) in the lifecycle
+  response. Disabling stops that in-memory runtime handle.
+- Lifecycle/runtime transitions do not execute plugin artifact code yet.
+  Subprocess/wasm isolation, rate limits, and concrete runner implementations
+  remain Phase B work.
 
 ## System Plugins
 
