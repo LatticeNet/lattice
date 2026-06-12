@@ -71,12 +71,14 @@ Every capability string in `capabilityRisk` binds to exactly one host-API surfac
 | Capability | Risk | Host API bound | Available to |
 |---|---|---|---|
 | `audit:read` | read | `Audit.Query()` (read-only) | system, worker(no) |
+| `http:egress` | write | `HTTP.Do()` via SSRF/egress guard | system, wasm |
 | `kv:read` | read | `KV.Get/List()` | system, worker |
 | `monitor:read` | read | `Monitor.Results()` | system |
 | `node:read` | read | `Nodes.List/Get()` | system |
 | `static:read` | read | `Static.Read()` | system, worker |
 | `task:read` | read | `Tasks.Results()` | system |
 | `kv:write` | write | `KV.Put/Delete()` | system |
+| `log:write` | write | `PluginLog.Write()` (plugin id stamped by broker) | system, wasm |
 | `notify:send` | write | `Notify.Send()` (broker-rate-limited) | system |
 | `worker:route` | write | `Worker.Route()` | system, worker |
 | `ddns:admin` | **host** | `DDNS.Apply()` + outbound HTTP via SSRF guard | **system only, signed** |

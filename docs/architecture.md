@@ -52,6 +52,26 @@ mode should require a separate explicit `apply=true` request and a rollback note
 - `worker`: lightweight route handlers. The bootstrap runtime supports safe
   template rendering and KV interpolation, not arbitrary JavaScript execution.
 
+## Host-API Broker
+
+`lattice-server/internal/plugin.Broker` is the core-owned facade between verified
+plugins and server-owned handles. It is constructed from a `plugin.Loaded`
+registry entry, checks the manifest's declared capabilities on every call, and
+records an allow/deny host-call event through an injected audit sink.
+
+Current broker surfaces:
+
+- `kv:read` / `kv:write` for key-value reads and writes.
+- `notify:send` for notification fanout through configured channels.
+- `http:egress` for guarded outbound HTTP. The injected HTTP host must enforce
+  the server's SSRF/egress policy before dialing.
+- `log:write` for plugin-authored structured logs; the broker stamps the
+  verified plugin id.
+
+The broker is a contract and enforcement point, not a runtime by itself. Plugin
+install, activation, subprocess/wasm execution, rate limits, and lifecycle state
+remain separate Phase B work.
+
 ## Cloudflare Tunnel
 
 A `TunnelProfile` maps public hostnames to node-local services
