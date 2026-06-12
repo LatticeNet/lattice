@@ -126,16 +126,19 @@ Operator API:
 surface. It is intentionally an execution-safe skeleton:
 
 - `active` lifecycle state arms a capability-scoped `plugin.Broker` for the
-  verified plugin and records runtime health as `armed`.
+  verified plugin through a `plugin.Runner` and records runtime health as
+  `armed`.
 - `disabled` stops the in-memory runtime handle and records health as `stopped`.
 - Existing `active` plugins are armed again on server startup only when their
   bundle is still in the verified loader set.
 - Runtime health is returned in the lifecycle API as `runtime` with
-  `plugin_id`, `state`, timestamps, and message. It omits `bundle_path` and raw
-  broker handles.
+  `plugin_id`, `state`, `runner`, timestamps, and message. It omits
+  `bundle_path` and raw broker handles.
 - If arming fails after a lifecycle activation request, the server moves the
   plugin back to `disabled`, records a denied `plugin.runtime` audit event, and
   returns an error.
+- Runner start receives a context with a bounded deadline. The default runner is
+  `noop`, which only arms the broker and does not execute artifact code.
 
 This manager does **not** execute plugin artifacts. Future system/wasm/worker
 runners must use this manager as the only path to a `plugin.Broker`, then add

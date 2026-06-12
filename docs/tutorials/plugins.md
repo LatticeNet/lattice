@@ -54,8 +54,12 @@ The lifecycle API is deliberately conservative:
 - Invalid transitions are rejected and status changes are audited as
   `plugin.status`.
 - Activating a plugin arms the server runtime manager and exposes
-  `runtime.state` (currently `armed`, `stopped`, or `failed`) in the lifecycle
-  response. Disabling stops that in-memory runtime handle.
+  `runtime.state` (currently `armed`, `stopped`, or `failed`) and
+  `runtime.runner` in the lifecycle response. Disabling stops that in-memory
+  runtime handle.
+- The current default runner is `noop`: it receives a capability-scoped broker
+  and a deadline-bearing context, then reports health without executing artifact
+  code.
 - Lifecycle/runtime transitions do not execute plugin artifact code yet.
   Subprocess/wasm isolation, rate limits, and concrete runner implementations
   remain Phase B work.

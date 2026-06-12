@@ -14,14 +14,17 @@ signal in the dashboard.
 
 ## Scope
 
-- Add `plugin.RuntimeManager` in `lattice-server/internal/plugin`.
+- Add `plugin.RuntimeManager` and `plugin.Runner` in
+  `lattice-server/internal/plugin`.
 - `Start` validates a verified `plugin.Loaded`, creates a capability-scoped
-  broker, and records runtime state as `armed`.
+  broker, calls the selected runner with a deadline-bearing context, and records
+  runtime state as `armed`.
 - `Stop` clears the broker handle and records runtime state as `stopped`.
 - Existing `active` plugins are armed again on server startup when the bundle is
   still verified and loaded.
 - `/api/plugins/lifecycle` includes a public `runtime` health view.
-- The dashboard plugin panel displays `runtime: armed|stopped|failed`.
+- The dashboard plugin panel displays `runtime: armed|stopped|failed` and the
+  selected runner name.
 
 ## Non-Goals
 
@@ -41,6 +44,16 @@ plugin_id -> { broker, runtime_status }
 
 The `broker` is not returned by any API and is never stored on disk. It is the
 only handle a future concrete runner should receive for host calls.
+
+The runner contract is:
+
+```txt
+Runner.Start(ctx, {plugin_id, loaded_manifest, broker}) -> result
+Runner.Stop(ctx, {plugin_id, reason}) -> error
+```
+
+`Start` receives a context with a bounded deadline. The current fallback runner
+is `noop`, which reports health and does not execute artifact code.
 
 Runtime states:
 
@@ -69,6 +82,9 @@ Lifecycle integration:
 - Future concrete runners must depend on `RuntimeManager` and `plugin.Broker`.
   They must not receive raw store, notification, outbound HTTP, or logger
   handles.
+- Runner implementations must honor context cancellation/deadlines.
+- Runtime start/stop writes are guarded by an in-memory generation so a stale
+  stop completion cannot overwrite a newer start for the same plugin.
 
 ## Verification
 
@@ -77,6 +93,10 @@ Targeted tests added:
 - `internal/plugin/runtime_test.go`
   - arms a loaded plugin without exposing bundle path.
   - rejects invalid loaded manifests.
+  - passes a capability-scoped broker and a deadline-bearing context to the
+    selected runner.
+  - records failed runtime health when runner start fails.
+  - proves a blocked stale stop cannot clobber a newer start.
   - proves snapshot copy semantics and stopped state.
 - `internal/server/server_plugins_test.go`
   - activation returns `runtime.state=armed`.
