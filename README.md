@@ -20,11 +20,11 @@ separately.
 
 - Go server and Go node-agent.
 - Outbound agent enrollment, heartbeat, metric reporting, task polling, and task result upload.
-- Session login, CSRF checks, PBKDF2 password/token hashing, PAT-like scopes, server allowlists, and audit logging.
-- Node dashboard, task runner, KV, static bucket, Worker registry, network guard, approvals, and audit views.
+- Session login, CSRF checks, TOTP 2FA, OIDC/SSO, PBKDF2 password/token hashing, PAT scopes, server allowlists, and tamper-evident audit WAL.
+- Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, approvals, and audit views.
 - nftables plan generation with explicit approval before apply.
 - Static TypeScript source and dependency-free browser assets.
-- Local JSON storage to keep this bootstrap build dependency-free; the storage interface is isolated so SQLite/Postgres can replace it later.
+- Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint.
 
 ## Quick Start
 
@@ -57,7 +57,7 @@ Task execution is disabled by default on the agent. Start with
 
 - Agents dial out; inbound node ports are not required.
 - Dangerous operations follow `plan -> diff -> approve -> apply`.
-- Plugins cannot bypass core scopes and audit.
+- Plugins must pass signed-manifest verification before lifecycle registration. Active plugins receive only a capability-scoped broker through the runtime runner contract; artifact execution is still disabled by default.
 - Management APIs should live on WireGuard/private addresses or behind a hardened reverse proxy.
 
 ## Repository Creation Order

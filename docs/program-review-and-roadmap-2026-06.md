@@ -2,11 +2,11 @@
 
 > Date: 2026-06-12 · Scope: the six-repo `LatticeNet/*` ecosystem
 > Author of this review: code audit pass over the 2026-06-12 working tree
-> (server +2.4k LOC, sdk, agent, dashboard, plugin-template manual changes).
-> Disposition of the reviewed change set: **strong — merge after the small
-> dashboard hardening already applied.** All modules build, `go vet` clean,
-> `gofmt` clean, `go test -race` green (server 67% / network 95% / rbac 87% /
-> wireguard 84% / cftunnel 82% / ratelimit 85%), dashboard `node --test` 12/12.
+> (server, sdk, agent, dashboard, plugin-template, and umbrella docs).
+> Disposition of the reviewed change set: **strong foundation; continue with
+> bbolt durability before concrete plugin artifact execution.** All modules
+> build, `go vet` clean, `gofmt` clean, `go test -race` green, dashboard
+> `node --test` 31/31.
 
 ---
 
@@ -77,39 +77,63 @@ The 2026-06 change set is a real, well-built security layer, not a checkbox pass
 7. **Observability for forensics.** Every request carries an `X-Lattice-Request-ID`;
    audit events carry a correlation id and are queryable
    (action/decision/node/actor/token/scope/correlation, bounded pagination).
-   Audit-sink failures are logged, not silently dropped. Login is rate-limited.
-   TLS is sane (HSTS, `-secure-cookies`), proxy header trust gated behind
-   `-trust-proxy`.
-8. **Plugin trust model (library).** Capability **risk tiers** (read/write/host);
-   `wasm`/`worker` may never hold host-risk; host-risk requires a `system`
-   plugin; strict manifest decode (`DisallowUnknownFields` + no trailing JSON);
-   **Ed25519 signature** over a canonical payload that includes `version`
-   (no silent downgrade) and the sorted capability set (no capability
-   substitution); artifact `digest_sha256` binding; trusted-publisher policy.
+   Audit-sink failures are logged, not silently dropped. File-backed stores also
+   append every audit event to a hash-chained, fsync'd audit WAL that verifies on
+   open and via `/api/audit/verify`.
+8. **Plugin trust model is now load-bearing up to the execution boundary.**
+   Capability **risk tiers** (read/write/host); `wasm`/`worker` may never hold
+   host-risk; host-risk requires a `system` plugin; strict manifest decode
+   (`DisallowUnknownFields` + no trailing JSON); **Ed25519 signature** over a
+   canonical payload that includes `version` (no silent downgrade) and the sorted
+   capability set (no capability substitution); artifact `digest_sha256` binding;
+   trusted-publisher policy; startup loader wired to `-plugin-dir` + trust policy;
+   lifecycle registry/API/UI; runtime manager + runner contract.
 
 **STRIDE quick read:** Spoofing — strong (bearer/session separation, signed
-plugins). Tampering — strong on wire/plan, **weak on audit-at-rest** (see 4.2).
-Repudiation — partial (audit exists but is not tamper-evident). Info-disclosure —
-strong (view structs, sanitized errors). DoS — partial (login rate-limit,
-output/timeout caps; no global request quota). Elevation — strong (allowlist
-subset, per-node RBAC, capability tiers).
+plugins, OIDC state/nonce/PKCE). Tampering — strong on wire/plan and detectable
+for audit WAL edits; end-truncation still needs off-box head anchoring.
+Repudiation — materially improved by the WAL, still needs retention/remote
+shipping. Info-disclosure — strong (view structs, sanitized errors, at-rest
+encryption for reversible secrets). DoS — partial (login/API/agent rate limits,
+2FA per-user limiter, output/timeout caps; no global request quota and JSON
+whole-file writes remain a ceiling). Elevation — strong (allowlist subset,
+per-node RBAC, capability tiers).
 
 ---
 
 ## 3. Findings from this review
 
-### Applied in this pass
+### Resolved / landed by the 2026-06-12 follow-up
 - **Trust-policy secure default (F-P0-2 fixed 2026-06-12)** (`internal/plugin`):
   inverted `RequireSignatureForHostRisk` → `AllowUnsignedHostRisk` so the
   zero-value `TrustPolicy{}` is fail-closed — host-risk plugins require a
   trusted-publisher Ed25519 signature unless an operator explicitly opts out
-  (dev only). New tests cover the fail-closed default and the opt-out; READMEs
-  updated. (Loader wiring — F-P0-1 — still pending; this makes it secure *when*
-  wired.)
+  (dev only). New tests cover the fail-closed default and the opt-out.
+- **Plugin trust is now in the request/startup path (F-P0-1 fixed
+  2026-06-12).** `-plugin-dir` + `-plugin-trust` startup loading verifies signed
+  bundles before lifecycle registration; `/api/plugins/verify` exposes the same
+  verifier to operators; rejected bundles are audited and skipped.
+- **Plugin lifecycle + runtime foundation landed.** Active/disabled lifecycle
+  state is persisted and shown in the dashboard. Activating a verified plugin
+  arms a capability-scoped `plugin.Broker` through a bounded `plugin.Runner`
+  contract. The default runner is `noop`, so no artifact code executes yet.
+- **Audit-at-rest integrity improved.** File-backed stores append every audit
+  event to a hash-chained, fsync'd `.audit-wal`; chain verification fails loudly
+  on tampering and is exposed through `/api/audit/verify`.
+- **Credential encryption at rest (F-P2-1 fixed).** AES-256-GCM envelope
+  encryption now covers reversible secrets at the store boundary, including
+  OIDC client secrets.
+- **OIDC/SSO + dashboard UI landed.** Backend uses auth-code + PKCE + state +
+  nonce and local account allowlisting. The dashboard renders provider buttons,
+  handles `sso_error` / `totp_challenge`, and provides an `oidc:admin` provider
+  panel with write-only secrets.
+- **TOTP 2FA landed.** Enrollment, activation, login challenge, recovery codes,
+  auditing, and per-user attempt limiting are implemented. Policy enforcement
+  and WebAuthn remain future work.
 - **Dashboard `escapeHtml` hardening** (`assets/app.js`): added backtick to the
   escape set and escaped the server-generated id in the `data-approval`
   attribute, for parity with the already-escaped `data-audit-correlation`.
-  Defense-in-depth; tests still 12/12.
+  Defense-in-depth; dashboard tests are now 31/31.
 
 ### Verified and intentionally NOT changed (would have been wrong)
 - *"Add `json:"-"` to `PasswordHash`/`TokenHash`."* — **Rejected.** The store
@@ -125,34 +149,28 @@ subset, per-node RBAC, capability tiers).
   trust-policy example. It is a skeleton you sign at build time.
 
 ### Open findings → tracked in the roadmap (not patched in isolation)
-- **F-P0-1 · Plugin trust apparatus is not load-bearing.** `internal/plugin`
-  (Ed25519 + capability tiers) is verified library code but is imported by
-  nothing outside tests; there is no plugin loader/runtime. The security model
-  exists on paper, not in the request path.
-- **F-P0-2 · Fail-open trust default — FIXED 2026-06-12.** `TrustPolicy{}`
-  previously accepted unsigned host-risk plugins. Inverted to a secure-by-default
-  field (`AllowUnsignedHostRisk`, zero value = signature required); `plugin_test.go`
-  and both READMEs updated; fail-closed-default + opt-out tests added. The control
-  is now secure *when* the loader wires it (F-P0-1).
-- **F-P0-3 · Audit-at-rest is not tamper-evident or crash-durable.** Audit lives
-  in memory and is rewritten as part of a whole-file JSON dump; a compromised or
-  crashing server can lose or rewrite history. Repudiation + integrity gap.
-- **F-P1-1 · Node token lifecycle is thin.** No rotation, no last-used, no
-  per-node agent source-IP allowlist; long-lived bearer secrets.
+- **F-P0-3 follow-up · Audit WAL needs anchoring and retention.** The WAL now
+  detects edit/reorder/gap/mid-truncation, but end-truncation requires comparing
+  the current head to an independently anchored value. Retention/remote shipping
+  are still open.
+- **F-P1-1 · Node token lifecycle is partially complete.** Rotation exists; no
+  `last_used_at` telemetry or per-node agent source-IP allowlist yet.
 - **F-P1-2 · Storage will not scale.** `Save()` re-serializes the entire state
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
-  beyond that.
-- **F-P1-3 · Task execution is unsandboxed.** The agent often runs as root (nft,
-  wg-quick); task exec has env/timeout/output limits but no non-root unit, no
-  cgroup CPU/mem cap, no seccomp/bubblewrap, no kill switch. RCE-by-design that
-  needs isolation before any semi-trusted task author.
-- **F-P2-1 · Secrets at rest are plaintext** in the JSON state
-  (`cf_api_token`, webhook/notify config). Hashes are hashed; these are not.
-  **RESOLVED 2026-06-12** — AES-256-GCM envelope encryption at the store
-  boundary (`internal/secret/`, `internal/store/crypto.go`); see
-  `adr-002-encryption-at-rest.md`.
-- **F-P2-2 · No operator MFA; single bootstrap admin password.**
+  beyond that. The decided replacement is bbolt, not SQLite, to preserve zero
+  CGo.
+- **F-P1-3 · Task execution is bounded but not OS-sandboxed.** The agent has
+  interpreter allowlists, env limits, timeouts, output caps, and isolated
+  workdirs. It still lacks a non-root unit profile, cgroup CPU/mem caps,
+  seccomp/bubblewrap, and a fleet kill switch.
+- **F-P2-2 · Operator MFA policy is incomplete.** TOTP exists, but there is no
+  enforced 2FA policy, passkey/WebAuthn support, or admin-facing MFA rollout
+  workflow yet.
+- **F-P2-3 · Plugin artifact execution remains intentionally disabled.** The
+  loader, lifecycle, broker, and runner contract are ready, but concrete
+  system/worker/wasm runners need resource limits, cancellation, log/output caps,
+  isolation, and adversarial tests before any artifact code runs.
 - **F-P3-1 · `audit:read` is global**, not node-scoped for restricted tokens.
 
 ---
@@ -164,20 +182,25 @@ Delivered and tested: node enroll/registry, leased task exec, KV, static
 objects, workers, filtered/paginated/correlated audit, DDNS (Cloudflare API v4 +
 webhook, SSRF-guarded), notify channels, monitors (TCP/HTTP + history) with
 per-node assignment, WireGuard mesh planning, Cloudflare Tunnel planning, nft
-planning, PAT management. This already exceeds a pure monitor (e.g. Nezha) by
-adding a **control-plane + approval layer** that Nezha has no equivalent of.
+planning, PAT management, TOTP 2FA, OIDC/SSO, signed plugin loading, lifecycle
+management, host-API broker, and a no-execution runtime runner contract. This
+already exceeds a pure monitor (e.g. Nezha) by adding a **control-plane +
+approval layer** that Nezha has no equivalent of.
 
 **Gaps vs. the original vision:** sing-box/xray deploy + subscription, sub-store,
-nginx + domain/path one-click static sites, a real plugin runtime, ICMP
-monitors, WireGuard auto-keygen, and the regional-aggregator ("组长") tier in the
-*server* topology (the network design has it; the control plane is still star).
+nginx + domain/path one-click static sites, concrete plugin artifact execution,
+ICMP monitors, WireGuard auto-keygen, and the regional-aggregator ("组长") tier
+in the *server* topology (the network design has it; the control plane is still
+star).
 
 ### 4.2 Usability — backend ahead of the console
 The dashboard is clean, CSP-strict, and has a genuinely nice ops touch (stable
-error codes + request-id "trace this request" across the audit log). But it only
-surfaces nodes/tasks/results/approvals/kv/workers/audit — **DDNS, monitors (+
-latency trends), notify, WireGuard, tunnels, and PAT management have no UI yet.**
-This is the highest-leverage usability gap.
+error codes + request-id "trace this request" across the audit log). It now also
+surfaces SSO provider management and plugin lifecycle/runtime health. But many
+backend surfaces remain API-only — **DDNS, monitors (+ latency trends), notify,
+WireGuard, tunnels, PAT management, audit WAL verification, and richer runtime
+drill-through have no first-class UI yet.** This is the highest-leverage
+usability gap.
 
 ### 4.3 Performance — correct shape, known ceiling
 Monitoring is **agent-push** (O(N), not O(N²)) — the right design, and it
@@ -192,49 +215,55 @@ volume grows.
 
 Four tracks run in parallel — **Security (S)**, **Functionality (F)**,
 **Usability (U)**, **Performance/Reliability (P)** — sequenced into phases. The
-ordering principle: *close the security baseline before widening exposure or
-adding a plugin runtime.*
+ordering principle: *move hot persistence off the JSON store before widening
+artifact execution, and keep every new execution path behind brokered
+capabilities, deadlines, and audit.*
 
-### Phase 0 — Close the security baseline (before any production exposure)
-- **S** Wire the plugin loader to `VerifyInstallManifest`; load operator trust
-  policy from config. *(F-P0-1; F-P0-2 secure default already applied.)*
-- **S** Append-only, tamper-evident audit sink: hash-chained records to a local
-  WAL/SQLite, with an optional async remote shipper (webhook/S3); keep the
-  in-memory view as a cache. *(F-P0-3)*
-- **S** Node-token lifecycle: rotation endpoint, revocation list, `last_used_at`,
-  optional per-node agent source-IP allowlist. *(F-P1-1)*
-- **Gate:** until Phase 0 closes, treat Lattice as **single-operator / trusted
-  fleet behind WireGuard or CF Access** — not an internet-exposed multi-tenant
-  control plane.
+### Phase 0 — Security baseline closure (mostly delivered)
+- **S** Plugin loader + trust policy + lifecycle + no-exec runtime contract.
+  *(Delivered 2026-06-12.)*
+- **S** Append-only, tamper-evident audit WAL. *(Delivered 2026-06-12; remote
+  head anchoring and retention policy pending.)*
+- **S** Node-token lifecycle. *(Rotation delivered; `last_used_at` and optional
+  source-IP allowlist pending.)*
+- **S** Operator MFA. *(TOTP delivered; enforce-2FA policy + WebAuthn pending.)*
+- **Gate:** until bbolt, runner isolation, and MFA policy close, treat Lattice as
+  **single-operator / trusted fleet behind WireGuard or CF Access** — not an
+  internet-exposed multi-tenant control plane.
 
-### Phase 1 — Make what exists usable and durable
+### Phase 1 — Make what exists durable
+- **P** Replace the whole-file JSON store with **bbolt**: per-entity writes,
+  indices on node/task/monitor/plugin/audit, bounded audit/monitor retention,
+  JSON export/import, and a tested migration path from the current encrypted
+  JSON file. *(F-P1-2; highest backend leverage.)*
+- **S/P** Move ephemeral high-churn records (OIDC auth states, TOTP challenges,
+  sessions, monitor history) off whole-file rewrites.
+- **S** Audit WAL head anchoring: expose and optionally ship the head hash so
+  end-truncation is detectable off-box.
+
+### Phase 2 — Make what exists usable
 - **U** Dashboard coverage for DDNS, monitors (with latency trend sparklines),
-  notify channels, WireGuard plan/approve, tunnels, PAT, and audit trace —
-  dependency-free, same strict CSP. *(highest usability ROI)*
-- **P** Replace the whole-file JSON store with an embedded transactional engine
-  (SQLite or bbolt): per-entity writes, indices on node/task/monitor, bounded
-  audit retention; keep a JSON export for portability. *(F-P1-2)*
+  notify channels, WireGuard plan/approve, tunnels, PAT, audit WAL verification,
+  and runtime audit drill-through — dependency-free, same strict CSP.
 - **S** Task-exec sandbox on the agent: dedicated non-root unit, hard workdir
   isolation, cgroup CPU/mem caps, optional seccomp/bubblewrap, and a kill switch.
   *(F-P1-3)*
-- **S** Encrypt secrets at rest (envelope-encrypt `cf_api_token`/notify config
-  with a server key; or integrate age/Vault). *(F-P2-1)*
 
-### Phase 2 — Platform expansion (the original vision), through the approval flow
+### Phase 3 — Platform expansion (the original vision), through the approval flow
 - **F** sing-box/xray deploy + subscription management; sub-store; nginx +
   domain/path one-click static sites (compose existing static buckets with
   tunnel/nginx) — every one shipped as a `plan → approve → apply` plugin so the
   audit + approval guarantees extend to them for free.
-- **F/S** Real plugin runtime: wasm host (e.g. `wazero`) and/or restricted worker
-  (`goja`) that *enforces* the capability tiers and signed-install at load time
-  — this is what makes `internal/plugin` load-bearing.
+- **F/S** Concrete plugin runners: start with a constrained system runner, then
+  wasm (`wazero`) only after resource limits, cancellation, egress policy,
+  log/output caps, and adversarial tests exist.
 - **P** Regional aggregator / "组长" tier in the server topology: hierarchical
   monitoring + relay through the metix-hk hub so the control plane matches the
   network design and scales sub-linearly in cross-node probes.
 
-### Phase 3 — Operate at scale / enterprise
-- **S** mTLS for agents; in-server TLS (autocert) option; operator MFA
-  (TOTP/WebAuthn). *(F-P2-2)*
+### Phase 4 — Operate at scale / enterprise
+- **S** mTLS for agents; in-server TLS (autocert) option; WebAuthn/passkeys and
+  enforced MFA policy. *(F-P2-2)*
 - **P** HA control plane: replicated store + leader election, or stateless server
   + external DB; readiness/liveness; backpressure and a global request quota.
 - **Ops** First-class observability: Prometheus metrics, structured logs, tracing,
@@ -255,7 +284,7 @@ adding a plugin runtime.*
 
 ## 6. One-line verdict
 A genuinely security-first foundation with clean trust boundaries and strong,
-*tested* controls. The next unit of value is **not more breadth** — it is making
-the plugin trust model load-bearing, making audit tamper-evident, and giving the
-console parity with the backend. Build outward (Phase 2) only after the Phase 0
-security baseline is closed.
+*tested* controls. The next unit of value is **not more breadth** — it is moving
+state to bbolt, then giving the console parity with the backend, then allowing
+plugins to execute behind the runner contract. Build outward only after those
+durability and isolation gates are closed.

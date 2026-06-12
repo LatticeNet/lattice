@@ -236,6 +236,9 @@ the state file and never returned by the list API. All DDNS endpoints require th
 
 ## Storage
 
-The bootstrap build uses a JSON state file so the project builds without network
-dependency downloads. The server `internal/store` package is intentionally isolated so a
-SQLite WAL implementation can replace it without changing handlers or agents.
+The bootstrap build uses a JSON state file plus an append-only hash-chained
+audit WAL. Reversible secrets are envelope-encrypted at the store persistence
+boundary with AES-256-GCM; one-way password/token/recovery-code hashes remain
+hashes. The server `internal/store` package is intentionally isolated so a
+bbolt implementation can replace whole-file JSON rewrites without changing
+handlers or agents while preserving the pure-Go / zero-CGo constraint.

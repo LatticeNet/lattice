@@ -17,12 +17,12 @@ The bar is not "works." The bar is **惊艳 — a product that makes a self-host
 | **P1 · Trust** | Secure by default, fail-closed, auditable, nothing to misconfigure into insecurity | Strong: RBAC, rate-limit, signed plugins (fail-closed), tamper-evident audit WAL, 2FA, at-rest encryption |
 | **P2 · Identity** | Password + 2FA + SSO; the front door is frictionless and enterprise-ready | Password ✅ + TOTP 2FA ✅ + OIDC/SSO backend/UI ✅; **2FA policy + WebAuthn groundwork next** |
 | **P3 · Platform** | A real plugin system — install, verify, run, and extend safely; a marketplace of official + community plugins | Manifest + signing ✅, loader ✅, preflight verify ✅, host-API broker + server adapter ✅, lifecycle registry/API/UI ✅, runtime manager + runner contract ✅; **plugin artifacts don't execute yet** |
-| **P4 · Scale & durability** | Survives growth and crashes; backup/restore is a non-event | JSON state + at-rest encryption ✅; **whole-file rewrite is the ceiling** |
+| **P4 · Scale & durability** | Survives growth and crashes; backup/restore is a non-event | JSON state + at-rest encryption + audit WAL ✅; **whole-file rewrite is the ceiling** |
 | **P5 · Experience (惊艳)** | A dashboard that is fast, legible, real-time, and beautiful; onboarding that takes minutes | Functional zero-dep dashboard with SSO + plugin lifecycle panels; **many endpoints still have no UI; design layer immature** |
 
 ## 3. Honest current state (2026-06-12)
 
-Delivered and pushed: control plane + node agent + SDK + dashboard across 6 repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker/server adapter + lifecycle registry/API + dashboard panel + runtime manager + runner contract; TOTP 2FA; tamper-evident audit WAL; node-token lifecycle; task-exec sandbox; **AES-256-GCM at-rest encryption** (ADR-002). Zero external Go deps so far. `go test -race` green; dashboard tests green.
+Delivered and pushed: control plane + node agent + SDK + dashboard across 6 repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker/server adapter + lifecycle registry/API + dashboard panel + runtime manager + runner contract; TOTP 2FA; tamper-evident audit WAL; node-token rotation; bounded task execution; **AES-256-GCM at-rest encryption** (ADR-002). Minimal external Go deps are currently limited to the OIDC stack approved in ADR-001 (`oauth2`, `go-oidc`, transitive `go-jose`); still zero CGo. `go test -race` green; dashboard tests green.
 
 The three gaps that most separate us from 惊艳, in dependency order: **identity policy polish**, **the platform actually running plugins**, and **a storage engine that scales** — plus a **dashboard worthy of the backend**.
 
@@ -31,8 +31,8 @@ The three gaps that most separate us from 惊艳, in dependency order: **identit
 Each phase has an exit bar. Phases ship as tested, reviewed, committed slices (the cadence in §5). UX is **not** a final afterthought — it is woven in after each backend capability lands, with one dedicated reimagining phase.
 
 ### Phase A — Identity completes the front door  *(in progress)*
-- **A1 · OIDC/SSO login** (item ②): provider-agnostic auth-code + PKCE + state + nonce; Google as the first configured provider; allowlist-gated `(issuer, sub)` → local user; client secret stored via the at-rest cipher. Deps: `golang.org/x/oauth2`, `github.com/coreos/go-oidc/v3` (the first external deps, blessed by ADR-001).
-- A2 · Dashboard: "Sign in with SSO" + admin provider config UI.
+- **A1 · OIDC/SSO login** ✅ (item ②): provider-agnostic auth-code + PKCE + state + nonce; Google as the first configured provider; allowlist-gated `(issuer, sub)` → local user; client secret stored via the at-rest cipher. Deps: `golang.org/x/oauth2`, `github.com/coreos/go-oidc/v3` (the first external deps, blessed by ADR-001).
+- **A2 · Dashboard SSO UI** ✅: "Sign in with SSO" + admin provider config UI, including `sso_error` / `totp_challenge` redirect handling and write-only client secrets.
 - A3 · Enforce-2FA policy; WebAuthn groundwork.
 - **Exit:** an operator can sign in with Google, mapped to a scoped local identity, with no password; SSO config is admin-managed and secret-at-rest.
 
@@ -42,9 +42,9 @@ Each phase has an exit bar. Phases ship as tested, reviewed, committed slices (t
 - B3 · First official plugins as reference; marketplace fetch of signed artifacts.
 - **Exit:** a signed plugin installs, runs, is capability-confined, and its host calls are brokered + audited. Foundation for the user's own LatticeNet/* official plugins (sing-box/xray/sub-store).
 
-### Phase C — Storage that scales  *(item ④)*
-- C1 · **Replace the whole-file JSON store with bbolt** (pure Go, preserves zero-CGo). Per-bucket records; the at-rest encryption boundary (ADR-002) re-homed onto bbolt; backup/restore.
-- C2 · fsync durability (close the save-tear follow-up); migration from the JSON file.
+### Phase C — Storage that scales  *(item ④, next high-leverage backend slice)*
+- C1 · **Replace the whole-file JSON store with bbolt** (pure Go, preserves zero-CGo). Per-bucket records; the at-rest encryption boundary (ADR-002) re-homed onto bbolt; audit WAL head anchoring; backup/restore.
+- C2 · crash-safe migration from the JSON file, JSON export/import, retention policy for high-volume audit/monitor results.
 - **Exit:** writes are O(record) not O(state); a 10k-node/long-audit deployment stays responsive; crash-safe.
 - **Timing note:** done after A/B so it migrates a known-stable schema; the fresh at-rest boundary is re-homed deliberately, not rushed.
 
@@ -65,9 +65,9 @@ For every slice: **Plan → Execute → Review → Iterate**, each leaving a dur
 
 ## 6. Hard constraints
 - **Security first**, then functionality, then usability, then performance — but performance and failure-visibility are first-class whenever the workload is hot or a failure could be silent.
-- **Pure Go, zero CGo.** Every external dependency must be justified in an ADR (so far: oauth2 + go-oidc for OIDC; bbolt for storage; wazero only if/when wasm plugins land).
+- **Pure Go, zero CGo.** Every external dependency must be justified in an ADR (so far: oauth2 + go-oidc/go-jose for OIDC; bbolt for storage when Phase C starts; wazero only if/when wasm plugins land).
 - **Fail closed.** Unsafe defaults are bugs.
 - **Multi-repo `go.work`**: build/test with `GOWORK` set (see `lattice-codebase-build-and-hardening` notes).
 
 ## 7. Supersedes / reconciles
-- `roadmap.md` line "Replace JSON storage with SQLite WAL" is **superseded**: SQLite is CGo; the decided path is **bbolt** (pure Go) — Phase C.
+- Older roadmap language that mentioned "SQLite WAL" is **superseded**: SQLite is CGo; the decided path is **bbolt** (pure Go) — Phase C.

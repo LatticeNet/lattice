@@ -55,9 +55,10 @@ raises an operator alert.
   for its step ±1 (~90s); the server does not yet record the last-consumed step per
   user. Exploiting it requires observing a live code *and* the password within the
   window. Fix (planned): persist `LastTOTPStep` and reject steps ≤ last accepted.
-- **R3 — secret at rest.** `totp_secret` lives in the JSON state file (0600). It is
-  never serialised to any API response (only the one-time enroll body). Envelope
-  encryption of secrets at rest is the P1 item from ADR-001 §8.
+- **R3 — secret at rest — CLOSED 2026-06-12.** `totp_secret` is still part of the
+  server state model, but ADR-002 routes it through the AES-256-GCM envelope
+  encryption boundary before persistence. It is never serialised to any API
+  response (only the one-time enroll body).
 - **R4 — enforcement is per-user/optional.** 2FA is not yet mandatory for
   high-privilege scopes (`network:apply`, `node:admin`, `token:admin`). Operator
   decision in ADR-001 §8.
