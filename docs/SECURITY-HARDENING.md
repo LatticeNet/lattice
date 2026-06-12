@@ -52,6 +52,7 @@ issue, the fix, and where it lives.
 
 - **PAT lifecycle:** `POST/GET /api/tokens`, `POST /api/tokens/revoke` (scope `token:admin`), scoped + revocable, secret shown once.
 - **Multi-channel notifications:** dependency-free `internal/notify` (Telegram, Bark, Discord, generic webhook) with a fan-out dispatcher; admin-gated `POST /api/notify/test` (scope `notify:send`).
+- **Credential encryption at rest (resolves F-P2-1):** stdlib AES-256-GCM envelope encryption of the reversible secrets in the state file — `User.TOTPSecret`, `DDNSProfile.CFAPIToken`/`WebhookHeaders`, `NotifyChannel.Config[*]` — at the store persistence boundary; in-memory state stays plaintext so handlers are unchanged. Master key resolves from `LATTICE_MASTER_KEY` / `-master-key-file` / auto-generated `<dataDir>/master.key` (`0600`); fail-closed on wrong/lost key; transparent migration of legacy plaintext. Zero new deps. `internal/secret/`, `internal/store/crypto.go`. Design + adversarial review in `docs/adr-002-encryption-at-rest.md`.
 
 ## Test coverage added
 

@@ -149,6 +149,9 @@ subset, per-node RBAC, capability tiers).
   needs isolation before any semi-trusted task author.
 - **F-P2-1 · Secrets at rest are plaintext** in the JSON state
   (`cf_api_token`, webhook/notify config). Hashes are hashed; these are not.
+  **RESOLVED 2026-06-12** — AES-256-GCM envelope encryption at the store
+  boundary (`internal/secret/`, `internal/store/crypto.go`); see
+  `adr-002-encryption-at-rest.md`.
 - **F-P2-2 · No operator MFA; single bootstrap admin password.**
 - **F-P3-1 · `audit:read` is global**, not node-scoped for restricted tokens.
 
