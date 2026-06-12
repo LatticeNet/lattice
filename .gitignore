@@ -2,3 +2,6 @@
 bin/
 lattice-server
 lattice-agent
+
+# OMC orchestration tool state (not part of the project)
+.omc/
