@@ -57,7 +57,7 @@ mode should require a separate explicit `apply=true` request and a rollback note
 `lattice-server/internal/plugin.Broker` is the core-owned facade between verified
 plugins and server-owned handles. It is constructed from a `plugin.Loaded`
 registry entry, checks the manifest's declared capabilities on every call, and
-records an allow/deny host-call event through an injected audit sink.
+records a capability authorization event through an injected audit sink.
 
 Current broker surfaces:
 
@@ -71,6 +71,19 @@ Current broker surfaces:
 The broker is a contract and enforcement point, not a runtime by itself. Plugin
 install, activation, subprocess/wasm execution, rate limits, and lifecycle state
 remain separate Phase B work.
+
+`lattice-server/internal/server/plugin_host.go` provides the first server-owned
+adapter for this contract:
+
+- KV calls use `bucket/key` references and validate both halves with the same
+  storage-name rules as the public API.
+- Notification calls synchronously fan out to enabled channels through the same
+  channel builders used by the console.
+- HTTP calls use `internal/outbound.NewClient`, so DNS rebinding, redirects, and
+  private/link-local/metadata targets stay blocked. Request and response bodies
+  are capped at 256 KiB.
+- Broker capability allow/deny events are persisted as `plugin.host.*` audit
+  events with plugin id, capability, decision, and correlation id.
 
 ## Cloudflare Tunnel
 

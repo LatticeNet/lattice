@@ -75,7 +75,7 @@ Local review focused on the trust boundary:
 
 ## 9. Residuals & next
 
-- Wire server-owned KV/notify/outbound/log/audit implementations into `HostServices`.
+- Server-owned KV/notify/outbound/log/audit implementations are wired in iter-005.
 - Build plugin lifecycle state (`verified -> installed -> active -> disabled`) before execution.
 - Add per-plugin rate limits and output/log caps before exposing `Log` or `HTTPDo` to real runtime code.
 - Decide whether `log:write` should be available to worker-tier plugins once worker routing moves onto this broker.

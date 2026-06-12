@@ -16,13 +16,13 @@ The bar is not "works." The bar is **惊艳 — a product that makes a self-host
 |---|---|---|
 | **P1 · Trust** | Secure by default, fail-closed, auditable, nothing to misconfigure into insecurity | Strong: RBAC, rate-limit, signed plugins (fail-closed), tamper-evident audit WAL, 2FA, at-rest encryption |
 | **P2 · Identity** | Password + 2FA + SSO; the front door is frictionless and enterprise-ready | Password ✅ + TOTP 2FA ✅ + OIDC/SSO backend/UI ✅; **2FA policy + WebAuthn groundwork next** |
-| **P3 · Platform** | A real plugin system — install, verify, run, and extend safely; a marketplace of official + community plugins | Manifest + signing ✅, loader ✅, preflight verify ✅, host-API broker contract ✅; **plugins don't execute yet** |
+| **P3 · Platform** | A real plugin system — install, verify, run, and extend safely; a marketplace of official + community plugins | Manifest + signing ✅, loader ✅, preflight verify ✅, host-API broker + server adapter ✅; **plugins don't execute yet** |
 | **P4 · Scale & durability** | Survives growth and crashes; backup/restore is a non-event | JSON state + at-rest encryption ✅; **whole-file rewrite is the ceiling** |
 | **P5 · Experience (惊艳)** | A dashboard that is fast, legible, real-time, and beautiful; onboarding that takes minutes | Functional zero-dep dashboard; **many endpoints have no UI; design layer immature** |
 
 ## 3. Honest current state (2026-06-12)
 
-Delivered and pushed: control plane + node agent + SDK + dashboard across 6 repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker contract; TOTP 2FA; tamper-evident audit WAL; node-token lifecycle; task-exec sandbox; **AES-256-GCM at-rest encryption** (ADR-002). Zero external Go deps so far. `go test -race` green; dashboard 12/12.
+Delivered and pushed: control plane + node agent + SDK + dashboard across 6 repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker/server adapter; TOTP 2FA; tamper-evident audit WAL; node-token lifecycle; task-exec sandbox; **AES-256-GCM at-rest encryption** (ADR-002). Zero external Go deps so far. `go test -race` green; dashboard 12/12.
 
 The three gaps that most separate us from 惊艳, in dependency order: **identity policy polish**, **the platform actually running plugins**, and **a storage engine that scales** — plus a **dashboard worthy of the backend**.
 
