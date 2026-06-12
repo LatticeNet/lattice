@@ -9,15 +9,16 @@
 > encryption, tamper-evident audit WAL, signed plugin loader, lifecycle UI, host
 > API broker, and runtime runner contract are now landed. The durable storage
 > direction is **bbolt**, not SQLite, to preserve the pure-Go / zero-CGo rule;
-> a bucketized bbolt import/export foundation has started, but JSON is still the
-> default server store.
+> bucketized bbolt import/export plus JSON migration/rollback helpers have
+> landed, but JSON is still the default server store.
 
 
 ## V1 Hardening
 
 - Replace JSON storage with bbolt migrations, preserving AES-256-GCM secret
-  encryption and moving hot/ephemeral records off whole-file rewrites. *(Import
-  / export foundation delivered; default store switch pending.)*
+  encryption and moving hot/ephemeral records off whole-file rewrites.
+  *(Bucketized import/export and JSON rollback helpers delivered; CLI workflow,
+  record-level writes, and default store switch pending.)*
 - Keep protobuf/ConnectRPC transport and generated TypeScript clients as a later
   API-boundary upgrade; current JSON APIs remain the bootstrap surface.
 - TOTP setup and recovery codes. *(Delivered 2026-06-12; enforce-2FA policy,
