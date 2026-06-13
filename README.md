@@ -24,7 +24,7 @@ separately.
 - Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, approvals, and audit views.
 - nftables plan generation with explicit approval before apply.
 - Static TypeScript source and dependency-free browser assets.
-- Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for low/medium-risk buckets; JSON remains the default runtime store.
+- Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
 
 ## Quick Start
 
@@ -62,12 +62,17 @@ Task execution is disabled by default on the agent. Start with
 
 ## Operator Docs
 
+- [Tutorial index](./docs/tutorials/README.md)
 - [Server install](./docs/tutorials/server-install.md)
 - [Agent install](./docs/tutorials/agent-install.md)
 - [Storage migration drills](./docs/tutorials/storage-migration.md)
 - [Plugins](./docs/tutorials/plugins.md)
 - [Network guard](./docs/tutorials/network-guard.md)
 - [Development report, 2026-06-13](./docs/development-report-2026-06-13.md)
+
+## Contributor Docs
+
+- [Development workflow](./docs/development-workflow.md)
 
 ## Repository Creation Order
 

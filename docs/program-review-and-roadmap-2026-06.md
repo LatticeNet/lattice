@@ -9,9 +9,9 @@
 > `node --test` 31/31.
 >
 > 2026-06-13 closeout update: bbolt import/export, JSON migration/rollback CLI,
-> and record-level APIs for nodes, KV, audit, static objects, Worker scripts,
-> plugin lifecycle records, approvals, tasks, task results, monitors, monitor
-> results, and tunnels are now documented as the current storage baseline.
+> and record-level APIs for current state buckets, including secret-bearing
+> identity/auth/DDNS/notify/OIDC records, are now documented as the current
+> storage baseline.
 > Runtime still defaults to encrypted JSON.
 
 ---
@@ -165,8 +165,8 @@ per-node RBAC, capability tiers).
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
   beyond that. The decided replacement is bbolt, not SQLite, to preserve zero
-  CGo. Bucketized import/export, JSON migration/rollback, and low/medium-risk
-  record-level APIs have landed; runtime cutover, secret-bearing buckets, and
+  CGo. Bucketized import/export, JSON migration/rollback, and current-state
+  record-level APIs have landed; runtime cutover, audit WAL anchoring, and
   backup/restore drills are still pending.
 - **F-P1-3 · Task execution is bounded but not OS-sandboxed.** The agent has
   interpreter allowlists, env limits, timeouts, output caps, and isolated
@@ -244,7 +244,7 @@ capabilities, deadlines, and audit.*
   indices on node/task/monitor/plugin/audit, bounded audit/monitor retention,
   JSON export/import, and a tested migration path from the current encrypted
   JSON file. *(F-P1-2; highest backend leverage. Import/export, rollback CLI,
-  and low/medium-risk record-level buckets delivered; default runtime store is
+  and current-state record-level buckets delivered; default runtime store is
   still JSON.)*
 - **S/P** Move ephemeral high-churn records (OIDC auth states, TOTP challenges,
   sessions, monitor history) off whole-file rewrites.

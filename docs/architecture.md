@@ -246,6 +246,9 @@ handlers or agents while preserving the pure-Go / zero-CGo constraint.
 The bbolt path currently supports full import/export, JSON migration, JSON
 rollback export, and record-level APIs for nodes, KV, audit, static objects,
 Worker scripts, plugin lifecycle records, approvals, tasks, task results,
-monitors, monitor results, and tunnels. Server startup still uses the JSON store
-by default. Runtime cutover is blocked on secret-bearing buckets, backup/restore
-drills, and an explicit operator opt-in.
+monitors, monitor results, tunnels, users, tokens, sessions, TOTP challenges,
+DDNS profiles, notification channels, OIDC providers, OIDC identities, and OIDC
+auth states. Session IDs, TOTP challenge IDs, and OIDC auth-state keys use
+opaque SHA-256 storage keys when encryption is enabled. Server startup still
+uses the JSON store by default. Runtime cutover is blocked on backup/restore
+drills, audit WAL anchoring, and an explicit operator opt-in.

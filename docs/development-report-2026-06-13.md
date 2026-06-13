@@ -36,7 +36,8 @@ The current pushed baseline includes:
 - bbolt storage foundation: bucketized import/export, JSON -> bbolt migration,
   bbolt -> JSON rollback export, and record-level APIs for nodes, KV, audit,
   static objects, Worker scripts, plugin lifecycle records, approvals, tasks,
-  task results, monitors, monitor results, and tunnels.
+  task results, monitors, monitor results, tunnels, and secret-bearing
+  identity/auth/DDNS/notify/OIDC records.
 
 The default runtime store is still the encrypted JSON state file. That is
 intentional until record-level coverage, backup/restore drills, and runtime
@@ -49,8 +50,8 @@ cutover tests are complete.
 - Plugin artifacts still do not execute. Runtime code must receive only a
   capability-scoped broker, never raw server handles.
 - Host-risk plugins require trusted signatures by default.
-- Reversible secrets must stay encrypted at rest; any secret-bearing bbolt
-  per-record method needs field-specific encryption tests before use.
+- Reversible secrets must stay encrypted at rest; any new secret-bearing field
+  needs field-specific encryption and wrong-key tests before use.
 - `lattice-server` must not switch to bbolt by default without an explicit
   runtime flag, migration drill, rollback test, and operator documentation.
 - Management APIs should be deployed on WireGuard/private addresses or behind a
@@ -64,7 +65,7 @@ Delivered bbolt pieces:
 - Reversible migration commands:
   - `lattice-server migrate json-to-bolt`
   - `lattice-server migrate bolt-to-json`
-- Record-level coverage for low/medium-risk buckets:
+- Record-level coverage for current state buckets:
   - nodes
   - KV
   - audit events
@@ -77,28 +78,35 @@ Delivered bbolt pieces:
   - monitors
   - monitor results
   - tunnels
+  - users
+  - tokens
+  - sessions
+  - TOTP challenges
+  - DDNS profiles
+  - notification channels
+  - OIDC providers
+  - OIDC identities
+  - OIDC auth states
 
 Remaining before runtime cutover:
 
-- Secret-bearing buckets: users, tokens, sessions, TOTP challenges, DDNS
-  profiles, notification channels, OIDC providers, and OIDC auth states.
 - Retention/index strategy for high-volume audit and monitor history.
 - Audit WAL head anchoring and rollback drills against realistic state files.
 - `-data-engine=bolt` or equivalent opt-in runtime switch, with JSON fallback.
 
 ## Next Development Order
 
-1. **C1.4 - Secret-bearing bbolt buckets.** Move users/tokens/sessions/TOTP,
-   DDNS, notify, and OIDC data only with field-specific encryption tests and
-   wrong-key failure coverage.
-2. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
+Feature expansion is intentionally paused after this closeout. When development
+resumes, the next work should be:
+
+1. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
    preserve JSON default, and document migration/rollback as an operator drill.
-3. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
+2. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
    hardening, and prepare WebAuthn/passkey dependency review.
-4. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
+3. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
    notification channels, WireGuard plans, tunnels, audit WAL verification, and
    runtime drill-through.
-5. **B2 - Real plugin execution.** Only after storage and identity gates: add a
+4. **B2 - Real plugin execution.** Only after storage and identity gates: add a
    constrained system runner with deadlines, cancellation, process isolation,
    per-plugin rate limits, output/log caps, and adversarial tests.
 

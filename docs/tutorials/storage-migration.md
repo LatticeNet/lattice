@@ -51,7 +51,8 @@ lattice-server migrate bolt-to-json \
 ```
 
 The exported JSON is still encrypted at rest. It should not contain plaintext
-TOTP secrets, DDNS tokens, notification credentials, or OIDC client secrets.
+TOTP secrets, active session bearer values, pending TOTP/OIDC auth-state bearer
+values, DDNS tokens, notification credentials, or OIDC client secrets.
 
 ## What this does not do yet
 
@@ -59,8 +60,7 @@ TOTP secrets, DDNS tokens, notification credentials, or OIDC client secrets.
   `/var/lib/lattice/state.json`.
 - It does not migrate or anchor the audit WAL into bbolt.
 - It does not route runtime traffic to record-level bbolt writes. Foundation
-  APIs currently exist for nodes, KV, audit, static objects, Worker scripts,
-  plugin lifecycle records, approvals, tasks, task results, monitors, monitor
-  results, and tunnels; secret-bearing buckets are still pending.
+  APIs currently exist for all current top-level state buckets, including
+  secret-bearing identity/auth/DDNS/notify/OIDC records.
 - It does not remove the need for backup/restore testing before production
   storage cutover.
