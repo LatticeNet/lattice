@@ -1,8 +1,18 @@
 # Lattice — Product Vision & Long-Range Plan
 
 > The north star. Point-in-time reviews live in `program-review-and-roadmap-2026-06.md`;
-> decisions live in `adr-*.md`; each build cycle is logged in `iterations/`.
+> decisions live in `adr-*.md`; each build cycle is logged in `iterations/`; the
+> next major capabilities are fully designed in `designs/` (start at `designs/README.md`).
 > **Last updated:** 2026-06-13.
+>
+> **State (2026-06-13):** Identity is essentially complete (password + TOTP 2FA
+> + OIDC/SSO backend & dashboard UI). A full security/stability **audit + remediation**
+> landed (iter-016, ~25 fixes: fsync durability, WireGuard /32, plugin-KV isolation,
+> TOTP replay, session-epoch). The bbolt record-level store exists as a foundation
+> but JSON remains the runtime backend. **Five next-capability designs are written
+> and ready to build** (proxy cores+subscriptions, self-host DNS, log ingestion,
+> machine inventory+cost, per-node nft ACL + geo-map) — see `designs/README.md` for
+> the cross-cutting dependencies and recommended build order.
 
 ## 1. North star
 

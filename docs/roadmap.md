@@ -15,6 +15,15 @@
 >
 > **2026-06-13 closeout:** the current six-repo baseline and next development
 > order are captured in [`development-report-2026-06-13.md`](./development-report-2026-06-13.md).
+>
+> **2026-06-13 audit + designs:** a full-codebase security/stability audit was
+> run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
+> ~25 fixes incl. state-file fsync durability, WireGuard `/32` host routes,
+> per-plugin KV namespacing, TOTP replay protection, session-epoch invalidation,
+> trust-proxy CIDR allowlist, constant-time CSRF/recovery-code. The next major
+> capabilities are now fully designed in [`designs/`](./designs/README.md)
+> (proxy cores + subscriptions, self-host DNS, log ingestion, machine inventory +
+> cost, per-node nft ACL + geo-map) — designed, not yet built.
 
 
 ## V1 Hardening
@@ -27,8 +36,9 @@
   delivered; default store switch pending.)*
 - Keep protobuf/ConnectRPC transport and generated TypeScript clients as a later
   API-boundary upgrade; current JSON APIs remain the bootstrap surface.
-- TOTP setup and recovery codes. *(Delivered 2026-06-12; enforce-2FA policy,
-  TOTP replay protection, and WebAuthn groundwork pending.)*
+- TOTP setup and recovery codes. *(Delivered 2026-06-12; TOTP replay protection
+  delivered 2026-06-13 (per-user last-step compare-and-set). Enforce-2FA policy
+  and WebAuthn groundwork pending.)*
 - Add PAT creation/revocation UI. (API delivered 2026-06-11: `POST/GET /api/tokens`, `/api/tokens/revoke`; UI pending.)
 - Add approval re-authentication for `network:apply` and `task:run`.
 - Add systemd units and install scripts.
@@ -55,16 +65,30 @@
 - WireGuard peer renderer using `/32` cryptokey routing.
 - Cloudflare IP set updater for HTTP origins.
 - cloudflared tunnel installation and health monitoring.
+- **Per-node nft access control + network/geo visualization** — designed in
+  [`designs/design-05-network-acl-and-map.md`](./designs/design-05-network-acl-and-map.md)
+  (fail-closed compiler with dead-man rollback; zero-dep inline-SVG map). *(Designed.)*
 
-## Service Plugins
+## Service Plugins / Providers
 
-- sing-box config renderer and reload workflow.
-- xray config renderer and reload workflow.
-- Sub-Store Node/Docker supervisor and path reverse proxy.
+> Designed in [`designs/design-01-proxy-cores-and-subscriptions.md`](./designs/design-01-proxy-cores-and-subscriptions.md)
+> (CORE provider, not a third-party plugin) and [`designs/design-02-self-host-dns.md`](./designs/design-02-self-host-dns.md).
+
+- **Proxy-core orchestration + subscriptions** — sing-box config renderer + reload
+  (v1), xray (v2), fleet-wide tokenized subscriptions, node-agnostic users. *(Designed.)*
+- **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
+  subdomain/DDNS + nft confinement. *(Designed.)*
+- Sub-Store-style subscription transform/aggregation (folded into design-01 v2+).
 - nginx domain + path static publishing.
 
 ## Observability
 
+- **System log ingestion + query** — designed in
+  [`designs/design-03-log-ingestion.md`](./designs/design-03-log-ingestion.md)
+  (agent tails a path → bounded per-node store, NOT the JSON store → query API). *(Designed.)*
+- **Machine inventory + cost/renewal** — designed in
+  [`designs/design-04-machine-inventory-and-cost.md`](./designs/design-04-machine-inventory-and-cost.md)
+  (auto-detect cores/mem/uptime/arch; cloud vendor/cost/renewal + reminder scheduler). *(Designed.)*
 - Historical metrics retention.
 - Fleet latency matrix.
 - SSH login alert stream.
