@@ -88,11 +88,13 @@ Done:
 
 **Batch 2 — landed & verified (commit set 2).** C9 (decoders return a generic "invalid request body"; raw encoding/json strings no longer leak), C15 (approve binds to an optional `plan_sha256`; mismatch → 409, with a regression test). Full server/auth/store `-race` green, gofmt clean.
 
-**Remaining tail — DEFER (own small follow-up, all lowest-severity, none a live risk):**
-- **C10** (decodeJSON DisallowUnknownFields): stricter decoding can 400 clients that send tolerated extra fields; needs a per-handler audit, not a blanket flip.
-- **C14** (OIDC→TOTP per-flow cookie binding): the post-SSO TOTP challenge is already bound to user.ID + clientIP and is single-use/short-lived; adding a per-flow cookie tie is a Low hardening that also needs a matching dashboard change (out of this batch's scope).
-- **D4** (tunnel/monitor/approval view types): pure defense-in-depth — those structs carry no secret today; add the view projections when/if a sensitive field is introduced.
-These are tracked here and in §Deferred; everything that is a real security or stability risk is fixed and shipped.
+**Batch 2 (cont.) — landed & verified:**
+- **C14** — the post-SSO TOTP challenge now also sets an HttpOnly/SameSite=Lax cookie (`lattice_totp_challenge`); `handleLoginTOTP` constant-time-requires it to match the submitted challenge id when present, so a front-channel `?totp_challenge=` leak alone can't complete 2FA. Password→2FA path (no cookie) unaffected.
+- **D4** — explicit secret-free `approvalView`/`monitorView`/`tunnelView` projections (`server_views.go`); the four GET/approve responses serialize through them so a future sensitive model field can't auto-leak.
+
+**C10 — confirmed DEFER (with evidence).** Making `decodeJSON` blanket-strict (`DisallowUnknownFields`) broke `TestAgentPostEndpointsRejectBodyTokenWithoutBearer`: agent endpoints must tolerate a forward-compatible extra field from a newer agent (strict decode turned a 401 into a 400). This validates the audit's "per-handler audit, not a blanket flip" guidance — strict decoding stays opt-in via `decodeLimitedJSON` for operator handlers; agent/lenient handlers keep `decodeJSON`. C9's generic-error part is kept (no raw decoder strings leak). Not re-attempted as a blanket change.
+
+Everything that is a real security or stability risk is fixed and shipped; the only un-done audit item (C10 blanket) is deliberately scoped out with a regression test proving why.
 
 ## Review outcome
 Each security-critical fix reviewed against source by the lead (C1/C2/C3/C4/C6/C7/C12/C13 read and confirmed correct: constant-time compares, compare-and-set under lock, fail-closed epoch check, namespace escape rejected). Subagents ran the `-race` suite per lane; the lead ran the full workspace verify. No regressions. Deferred items recorded in §Deferred / Batch 2.
