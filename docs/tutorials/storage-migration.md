@@ -60,7 +60,7 @@ TOTP secrets, DDNS tokens, notification credentials, or OIDC client secrets.
 - It does not migrate or anchor the audit WAL into bbolt.
 - It does not route runtime traffic to record-level bbolt writes. Foundation
   APIs currently exist for nodes, KV, audit, static objects, Worker scripts,
-  plugin lifecycle records, and approvals; medium-risk and secret-bearing
-  buckets are still pending.
+  plugin lifecycle records, approvals, tasks, task results, monitors, monitor
+  results, and tunnels; secret-bearing buckets are still pending.
 - It does not remove the need for backup/restore testing before production
   storage cutover.

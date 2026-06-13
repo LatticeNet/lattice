@@ -35,7 +35,8 @@ The current pushed baseline includes:
   services adapter, runtime manager, and a no-op runner contract.
 - bbolt storage foundation: bucketized import/export, JSON -> bbolt migration,
   bbolt -> JSON rollback export, and record-level APIs for nodes, KV, audit,
-  static objects, Worker scripts, plugin lifecycle records, and approvals.
+  static objects, Worker scripts, plugin lifecycle records, approvals, tasks,
+  task results, monitors, monitor results, and tunnels.
 
 The default runtime store is still the encrypted JSON state file. That is
 intentional until record-level coverage, backup/restore drills, and runtime
@@ -63,7 +64,7 @@ Delivered bbolt pieces:
 - Reversible migration commands:
   - `lattice-server migrate json-to-bolt`
   - `lattice-server migrate bolt-to-json`
-- Record-level coverage for low-risk buckets:
+- Record-level coverage for low/medium-risk buckets:
   - nodes
   - KV
   - audit events
@@ -71,11 +72,14 @@ Delivered bbolt pieces:
   - Worker scripts
   - plugin lifecycle records
   - approvals
+  - tasks
+  - task results
+  - monitors
+  - monitor results
+  - tunnels
 
 Remaining before runtime cutover:
 
-- Medium-risk/high-volume buckets: tasks, task results, monitors, monitor
-  results, and tunnels.
 - Secret-bearing buckets: users, tokens, sessions, TOTP challenges, DDNS
   profiles, notification channels, OIDC providers, and OIDC auth states.
 - Retention/index strategy for high-volume audit and monitor history.
@@ -84,20 +88,17 @@ Remaining before runtime cutover:
 
 ## Next Development Order
 
-1. **C1.3 - Medium-risk bbolt buckets.** Add record-level APIs and tests for
-   tasks/results and monitors/results. Include tunnels only after confirming the
-   model does not carry reversible credentials.
-2. **C1.4 - Secret-bearing bbolt buckets.** Move users/tokens/sessions/TOTP,
+1. **C1.4 - Secret-bearing bbolt buckets.** Move users/tokens/sessions/TOTP,
    DDNS, notify, and OIDC data only with field-specific encryption tests and
    wrong-key failure coverage.
-3. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
+2. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
    preserve JSON default, and document migration/rollback as an operator drill.
-4. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
+3. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
    hardening, and prepare WebAuthn/passkey dependency review.
-5. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
+4. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
    notification channels, WireGuard plans, tunnels, audit WAL verification, and
    runtime drill-through.
-6. **B2 - Real plugin execution.** Only after storage and identity gates: add a
+5. **B2 - Real plugin execution.** Only after storage and identity gates: add a
    constrained system runner with deadlines, cancellation, process isolation,
    per-plugin rate limits, output/log caps, and adversarial tests.
 

@@ -10,8 +10,8 @@
 > API broker, and runtime runner contract are now landed. The durable storage
 > direction is **bbolt**, not SQLite, to preserve the pure-Go / zero-CGo rule;
 > bucketized bbolt import/export, JSON migration/rollback CLI, and record-level
-> bbolt APIs for low-risk buckets have landed, but JSON is still the default
-> server store.
+> bbolt APIs for low/medium-risk buckets have landed, but JSON is still the
+> default server store.
 >
 > **2026-06-13 closeout:** the current six-repo baseline and next development
 > order are captured in [`development-report-2026-06-13.md`](./development-report-2026-06-13.md).
@@ -22,8 +22,8 @@
 - Replace JSON storage with bbolt migrations, preserving AES-256-GCM secret
   encryption and moving hot/ephemeral records off whole-file rewrites.
   *(Bucketized import/export, JSON rollback CLI, and record-level APIs for
-  nodes/KV/audit/static/Workers/plugin lifecycle/approvals delivered;
-  tasks/results, monitors/results, tunnels, secret-bearing writes, and default
+  nodes/KV/audit/static/Workers/plugin lifecycle/approvals/tasks/results/
+  monitors/monitor results/tunnels delivered; secret-bearing writes and default
   store switch pending.)*
 - Keep protobuf/ConnectRPC transport and generated TypeScript clients as a later
   API-boundary upgrade; current JSON APIs remain the bootstrap surface.
