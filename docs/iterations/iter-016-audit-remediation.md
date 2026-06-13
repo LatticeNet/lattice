@@ -86,7 +86,13 @@ Done:
 - **Security:** C1 (WireGuard `/32`·`/128` host routes + skip-unparseable), C2 (plugin KV namespaced to `plugin:<id>`, `/`-smuggling rejected), C3 (enroll confinement `principalHasNodeRestriction`), C4 (TOTP `ValidateTOTPStep` + compare-and-set `LastTOTPStep` under lock), C5 (broker structural egress guard), C6 (`http:egress`→RiskHost, signed-plugin exemption), C7 (CSRF `subtle.ConstantTimeCompare`), C8 (recovery-code fixed-count CT), C11 (trust-proxy CIDR allowlist), C12 (session `Epoch`/`SecurityEpoch` invalidation), C13 (per-account login backoff), C16 (DDNS webhook Host→`req.Host`, drop Content-Length), C17 (broker.Log caps/sanitize), C18 (sshwatch anchor), C19 (agent refuse non-loopback http), C20 (empty-id opaque-key guards).
 - **Design/robustness:** D1 (decryptState fresh maps), D2 (per-record guard doc), D6 (RLIMIT_AS 8 GiB; keep RLIMIT_DATA), D7 (RLIMIT_NPROC per-uid doc), D11 (interpreter startup probe), D12 (bbolt EXPERIMENTAL marker + Phase-C gates).
 
-**Batch 2 — remaining Low/Info (commit set 2, in progress):** C9 (generic 4xx decoder error), C14 (OIDC→TOTP cookie binding), C15 (approve plan-hash), D4 (tunnel/monitor/approval view types). C10 (decodeJSON DisallowUnknownFields) re-classified **DOC/DEFER**: stricter decoding risks breaking handlers that tolerate extra fields; needs a per-handler audit — deferred to a dedicated pass rather than a blanket change.
+**Batch 2 — landed & verified (commit set 2).** C9 (decoders return a generic "invalid request body"; raw encoding/json strings no longer leak), C15 (approve binds to an optional `plan_sha256`; mismatch → 409, with a regression test). Full server/auth/store `-race` green, gofmt clean.
+
+**Remaining tail — DEFER (own small follow-up, all lowest-severity, none a live risk):**
+- **C10** (decodeJSON DisallowUnknownFields): stricter decoding can 400 clients that send tolerated extra fields; needs a per-handler audit, not a blanket flip.
+- **C14** (OIDC→TOTP per-flow cookie binding): the post-SSO TOTP challenge is already bound to user.ID + clientIP and is single-use/short-lived; adding a per-flow cookie tie is a Low hardening that also needs a matching dashboard change (out of this batch's scope).
+- **D4** (tunnel/monitor/approval view types): pure defense-in-depth — those structs carry no secret today; add the view projections when/if a sensitive field is introduced.
+These are tracked here and in §Deferred; everything that is a real security or stability risk is fixed and shipped.
 
 ## Review outcome
 Each security-critical fix reviewed against source by the lead (C1/C2/C3/C4/C6/C7/C12/C13 read and confirmed correct: constant-time compares, compare-and-set under lock, fail-closed epoch check, namespace escape rejected). Subagents ran the `-race` suite per lane; the lead ran the full workspace verify. No regressions. Deferred items recorded in §Deferred / Batch 2.
