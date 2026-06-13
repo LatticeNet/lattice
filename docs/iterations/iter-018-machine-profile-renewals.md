@@ -89,5 +89,6 @@ both "what is this box?" and "what contract/cost/renewal belongs to it?"
 - No per-currency dashboard totals yet.
 - No `inventory.facts_changed` alert yet.
 - No browser screenshot pass yet for narrow viewport table layout.
-- Next recommended slice remains shared nft input persistence, then Design 05
-  per-node ACL + map, unless runtime bbolt cutover is prioritized first.
+- Shared nft input persistence was completed in iter-019. Next recommended
+  slice is Design 05 per-node ACL + map, unless runtime bbolt cutover is
+  prioritized first.

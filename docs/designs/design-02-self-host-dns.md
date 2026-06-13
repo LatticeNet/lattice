@@ -1,6 +1,6 @@
 # Design 02 — One-Click Self-Hosted DNS Deployment
 
-> Status: **proposed** · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
+> Status: **proposed**; shared `NFTInputs` prerequisite landed in iter-019 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
 > Companion to: `architecture.md` (DDNS, Cloudflare Tunnel, WireGuard, Storage, Safety Model), `PRODUCT-VISION.md` (pillars P1 Trust / P4 Durability), `development-workflow.md` (Plan→Execute→Review→Iterate).
 
 This document specifies a **CORE server-owned provider** (in the same class as `internal/ddns`, `internal/cftunnel`, `internal/wireguard`, `internal/network`) that lets an operator deploy a private DNS resolver/authoritative server onto a chosen node with a single approval, pair it with per-node nftables access rules, and publish a Cloudflare subdomain (e.g. `gmami-jp1.dns.roobli.org`) that DDNS keeps pointed at that node's public IP. It reuses the existing `plan → approve → apply` machinery verbatim; it adds no new external Go dependency and no CGo.
@@ -36,7 +36,7 @@ This document specifies a **CORE server-owned provider** (in the same class as `
 | **Store** | One new collection `DNSDeployments map[string]model.DNSDeployment` alongside `Tunnels`/`DDNS`, with the same `Upsert/Get/List/Delete/ForNode` accessor quintet. The CF API token is a **secret-at-rest** field routed through `internal/store/crypto.go`. |
 | **RBAC** | New scope pair `dns:admin` (CRUD + plan) and reuse of `network:apply` for the approval gate, plus the per-node allowlist already enforced by `requireNodeScope`. |
 | **internal/ddns** | **Reused as-is** for Cloudflare record automation. A `DNSDeployment` *owns* (or references) a Cloudflare DDNS binding for its hostname; the existing `maybeTriggerDDNS` IP-change path keeps the record current. No new CF client. |
-| **internal/network (nft)** | **Reused/extended.** The DNS port is injected into the node's `NFTPlan` as a restricted (WireGuard-only) or public dport. The resolver opening and the firewall rule are one approval, not two. |
+| **internal/network (nft)** | **Reused/extended.** The DNS port is injected into the node's persisted `NFTInputs` as a restricted (WireGuard-only) or public dport, then rendered into the one `inet lattice_guard` table. The resolver opening and the firewall rule are one approval, not two. |
 | **internal/notify** | **Reused** for "DNS deploy applied / failed / hostname published" alerts via the existing fan-out dispatcher. |
 | **internal/audit** | Every plan/approve/apply/record-publish/firewall-open emits a hash-chained audit event. |
 | **internal/outbound** | All Cloudflare calls already go through the SSRF-guarded client inside `internal/ddns`. Nothing new. |
@@ -251,8 +251,12 @@ New package **`lattice-server/internal/selfdns/`** — peer of `cftunnel`, depen
 
 **(b) nft fragment** — `GenerateNFTFragment(dep)`; in practice this is **folded into the node's full `network.NFTPlan`** rather than emitted standalone, so the committed ruleset stays a single coherent table (the existing nft renderer drops anything not in the plan). Mapping:
 - `exposure==mesh`: add the DNS port to `WireGuardUDP` and/or `WireGuardTCP` (answered only from `@wg_peers4`). This is the default and the safe path.
-- `exposure==public`: add to `PublicTCP` (and a public-UDP equivalent — note the current `NFTPlan` has `PublicTCP` only; **a `PublicUDP []int` field must be added to `network.NFTPlan`** to express public UDP/53, since DNS is UDP-primary). This is the one extension to the nft model the feature needs.
-- The server composes the node's *current* nft inputs + the DNS ports → `network.GenerateNFTPlan` → the committed ruleset that the apply script loads with `nft -f` (commit), preceded by `nft -c -f` (validate) as a guard.
+- `exposure==public`: add the DNS port to `PublicUDP` and optionally
+  `PublicTCP` on the node's persisted `NFTInputs` (iter-019 added public UDP
+  support specifically so DNS/53 can be represented).
+- The server composes the node's persisted nft inputs + the DNS ports →
+  `network.GenerateNFTPlan` → the committed ruleset that the apply script loads
+  with `nft -f` (commit), preceded by `nft -c -f` (validate) as a guard.
 
 **(c) Cloudflare DNS record** — **reuse `internal/ddns` end to end, no new code:**
 - On `POST /api/dns/publish` and on the create path, build a `model.DDNSProfile` view from the deployment (`Provider: cloudflare`, `Domains: [Hostname]`, `CFAPIToken` from the deployment or the referenced `DDNSProfileID`, `EnableIPv4/6` from `PublishIPv4/6`, `TTL: RecordTTL`) and call `ddns.NewProvider` + `ddns.Apply(ctx, prov, profile, node.PublicIP, node.PublicIPv6)`. This is exactly `runDDNSWithAudit`.
@@ -381,7 +385,11 @@ Consistent with `development-workflow.md` (research/reuse → plan → TDD → r
 2. `apply.go`: `ApplyScript(model.Approval) string` (digest-verified install → atomic Corefile write+validate → `nft -c` then `nft -f` commit → reload), reusing `heredocWrite`/`heredocDelimiter` (move those helpers to a shared spot or duplicate minimally).
 3. **TDD first (`selfdns_test.go`):** golden Corefile for a forward zone; injection inputs (newline/brace/bad upstream/bad port/bad suffix) all rejected; mesh exposure maps to WG sets, never public; plan render is stable/deterministic.
 
-**Step 5 — nft model extension (defer to v2 if MVP is mesh-only).** Add `PublicUDP []int` to `network.NFTPlan` + render it; tests for public UDP/53. **Not required for the mesh-only MVP.**
+**Step 5 — nft input composition.** Use the persisted `model.NFTInputs`
+introduced in iter-019. For mesh exposure, append the DNS port to
+`WireGuardUDP` / `WireGuardTCP`; for public exposure, append it to `PublicUDP`
+and optionally `PublicTCP`, then render the single merged `lattice_guard`
+ruleset. Do not create a second nft table.
 
 **Step 6 — Server handlers (`internal/server/server_dns.go`).**
 1. `handleDNSDeployments` (GET/POST), `handleDeleteDNSDeployment`, `handleDNSPlan`, `handleDNSPublish`, `toDNSView` (strips token).

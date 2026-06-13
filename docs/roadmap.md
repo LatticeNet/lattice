@@ -24,7 +24,8 @@
 > capabilities are now fully designed in [`designs/`](./designs/README.md)
 > (proxy cores + subscriptions, self-host DNS, log ingestion, machine inventory +
 > cost, per-node nft ACL + geo-map). Machine-inventory HostFacts landed in
-> iter-017, and MachineProfile cost/renewal reminder MVP landed in iter-018.
+> iter-017, MachineProfile cost/renewal reminder MVP landed in iter-018, and
+> shared per-node nft input persistence landed in iter-019.
 > The other major designs remain designed/not yet built.
 
 
@@ -69,7 +70,9 @@
 - cloudflared tunnel installation and health monitoring.
 - **Per-node nft access control + network/geo visualization** — designed in
   [`designs/design-05-network-acl-and-map.md`](./designs/design-05-network-acl-and-map.md)
-  (fail-closed compiler with dead-man rollback; zero-dep inline-SVG map). *(Designed.)*
+  (fail-closed compiler with dead-man rollback; zero-dep inline-SVG map).
+  Shared `NFTInputs` persistence delivered 2026-06-13; full ACL compiler/map
+  still pending. *(Designed; prerequisite landed.)*
 
 ## Service Plugins / Providers
 
@@ -79,7 +82,9 @@
 - **Proxy-core orchestration + subscriptions** — sing-box config renderer + reload
   (v1), xray (v2), fleet-wide tokenized subscriptions, node-agnostic users. *(Designed.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
-  subdomain/DDNS + nft confinement. *(Designed.)*
+  subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
+  2026-06-13 so DNS can compose into the single nft table; DNS deployment itself
+  is still pending. *(Designed; prerequisite landed.)*
 - Sub-Store-style subscription transform/aggregation (folded into design-01 v2+).
 - nginx domain + path static publishing.
 

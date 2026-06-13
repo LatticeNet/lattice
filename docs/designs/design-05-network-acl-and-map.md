@@ -1,6 +1,6 @@
 # Design 05 — Per-Node nft Access Control + Network-Policy Visualization + Global Geo-Map
 
-> Status: proposed · Author: design pass · Date: 2026-06-13
+> Status: proposed; shared `NFTInputs` prerequisite landed in iter-019 · Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
 > Constraints inherited: pure Go, zero CGo, tiny dep surface (new dep ⇒ ADR), security-first,
@@ -19,7 +19,8 @@ Three capabilities, one cohesive slice:
    nftables rules rendered onto the **target** node through the existing `plan → approve → apply`
    flow. Rules reference **nodes** (resolved to their current IPs server-side), **CIDRs**, **ports**,
    **protocol**, and **direction**. This is a strict superset of today's `internal/network/nft.go`,
-   which only renders a fixed inbound public/WG ruleset.
+   which now also has persisted per-node `NFTInputs` for the baseline public/WG
+   port matrix.
 
 2. **Network-policy visualization.** A dashboard panel that renders the *effective reachability graph*
    ("which node can reach what") from the compiled policy — a node-to-node adjacency view plus a

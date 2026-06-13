@@ -34,6 +34,9 @@ The current pushed baseline includes:
 - Server-only MachineProfile inventory/cost/renewal metadata with encrypted
   console/detail links, renewal reminder evaluation, and a Machines dashboard
   panel. MachineProfile data never goes to agents.
+- Shared per-node `NFTInputs` persistence for the Network Guard: canonical
+  interface/WireGuard CIDR/public TCP+UDP/WireGuard TCP+UDP inputs, rendered
+  into the single `inet lattice_guard` plan and reused by future DNS/ACL work.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -89,6 +92,7 @@ Delivered bbolt pieces:
   - DDNS profiles
   - notification channels
   - machine profiles
+  - nft inputs
   - OIDC providers
   - OIDC identities
   - OIDC auth states
@@ -101,15 +105,16 @@ Remaining before runtime cutover:
 
 ## Next Development Order
 
-Development resumed with iter-017 (`HostFacts` inventory MVP) and iter-018
-(`MachineProfile` cost/renewal MVP). The next work should now be:
+Development resumed with iter-017 (`HostFacts` inventory MVP), iter-018
+(`MachineProfile` cost/renewal MVP), and iter-019 (shared nft input
+persistence). The next work should now be:
 
-1. **Shared nft-input persistence.** Persist each node's authoritative firewall
-   inputs once so Design 05 ACL and Design 02 DNS compose into one
-   `inet lattice_guard` render instead of competing tables.
-2. **Design 05 - Per-node nft ACL + geo-map.** Add deny/allow policy,
+1. **Design 05 - Per-node nft ACL + geo-map.** Add deny/allow policy,
    fail-closed compile, 60s dead-man rollback, and the first network/map
    visualization using HostFacts + MachineProfile region data.
+2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
+   Cloudflare publish via existing DDNS provider, and composition of DNS ports
+   into the stored `NFTInputs`.
 3. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
    preserve JSON default, and document migration/rollback as an operator drill.
 4. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow

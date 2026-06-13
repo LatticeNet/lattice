@@ -54,5 +54,6 @@ flow.
 ## Next
 
 Follow-up landed: `iter-018-machine-profile-renewals.md` implements the cost
-metadata/reminder slice. The next recommended design slice is shared nft input
-persistence, then Design 05's per-node ACL + network map.
+metadata/reminder slice, and `iter-019-shared-nft-inputs.md` implements the
+shared nft input prerequisite. The next recommended design slice is Design 05's
+per-node ACL + network map.
