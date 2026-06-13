@@ -1,14 +1,18 @@
 # Iteration 017 — HostFacts Inventory MVP
 
-- **Status:** Execute → Review (2026-06-13)
+- **Status:** Implemented (2026-06-13)
 - **Design source:** `docs/designs/design-04-machine-inventory-and-cost.md`
 - **Repos:** `lattice-sdk`, `lattice-node-agent`, `lattice-server`, `lattice-dashboard`
+- **Follow-up:** Design 04 Half B was implemented in `iter-018-machine-profile-renewals.md`.
 
 ## Goal
 
 Land the low-risk first half of machine inventory: node-agent auto-detects slow-changing host facts (OS, arch, CPU cores/model, RAM/swap, platform/kernel, hostname, boot time, virtualization hint), server stores them as advisory low-trust telemetry on `model.Node`, and dashboard shows them in the fleet table.
 
-This does **not** implement cost/vendor/renewal metadata yet. Billing/console links remain server-only future work because they need their own encrypted-at-rest fields, RBAC scopes, reminder scheduler, and dashboard edit flow.
+This iteration did **not** implement cost/vendor/renewal metadata; that
+server-only Half B work landed immediately afterward in iter-018 with its own
+encrypted-at-rest fields, RBAC scopes, reminder scheduler, and dashboard edit
+flow.
 
 ## Scope
 
@@ -39,14 +43,16 @@ This does **not** implement cost/vendor/renewal metadata yet. Billing/console li
 
 ## Residuals
 
-- Design 04 Half B remains pending: `MachineProfile`, `inventory:read/admin`, encrypted console/detail links, renewal reminders, and dashboard edit/renewal UI.
+- Design 04 Half B is now complete in iter-018: `MachineProfile`,
+  `inventory:read/admin`, encrypted console/detail links, renewal reminders,
+  and dashboard edit/renewal UI.
 - HostFacts currently update on every metrics report. If payload churn matters later, agent can cache and send facts hourly without changing the server contract.
-- Geo-map still needs operator-entered region/location metadata from the future `MachineProfile` work.
+- Geo-map still needs Design 05: policy-aware per-node ACL state,
+  coordinates/region normalization, and a map view using `HostFacts` +
+  `MachineProfile.Region`.
 
 ## Next
 
-Recommended next slice: Design 04 Half B, implemented as a separate iteration:
-1. Add `MachineProfile` model/store/API with secret-free views and encrypted-at-rest `ConsoleURL`/`DetailURL`.
-2. Add renewal-cycle validation and reminder evaluation with idempotency.
-3. Add dashboard Machines panel and notification test path.
-4. Run `-race` and a manual reminder dry run before commit.
+Follow-up landed: `iter-018-machine-profile-renewals.md` implements the cost
+metadata/reminder slice. The next recommended design slice is shared nft input
+persistence, then Design 05's per-node ACL + network map.

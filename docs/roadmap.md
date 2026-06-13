@@ -23,8 +23,9 @@
 > trust-proxy CIDR allowlist, constant-time CSRF/recovery-code. The next major
 > capabilities are now fully designed in [`designs/`](./designs/README.md)
 > (proxy cores + subscriptions, self-host DNS, log ingestion, machine inventory +
-> cost, per-node nft ACL + geo-map). Machine-inventory HostFacts landed as the
-> first implementation slice; the rest remains designed/not yet built.
+> cost, per-node nft ACL + geo-map). Machine-inventory HostFacts landed in
+> iter-017, and MachineProfile cost/renewal reminder MVP landed in iter-018.
+> The other major designs remain designed/not yet built.
 
 
 ## V1 Hardening
@@ -91,7 +92,9 @@
   [`designs/design-04-machine-inventory-and-cost.md`](./designs/design-04-machine-inventory-and-cost.md)
   (auto-detect cores/mem/uptime/arch; cloud vendor/cost/renewal + reminder scheduler).
   `HostFacts` auto-detect/report/display delivered 2026-06-13; server-only
-  cost/vendor/renewal metadata and reminder scheduler pending.
+  `MachineProfile` cost/vendor/renewal metadata, encrypted console/detail links,
+  renewal reminders, and Machines dashboard MVP delivered 2026-06-13. Audited
+  link reveal, per-currency totals, and fact-change alerts remain v2.
 - Historical metrics retention.
 - Fleet latency matrix.
 - SSH login alert stream.

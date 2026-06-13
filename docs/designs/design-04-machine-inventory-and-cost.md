@@ -1,13 +1,13 @@
 # Design 04 — Machine Inventory + Cost / Renewal Management
 
-> Status: **partially implemented**. Half A (`HostFacts` auto-detection/reporting/display) landed in iter-017 on 2026-06-13. Half B (`MachineProfile` cost/vendor/renewal + reminders) remains design-ready but unbuilt.
+> Status: **MVP implemented**. Half A (`HostFacts` auto-detection/reporting/display) landed in iter-017 on 2026-06-13. Half B (`MachineProfile` cost/vendor/renewal + reminders) landed in iter-018 on 2026-06-13. v2 polish (audited reveal, rollups, fact-change signals) remains open.
 > Scope owner: `lattice-server` (core provider) + `lattice-node-agent` (fact collection) + `lattice-sdk/model` + `lattice-dashboard`.
 > Constraints inherited: pure Go, **zero CGo**, tiny dep surface (new external dep ⇒ ADR), security-first, fail-closed, audit everything.
 
 This feature has **two halves with very different trust models**, and the design keeps them separate on purpose:
 
 - **Half A — auto-detected static facts** (CPU cores, RAM total, arch, OS/platform, kernel, boot time): *node-reported*, low-trust, advisory. **Implemented in iter-017** as `model.HostFacts`, reported by the agent in hello/metrics, sanitized server-side, and shown in the dashboard node table. No new privileges, no apply flow.
-- **Half B — cost / vendor / renewal** (price, currency, cycle, next renewal date, console/detail links, reminders): *operator-authored server-side metadata*, never touched by the agent, never sent to a node. This is pure control-plane state plus a server-side reminder scheduler reusing `internal/notify`.
+- **Half B — cost / vendor / renewal** (price, currency, cycle, next renewal date, console/detail links, reminders): *operator-authored server-side metadata*, never touched by the agent, never sent to a node. This is pure control-plane state plus a server-side reminder scheduler reusing `internal/notify`. **Implemented in iter-018** as `model.MachineProfile`, encrypted link fields, `/api/machines` APIs, and a dashboard Machines panel.
 
 The mental model: **Half A describes the machine; Half B describes the contract you signed for it.** A compromised node can lie about Half A and can never see or influence Half B.
 
@@ -25,7 +25,7 @@ This directly serves the operator's stated needs: per-machine vendor/cost/renewa
 
 ### Non-goals for v1 (explicit)
 - **No automated billing integration / vendor API scraping.** Cost data is operator-entered. No screen-scraping cloud consoles, no provider billing APIs. (Listed as a v3+ open question only.)
-- **No currency conversion / FX.** Each machine stores its own `currency` string; the dashboard sums per-currency, it does not convert. (Avoids an FX rate dependency + ADR.)
+- **No currency conversion / FX.** Each machine stores its own `currency` string. Per-currency rollups are a v2 dashboard polish item; the MVP shows per-machine cost only. (Avoids an FX rate dependency + ADR.)
 - **No auto-renew actions.** Lattice never *performs* a renewal (no payment, no vendor calls). It *reminds*; the human renews and clicks "renewed."
 - **No per-fact apply/plan flow.** Auto-detected facts are advisory telemetry, not a node mutation. (Cost metadata is server-only, also no apply.) This feature **does not use plan→approve→apply** — see §2 for why that is correct, and contrast with the *separate* per-node nft access-rule feature which does.
 - **No historical cost time-series / spend analytics.** v1 stores the current contract only. Spend history is a later phase.
@@ -40,7 +40,7 @@ This directly serves the operator's stated needs: per-machine vendor/cost/renewa
 | **Server = sole policy point** | All cost/renewal/vendor metadata lives only in server `State`. The reminder scheduler is a server goroutine. The agent is never told anything about cost. |
 | **Agent = least-trust executor that polls** | Agent *adds* read-only host-fact collection to its existing hello/metrics POSTs. No new inbound surface, no new privileges, no new task type. |
 | **plan → approve → apply** | **Deliberately NOT used.** That flow exists to gate *node mutations* an operator must review before they hit a box. Auto-detected facts mutate nothing on the node; cost metadata mutates nothing anywhere but the server DB. Forcing an approval here would be ceremony with no blast radius to gate. (The operator's separate request — per-node nft deny rules — *does* belong in plan→approve→apply and is out of scope here; it reuses `internal/network/nft`.) |
-| **Store (single encrypted JSON `State`)** | One new collection `MachineProfiles map[string]model.MachineProfile`. Host facts attach to the existing `model.Node` (no new collection needed for Half A). |
+| **Store (single encrypted JSON `State`)** | `MachineProfiles map[string]model.MachineProfile` is implemented in JSON state and mirrored in the bbolt foundation. Host facts attach to the existing `model.Node` (no new collection needed for Half A). |
 | **`internal/store/crypto.go` at-rest boundary** | Cost data is sensitive-ish (vendor account hints) but the genuinely secret fields are the **console/connection links and any embedded credentials/tokens in them**. Those route through the crypto boundary (§3, §7). Plain numbers (price, cycle) are not encrypted. |
 | **RBAC (scopes + per-node allowlist)** | New scopes `inventory:read` / `inventory:admin`, enforced per-node via the existing `rbac.Allows(principal, scope, nodeID)` + `requireNodeScope` helpers — identical to how DDNS gates by `node_id`. Host facts piggyback on `node:read`. |
 | **`internal/notify` + fan-out dispatcher** | Renewal reminders are `notify.Message`s fanned out to every enabled channel via the existing `notifyAll`-style goroutine pattern. **Zero new notification code** beyond composing the message. |
@@ -96,7 +96,7 @@ type Node struct {
 ```
 No new store collection for Half A — it lives inside the existing `Nodes` map, updated through the existing `UpsertNode` / `UpdateMetrics` paths.
 
-### 3.2 Half B — `model.MachineProfile` (new collection)
+### 3.2 Half B — `model.MachineProfile` (implemented iter-018)
 One profile per node (1:1, keyed by `NodeID` is the natural choice; but to allow a profile to exist *before* a node enrolls and to survive node deletion for record-keeping, key it by its own `ID` and reference `NodeID`). 1:1 is enforced at the handler (reject a second profile for the same node).
 
 ```go
@@ -149,7 +149,7 @@ type MachineProfile struct {
 ### 3.3 Secret-at-rest fields (route through `internal/store/crypto.go`)
 Encrypt **`ConsoleURL`** and **`DetailURL`**. They frequently embed one-time login tokens, signed console URLs, or account-identifying query params; treating them as cleartext in the state file would defeat the at-rest boundary. Everything else in `MachineProfile` (price, cycle, vendor name, notes) is non-secret and stays plaintext for diffability.
 
-To wire this, follow the existing DDNS/notify recipe exactly:
+Implemented wiring follows the existing DDNS/notify recipe:
 1. Add a `MachineProfiles map[string]model.MachineProfile` field to `store.State` (with a `json:"machine_profiles"` tag).
 2. In `crypto.go`: add `encryptMachineProfileRecord` / `decryptMachineProfileRecord` (encrypt `ConsoleURL`, `DetailURL`), call them in both `encryptedState` and `decryptState` ranges, and extend **`stateHasEnvelope`** to check `secret.IsEnvelope(mp.ConsoleURL) || secret.IsEnvelope(mp.DetailURL)`. The header comment in `crypto.go` explicitly instructs: *"When adding a new persisted credential, encrypt it here AND extend stateHasEnvelope."* Honor that or the lost-key guard goes stale.
 3. The bbolt path calls the same per-record helpers (already the pattern), so no extra work there.
@@ -160,15 +160,15 @@ To wire this, follow the existing DDNS/notify recipe exactly:
 
 ## 4. Server API
 
-New handlers go in a new file **`internal/server/server_inventory.go`** (server.go is large; this matches the existing `server_oidc.go` split convention). Routes are registered in `server.go`'s mux block alongside the others.
+Handlers live in **`internal/server/server_inventory.go`** (server.go is large; this matches the existing `server_oidc.go` split convention). Routes are registered in `server.go`'s mux block alongside the others.
 
 New RBAC scopes: **`inventory:read`**, **`inventory:admin`**. Per-node enforcement reuses `requireNodeScope(w, p, scope, nodeID)` and `rbac.Allows(p.Principal, scope, nodeID)` exactly as DDNS does — a token scoped to specific nodes only sees/edits those machines' profiles.
 
 | Method | Path | Scope | Request | Response |
 |---|---|---|---|---|
 | `GET` | `/api/machines` | `inventory:read` | — | `[]machineView` — joins each node's `HostFacts` + its `MachineProfile` (cost view), filtered to nodes the principal may read. Secret link fields are **redacted to a boolean `has_console_url`/`has_detail_url`**, never the value. |
-| `POST` | `/api/machines` | `inventory:admin` | `model.MachineProfile` (no ID) | created `machineView`. Validates: `node_id` exists, no existing profile for that node (1:1), `currency` non-empty if `price_cents>0`, `renewal_cycle` is a known const, `cycle_days>0` iff custom, `remind_days_before` are non-negative. Computes `NextRenewal` if omitted? No — require it explicitly to avoid guessing. |
-| `POST` | `/api/machines/update` | `inventory:admin` | `model.MachineProfile` (with ID) | updated `machineView`. Same validation. Secret link fields are **write-only**: an empty string means "leave unchanged"; a sentinel like `""`+explicit `clear_console_url:true` clears it (mirrors OIDC client-secret write-only handling). |
+| `POST` | `/api/machines` | `inventory:admin` | machine profile request (no ID) | created `machineView`. Validates: `node_id` exists, no existing profile for that node (1:1), `currency` non-empty if `price_cents>0`, `renewal_cycle` is a known const, `cycle_days>0` iff custom, `remind_days_before` are non-negative. Computes `NextRenewal` if omitted? No — require it explicitly to avoid guessing. |
+| `POST` | `/api/machines/update` | `inventory:admin` | machine profile request (with ID) | updated `machineView`. Same validation. Secret link fields are **write-only**: an empty string means "leave unchanged"; explicit `clear_console_url:true` / `clear_detail_url:true` clears it (mirrors OIDC client-secret write-only handling). |
 | `POST` | `/api/machines/delete` | `inventory:admin` | `{id}` | `{ok:true}` |
 | `POST` | `/api/machines/renew` | `inventory:admin` | `{id, next_renewal?}` | updated `machineView`. Marks the current cycle renewed: sets `NextRenewal` to the supplied date, or if absent and `AutoRoll`, advances by one cycle from the old `NextRenewal`; resets `LastRemindedKey`. Emits `inventory.renew` audit. |
 | `POST` | `/api/machines/reminders/run` | `inventory:admin` | `{id?}` | `{fired:[...]}` — manual trigger of the reminder evaluation (for one profile or all). Mirrors `/api/ddns/run` giving inline outcome; useful for testing channels. |
@@ -201,7 +201,7 @@ type machineView struct {
 	UpdatedAt     time.Time          `json:"updated_at"`
 }
 ```
-The console/detail URLs are **never** in any list/read response. A dedicated `POST /api/machines/reveal {id, field}` (scope `inventory:admin`, audited as `inventory.reveal`) returns one decrypted link for an explicit operator click — same posture as never returning notify/DDNS secrets in the list, but allowing a deliberate, audited reveal so the link stays usable. (If you prefer maximum simplicity for MVP, omit reveal and let the operator keep links in a password manager; see §8.)
+The console/detail URLs are **never** in any list/read response. Iter-018 intentionally shipped the simpler MVP posture: links are write-only and badge-only (`has_console_url` / `has_detail_url`). A dedicated `POST /api/machines/reveal {id, field}` (scope `inventory:admin`, audited as `inventory.reveal`) remains a v2 option if operator convenience is worth the extra review surface.
 
 ---
 
@@ -274,8 +274,8 @@ func (s *Server) startRenewalScheduler(ctx context.Context) {
 ### 6.2 `evaluateReminders(now)`
 For each `MachineProfile` where `RemindersEnabled && !NextRenewal.IsZero()`:
 1. `days := daysUntil(now, NextRenewal)` (calendar-day difference, both truncated to UTC date).
-2. For each configured offset `d` in `RemindDaysBefore` (sorted desc), if `days <= d` and this offset for this renewal date hasn't fired yet (see idempotency cursor §6.3), fire one reminder and advance the cursor.
-3. Also fire an **overdue** reminder when `days < 0` and overdue hasn't been signaled for this renewal date.
+2. For configured offsets, fire the **closest current threshold** once. Example: if offsets are `[14,7,1]` and the server first wakes at 7 days, it fires `7`, not a stale `14`. This avoids delayed replay spam after downtime.
+3. Also fire an **overdue** sentinel (`-1`) when `days < 0` and overdue hasn't been signaled for this renewal date.
 
 Each fire builds a `notify.Message` and uses the **existing** fan-out goroutine (the same code path `notifyAll`/the `go func(){ ...NewDispatcher(built...).Send... }` block at server.go:2208) — no new notify code:
 ```
@@ -322,15 +322,15 @@ Anchor on the existing `NextRenewal` (not `now`) so a slightly-late "renewed" cl
 Each phase is a shippable, tested, reviewed, committed slice (per the operating cadence: plan → execute(TDD,-race,gofmt) → review → iterate).
 
 ### MVP (smallest shippable slice) — "see the fleet + get reminded"
-**Half A minimal + Half B core + reminders, no reveal.**
-- SDK: `HostFacts`, add to `Node` **done iter-017**; `MachineProfile` (+cycle consts) pending.
+**Half A minimal + Half B core + reminders, no reveal. Implemented across iter-017 + iter-018.**
+- SDK: `HostFacts`, add to `Node` **done iter-017**; `MachineProfile` (+cycle consts) **done iter-018**.
 - Agent: `internal/hostfacts.Collect()` (hostname/os/arch/cores/mem/kernel/boot; virtualization best-effort), wire into hello+metrics. **Done iter-017.**
-- Server: host-fact ingest in hello/metrics with clamping is **done iter-017**. Store collection + crypto wiring (console/detail encrypted) + `stateHasEnvelope` extension; `server_inventory.go` with `GET/POST/update/delete/renew`; reminder scheduler + `evaluateReminders` + idempotency cursor; `inventory.*` audit remain pending.
-- Dashboard: compact host summary in the existing node table is **done iter-017**. A dedicated **Machines** panel remains pending: node name, online dot, arch/cores/RAM, vendor, price+currency, next renewal + `days_until` (color: red overdue, amber ≤7d), and an edit form. Console/detail shown as `has_*` badges only (no reveal yet — link lives in operator's password manager).
-- **Exit bar for remaining Half B:** an operator can add cost/renewal data to `gmami-jp1`, the dashboard shows auto-detected specs, and a reminder fires through an existing Telegram/Bark channel N days before renewal, exactly once per offset; `go test -race ./...` + gofmt + dashboard green; independent security review of the crypto-field wiring + host-fact clamping.
+- Server: host-fact ingest in hello/metrics with clamping is **done iter-017**. Store collection + crypto wiring (console/detail encrypted) + `stateHasEnvelope` extension; `server_inventory.go` with `GET/POST/update/delete/renew/reminders/run`; reminder scheduler + `evaluateReminders` + idempotency cursor; `inventory.*` audit **done iter-018**.
+- Dashboard: compact host summary in the existing node table is **done iter-017**. Dedicated **Machines** panel (node name, host facts, vendor/region, price+currency, next renewal + `days_until`, edit form, mark renewed, manual reminder run, `has_*` link badges only) **done iter-018**.
+- **Exit bar:** an operator can add cost/renewal data to `gmami-jp1`, the dashboard shows auto-detected specs, and a reminder fires through existing notify channels N days before renewal, exactly once per offset. See `iterations/iter-018-machine-profile-renewals.md`.
 
 ### v2 — "polish + reveal + safety signals"
-- `POST /api/machines/reveal` (audited single-link decrypt) + write-only update semantics for links.
+- `POST /api/machines/reveal` (audited single-link decrypt). Write-only update semantics for links are already in the MVP.
 - `Virtualization` best-effort detection; `CPUModel`.
 - `inventory.facts_changed` low-rate audit/notify when core specs change between reports (cheap drift/impersonation signal).
 - Dashboard: per-currency cost totals (no FX), grouping by vendor/region, "Mark renewed" button calling `/renew`, overdue filter.
@@ -382,20 +382,20 @@ Follow the project cadence: write the iteration doc first, then TDD each slice, 
 
 **Step 1 — SDK model (`lattice-sdk/model/model.go`).**
 - Add `HostFacts` struct; add `HostFacts` field to `Node`. **Done iter-017.**
-- Add `MachineProfile` struct + `RenewalCycle*` consts. **Pending Half B.**
+- Add `MachineProfile` struct + `RenewalCycle*` consts. **Done iter-018.**
 - Update `proto_contract_test.go` expectations for the new fields.
 - `go test ./...` in `lattice-sdk`.
 
-**Step 2 — Store collection (`lattice-server/internal/store/store.go`).**
-- Add `MachineProfiles map[string]model.MachineProfile \`json:"machine_profiles"\`` to `State`; init it in the State constructor/zero-fill path.
-- Add helpers mirroring DDNS: `MachineProfiles()`, `MachineProfile(id)`, `MachineProfileForNode(nodeID)`, `UpsertMachineProfile`, `DeleteMachineProfile`.
-- Add bbolt record APIs if the bbolt store enumerates collections (match the DDNS entry).
+**Step 2 — Store collection (`lattice-server/internal/store/store.go`) — done iter-018.**
+- Added `MachineProfiles map[string]model.MachineProfile \`json:"machine_profiles"\`` to `State`; initialized it in the State constructor/zero-fill path.
+- Added helpers mirroring DDNS: `MachineProfiles()`, `MachineProfile(id)`, `MachineProfileForNode(nodeID)`, `UpsertMachineProfile`, `DeleteMachineProfile`.
+- Added bbolt bucket and record APIs to match JSON store semantics.
 
-**Step 3 — At-rest crypto (`lattice-server/internal/store/crypto.go`).**
-- Add `encryptMachineProfileRecord` / `decryptMachineProfileRecord` (encrypt `ConsoleURL`, `DetailURL`).
-- Range over `MachineProfiles` in both `encryptedState` and `decryptState`.
-- Extend `stateHasEnvelope` with the two fields. **Do not skip this.**
-- Add a round-trip + lost-key-guard test (copy the DDNS crypto test).
+**Step 3 — At-rest crypto (`lattice-server/internal/store/crypto.go`) — done iter-018.**
+- Added `encryptMachineProfileRecord` / `decryptMachineProfileRecord` (encrypt `ConsoleURL`, `DetailURL`).
+- Ranges over `MachineProfiles` in both `encryptedState` and `decryptState`.
+- Extended `stateHasEnvelope` with the two fields.
+- Added JSON + bbolt round-trip/lost-key/prefix-collision coverage.
 
 **Step 4 — Agent host facts (`lattice-node-agent/internal/hostfacts/`) — done iter-017.**
 - `hostfacts.go` uses stdlib + best-effort `/proc`/`/etc/os-release` reads; no new dependency.
@@ -407,7 +407,7 @@ Follow the project cadence: write the iteration doc first, then TDD each slice, 
 - `handleAgentHello` and `handleAgentMetrics` sanitize facts, stamp `ReportedAt` with server receive time, and persist `n.HostFacts`.
 - Added `normalizeHostFacts` (length caps, control-char strip, numeric ceilings) + tests in `server_agent_security_test.go`.
 
-**Step 6 — Inventory API (`lattice-server/internal/server/server_inventory.go`, NEW).**
+**Step 6 — Inventory API (`lattice-server/internal/server/server_inventory.go`) — done iter-018.**
 - `handleMachines` (GET list / POST create), `handleMachineUpdate`, `handleDeleteMachine`, `handleMachineRenew`, `handleMachineRemindersRun`, (v2) `handleMachineReveal`.
 - `toMachineView` joining node + profile, redacting secret links to `has_*` and computing `days_until_renewal`.
 - Validation helpers (`validateMachineProfile`): cycle const, currency-with-price, custom-days, remind offsets.
@@ -422,13 +422,13 @@ Follow the project cadence: write the iteration doc first, then TDD each slice, 
   (POST create on `/api/machines` re-checks `inventory:admin` inside the handler, as `/api/ddns` does GET vs POST.)
 - Add the new scopes to the RBAC scope registry / default admin role.
 
-**Step 7 — Reminder scheduler (`server_inventory.go` + constructor wiring).**
+**Step 7 — Reminder scheduler (`server_inventory.go` + constructor wiring) — done iter-018.**
 - `startRenewalScheduler(ctx)`, `evaluateReminders(now)`, `daysUntil`, `advanceRenewal`, idempotency cursor logic.
 - Reuse the existing notify fan-out helper (`notifyAll`/equivalent) — pass title/body, don't rebuild dispatching.
 - Start the scheduler in the server constructor (where other goroutines/tickers start); make `reminderInterval` a field defaulting to 1h, overridable in tests for fast iteration.
 - Tests: table-driven `evaluateReminders` with a fake clock + a recording notify sink, asserting fire-once-per-(date,offset), overdue, restart idempotency (re-run same `now`, assert no double fire), and roll-forward.
 
-**Step 8 — Dashboard (`lattice-dashboard`).**
+**Step 8 — Dashboard (`lattice-dashboard`) — done iter-018.**
 - New **Machines** panel: fetch `GET /api/machines`, render the table (zero-dep vanilla JS, `textContent` only, strict CSP — no inline handlers; wire via `addEventListener`).
 - Add/edit form POSTing to the endpoints; "Mark renewed" → `/renew`.
 - Color `days_until_renewal` (overdue red / ≤7 amber). Show `has_console_url` as a badge (no value).

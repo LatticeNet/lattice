@@ -2,7 +2,7 @@
 
 These are **framework designs + development guides** for the next major capabilities, produced 2026-06-13 from research of reference panels (remnawave, pasarguard, s-ui, 3x-ui, Sub-Store, nezha) + the operator's own notes, and grounded in Lattice's current architecture. Each doc is buildable directly: data model → API → agent work → config rendering → security → phasing → file-by-file checklist.
 
-**Status:** mostly designed, with the first implementation slice landed. Design 04 Half A (`HostFacts` inventory telemetry) shipped in iter-017; the remaining designs and Design 04 Half B are still design-ready but unbuilt. Each new build slice becomes a numbered `iterations/iter-NNN-*.md` (per `development-workflow.md`: plan → design → build → verify → review → commit).
+**Status:** mostly designed, with Design 04's MVP now implemented. Design 04 Half A (`HostFacts` inventory telemetry) shipped in iter-017 and Half B (`MachineProfile` cost/renewal + reminder MVP) shipped in iter-018; the remaining designs are still design-ready but unbuilt. Each new build slice becomes a numbered `iterations/iter-NNN-*.md` (per `development-workflow.md`: plan → design → build → verify → review → commit).
 
 ## The five designs
 
@@ -11,7 +11,7 @@ These are **framework designs + development guides** for the next major capabili
 | 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box (v1) / xray (v2) management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; server-rendered config validated node-side (`sing-box check` + atomic swap); node-agnostic `ProxyUser` → one `/sub/{token}` spans the fleet (remnawave model); secrets encrypted at rest |
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; **pure-Go CoreDNS** (digest-pinned) via plan→approve→apply; reuses `internal/ddns` (CF) + `internal/network/nft` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
-| 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + hourly renewal reminder scheduler remain next |
+| 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
 | 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy` nft compiler, **fail-closed with a 60s agent dead-man rollback** (no self-lockout); zero-dep inline-SVG map under strict CSP |
 
 ## Shared architecture (all five honor)
@@ -28,10 +28,10 @@ These are **framework designs + development guides** for the next major capabili
 
 ## Recommended build order (rationale)
 
-1. **04 Machine inventory Half B: cost/renewal** — Half A facts are landed; finish server-only `MachineProfile`, encrypted console/detail links, reminder scheduler, and Machines UI.
-2. **The shared nft-input persistence** (small, gates 02 + 05) → then **05 network ACL + map** (high operator value; map reuses 04's facts).
-3. **02 Self-host DNS** — builds on the same nft work + existing ddns; self-contained.
-4. **01 Proxy cores & subscriptions** — the flagship and largest; sequence after the smaller wins so the platform (store/agent/apply) is battle-tested. Ship MVP = vless+reality + expiry-only subs first.
-5. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real store backend is wired, or ship the bounded standalone store as an interim.
+1. **The shared nft-input persistence** (small, gates 02 + 05) → then **05 network ACL + map** (high operator value; map reuses 04's facts).
+2. **02 Self-host DNS** — builds on the same nft work + existing ddns; self-contained.
+3. **01 Proxy cores & subscriptions** — the flagship and largest; sequence after the smaller wins so the platform (store/agent/apply) is battle-tested. Ship MVP = vless+reality + expiry-only subs first.
+4. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real store backend is wired, or ship the bounded standalone store as an interim.
+5. **Design 04 v2 polish** — audited reveal endpoint, per-currency rollups, facts-changed signal, and richer dashboard grouping.
 
 (Order is a recommendation; each is independently shippable. Re-confirm against the live roadmap when starting.)

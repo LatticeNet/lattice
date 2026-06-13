@@ -31,6 +31,9 @@ The current pushed baseline includes:
   monitor probes, DDNS, notifications, WireGuard/nft/tunnel planning, approvals,
   audit filtering, and low-trust HostFacts inventory telemetry from agent
   collection through dashboard display.
+- Server-only MachineProfile inventory/cost/renewal metadata with encrypted
+  console/detail links, renewal reminder evaluation, and a Machines dashboard
+  panel. MachineProfile data never goes to agents.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -85,6 +88,7 @@ Delivered bbolt pieces:
   - TOTP challenges
   - DDNS profiles
   - notification channels
+  - machine profiles
   - OIDC providers
   - OIDC identities
   - OIDC auth states
@@ -97,20 +101,23 @@ Remaining before runtime cutover:
 
 ## Next Development Order
 
-Development resumed with iter-017 (`HostFacts` inventory MVP). The next work
-should now be:
+Development resumed with iter-017 (`HostFacts` inventory MVP) and iter-018
+(`MachineProfile` cost/renewal MVP). The next work should now be:
 
-1. **Design 04 Half B - Machine cost/renewal.** Add server-only
-   `MachineProfile`, encrypted console/detail links, `inventory:read/admin`,
-   renewal reminder evaluation, and a Machines dashboard panel.
-2. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
+1. **Shared nft-input persistence.** Persist each node's authoritative firewall
+   inputs once so Design 05 ACL and Design 02 DNS compose into one
+   `inet lattice_guard` render instead of competing tables.
+2. **Design 05 - Per-node nft ACL + geo-map.** Add deny/allow policy,
+   fail-closed compile, 60s dead-man rollback, and the first network/map
+   visualization using HostFacts + MachineProfile region data.
+3. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
    preserve JSON default, and document migration/rollback as an operator drill.
-3. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
+4. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
    hardening, and prepare WebAuthn/passkey dependency review.
-4. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
+5. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
    notification channels, WireGuard plans, tunnels, audit WAL verification, and
    runtime drill-through.
-5. **B2 - Real plugin execution.** Only after storage and identity gates: add a
+6. **B2 - Real plugin execution.** Only after storage and identity gates: add a
    constrained system runner with deadlines, cancellation, process isolation,
    per-plugin rate limits, output/log caps, and adversarial tests.
 
