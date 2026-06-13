@@ -25,8 +25,10 @@
 > (proxy cores + subscriptions, self-host DNS, log ingestion, machine inventory +
 > cost, per-node nft ACL + geo-map). Machine-inventory HostFacts landed in
 > iter-017, MachineProfile cost/renewal reminder MVP landed in iter-018, and
-> shared per-node nft input persistence landed in iter-019.
-> The other major designs remain designed/not yet built.
+> shared per-node nft input persistence landed in iter-019. Design 05's
+> `NetPolicy` state/API/reachability graph/dashboard foundation landed in
+> iter-020; actual nft apply with dead-man rollback and the geo-map remain
+> pending.
 
 
 ## V1 Hardening
@@ -71,8 +73,10 @@
 - **Per-node nft access control + network/geo visualization** — designed in
   [`designs/design-05-network-acl-and-map.md`](./designs/design-05-network-acl-and-map.md)
   (fail-closed compiler with dead-man rollback; zero-dep inline-SVG map).
-  Shared `NFTInputs` persistence delivered 2026-06-13; full ACL compiler/map
-  still pending. *(Designed; prerequisite landed.)*
+  Shared `NFTInputs` persistence delivered 2026-06-13, and `NetPolicy`
+  validation/store/API/graph/dashboard state delivered in iter-020. nft
+  compiler, `/api/netpolicy/plan`, agent selfcheck/rollback apply, and the
+  geo-map are still pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 

@@ -37,6 +37,11 @@ The current pushed baseline includes:
 - Shared per-node `NFTInputs` persistence for the Network Guard: canonical
   interface/WireGuard CIDR/public TCP+UDP/WireGuard TCP+UDP inputs, rendered
   into the single `inet lattice_guard` plan and reused by future DNS/ACL work.
+- Design 05 NetPolicy foundation: shared SDK contract (`NetEndpoint`,
+  `NetRule`, `NetPolicy`, `NodeGeo`), JSON + bbolt state, strict server-side
+  validation, `netpolicy:read`/`netpolicy:admin` APIs, reachability graph, and a
+  dashboard policy panel. This stores and visualizes intent only; it does not
+  commit nft rules on hosts yet.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -93,6 +98,7 @@ Delivered bbolt pieces:
   - notification channels
   - machine profiles
   - nft inputs
+  - net policies
   - OIDC providers
   - OIDC identities
   - OIDC auth states
@@ -106,12 +112,13 @@ Remaining before runtime cutover:
 ## Next Development Order
 
 Development resumed with iter-017 (`HostFacts` inventory MVP), iter-018
-(`MachineProfile` cost/renewal MVP), and iter-019 (shared nft input
-persistence). The next work should now be:
+(`MachineProfile` cost/renewal MVP), iter-019 (shared nft input persistence),
+and iter-020 (`NetPolicy` state + graph foundation). The next work should now be:
 
-1. **Design 05 - Per-node nft ACL + geo-map.** Add deny/allow policy,
-   fail-closed compile, 60s dead-man rollback, and the first network/map
-   visualization using HostFacts + MachineProfile region data.
+1. **Design 05 - nft policy apply + geo-map.** Continue from iter-020: compile
+   stored `NetPolicy` into nft, add `/api/netpolicy/plan`, reuse approvals, add
+   agent control-plane selfcheck + 60s dead-man rollback, consume apply results,
+   then add the global geo-map.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

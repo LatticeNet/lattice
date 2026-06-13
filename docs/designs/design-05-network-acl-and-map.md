@@ -1,6 +1,9 @@
 # Design 05 — Per-Node nft Access Control + Network-Policy Visualization + Global Geo-Map
 
-> Status: proposed; shared `NFTInputs` prerequisite landed in iter-019 · Author: design pass · Date: 2026-06-13
+> Status: partially implemented. Shared `NFTInputs` prerequisite landed in
+> iter-019; `NetPolicy` state/API/graph/dashboard foundation landed in
+> iter-020. nft compile/plan/apply, agent rollback/selfcheck, and geo-map remain
+> pending. Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
 > Constraints inherited: pure Go, zero CGo, tiny dep surface (new dep ⇒ ADR), security-first,
@@ -52,7 +55,7 @@ Three capabilities, one cohesive slice:
 | **lattice-server (policy point)** | Owns the policy document, resolves node→IP, **compiles** policy to per-node nft rulesets, renders the approval plan, stores geo facts, serves the reachability graph + map data. The *only* place policy lives. |
 | **lattice-node-agent (executor)** | Pure executor. Pulls the bounded apply task, writes the ruleset, runs `nft -c` (validate) then `nft -f` (commit) **with a timed auto-rollback**, reports status. Optionally reports its own geo facts at `hello`. Never decides policy. |
 | **plan → approve → apply** | The spine. `POST …/policy/plan` compiles + diffs + records a pending `Approval` (Plugin `nftpolicy`); operator approves with optional `plan_sha256`; `queue_apply` dispatches the bounded apply task. Identical shape to nft/wg/cftunnel. |
-| **store** | Two new collections: `NetPolicy` (the rule document) and geo facts on `Node`. Reuses the JSON-file store today; record-level bbolt buckets when Phase C lands. Policy is **not secret**; CF token for the optional DNS step already lives in `DDNSProfile` (secret-at-rest). |
+| **store** | `NetPolicy` (the rule document) is landed in JSON state and the bbolt foundation as of iter-020. `Node.Geo` is in the shared model/proto contract as a placeholder; operator geo CRUD is pending. Policy is **not secret**; CF token for the optional DNS step already lives in `DDNSProfile` (secret-at-rest). |
 | **RBAC** | New scopes `netpolicy:read` / `netpolicy:admin`, plus reuse of `network:apply` for the apply step, all honoring the existing per-node `ServerAllowlist`. |
 | **notify** | Reuse `internal/notify` fan-out for "policy applied / apply failed / auto-rolled-back" alerts. No new channel code. |
 | **ddns** | Reuse `ddns.Cloudflare.SetRecord` (already a clean `SetRecord(ctx, Record)` provider) if the operator wants `*.dns.roobli.org` map pins published — optional, off by default. |
@@ -193,7 +196,7 @@ block next to the other `/api/network/*` lines.
 |---|---|---|---|---|
 | `GET` | `/api/netpolicy` | `netpolicy:read` | — | `[]NetPolicy` (only nodes the principal's allowlist permits) |
 | `POST` | `/api/netpolicy` | `netpolicy:admin` | `NetPolicy` (CRUD upsert, validated, **not** applied) | stored `NetPolicy` |
-| `POST` | `/api/netpolicy/delete` | `netpolicy:admin` | `{node_id}` | `{ok:true}` |
+| `POST` | `/api/netpolicy/delete` | `netpolicy:admin` | `{target_node_id}` | `{ok:true}` |
 | `POST` | `/api/netpolicy/plan` | `netpolicy:admin` | `{node_id}` | `Approval` (Plugin `nftpolicy`, `Plan` = compiled ruleset; **diffable, no secret**) |
 | `POST` | `/api/network/approvals/approve` | `network:apply` | `{approval_id, queue_apply, plan_sha256?}` | `ApprovalView` — **reuse the existing handler unchanged** |
 | `GET` | `/api/netpolicy/graph` | `netpolicy:read` | — | reachability graph JSON (see below) |
@@ -376,13 +379,30 @@ already-encrypted CF token. Default off — the map works entirely from stored g
 Each phase is a shippable iteration logged as `iterations/iter-NNN-<slug>.md`, green on
 `go test -race ./...` + gofmt + dashboard, with an independent adversarial review pass.
 
-### MVP (iter A — "deny node A → node B:port")
+### Landed pre-MVP (iter-020 — state + graph, no host mutation)
+
+This safe slice is already implemented so operators and future developers can
+author/review policy intent before any firewall commit path exists:
+- shared SDK model/proto contract: `NetEndpoint`, `NetRule`, `NetPolicy`,
+  `NodeGeo`, `Node.Geo`;
+- JSON store + bbolt foundation bucket for `NetPolicies`;
+- `internal/netpolicy` normalization and graph builder;
+- `GET/POST /api/netpolicy`, `POST /api/netpolicy/delete`,
+  `GET /api/netpolicy/graph`;
+- plugin risk map entries for `netpolicy:read` and `netpolicy:admin`;
+- dashboard policy panel with strict client-side port parsing, saved policies,
+  and server-derived node/external graph lists.
+
+It deliberately does **not** compile or apply nft. That remains gated on the
+next phase because a firewall commit without control-plane selfcheck and
+dead-man rollback can lock out an operator.
+
+### MVP apply phase (iter A — "deny node A → node B:port")
 Smallest end-to-end slice that delivers the operator's exact ask.
-- `model`: `NetEndpoint`, `NetRule`, `NetPolicy` (egress-only, `node`/`cidr`/`any` refs, tcp/udp).
+- Reuse the landed `model`/store/API policy state.
 - `internal/netpolicy`: compiler emitting the `output` chain with the **mandatory control-plane allow**
   + default drop; table-driven tests including the self-lockout-prevention case.
-- store CRUD for `NetPolicies`; `server_netpolicy.go` with `GET/POST /api/netpolicy`, `…/delete`,
-  `…/plan`; reuse `handleApprove`.
+- extend `server_netpolicy.go` with `POST /api/netpolicy/plan`; reuse `handleApprove`.
 - `applyScriptFor` `nftpolicy` branch **with the dead-man rollback** + agent `--selfcheck-controlplane`.
 - Server consumes the apply `TaskResult` to update `NetPolicy` status + audit + notify.
 - **Exit bar:** operator can create "deny `gmami-jp1` egress to `dmit-eb` TCP/1234", plan → see the
@@ -391,7 +411,9 @@ Smallest end-to-end slice that delivers the operator's exact ask.
   red-if-removed test. No UI required yet (API + curl acceptable).
 
 ### v2 — visualization + ingress + map
-- `GET /api/netpolicy/graph`; dashboard **policy panel** (adjacency list + inline-SVG node-link graph).
+- `GET /api/netpolicy/graph` and the basic dashboard policy list are landed in
+  iter-020. Next visualization work should upgrade the list into an inline-SVG
+  node-link graph and add the geo-map.
 - Ingress (`input` chain) rules; `protocol==any`.
 - `NodeGeo` model + `GET/POST /api/nodes/geo` + bulk seed from the operator's ASN/latency report.
 - Dashboard **geo-map panel**: inline-SVG world outline + node pins from geo facts, online/offline
@@ -470,13 +492,20 @@ Follow `development-workflow.md`: **plan → design (this doc) → TDD build →
 dashboard) → independent review → commit**. Build with `GOWORK` set (multi-repo `go.work`). Conventional
 commits; small coherent slices.
 
+**Progress note (2026-06-13 / iter-020):** steps 2, 4, 5, the CRUD/graph subset
+of step 6, the route subset of step 7, and a basic dashboard policy panel from
+step 17 are complete. Do not reimplement those. Continue with the compiler,
+plan endpoint, `nftpolicy` apply script, agent selfcheck, apply-result
+consumption, and geo-map work below.
+
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this
    doc, risks, test plan, exit bar) *before* code.
 2. **`lattice-sdk/model/model.go`** — add `NetRule*`/`NetDir*`/`NetProto*`/`NetRef*` consts,
    `NetEndpoint`, `NetRule`, `NetPolicy`, `NodeGeo`, and `Node.Geo *NodeGeo`. Update
    `proto_contract_test.go` so the wire contract is locked.
-3. **`lattice-server/internal/netpolicy/compile.go`** (new pkg) + `compile_test.go` — the compiler.
+3. **`lattice-server/internal/netpolicy/compile.go`** (new file in the existing
+   `internal/netpolicy` package) + `compile_test.go` — the compiler.
    *Write tests first*: (a) deny egress node→node:port renders the expected `output` chain; (b) the
    control-plane allow is always present and ordered first; (c) removing it makes a node unreachable
    (the red-if-removed lockout test); (d) CIDR/any refs; (e) byte-stability for `plan_sha256`. Then
@@ -487,11 +516,11 @@ commits; small coherent slices.
 5. **`lattice-server/internal/rbac`** — confirm `Allows` handles the new scopes (it's generic; just use
    the strings). Add `netpolicy:read`/`netpolicy:admin` to the plugin risk map in
    `internal/plugin/plugin.go`.
-6. **`lattice-server/internal/server/server_netpolicy.go`** (new) — `handleNetPolicy` (GET list / POST
-   upsert with full validation), `handleDeleteNetPolicy`, `handleNetPolicyPlan` (compile → build
+6. **`lattice-server/internal/server/server_netpolicy.go`** — CRUD + graph
+   handlers exist; add `handleNetPolicyPlan` (compile → build
    `Approval{Plugin:"nftpolicy"}` → store → audit). Mirror `handleTunnelPlan` / `handleNFTPlan`.
 7. **`server.go`** — register routes in `routes()` beside the other `/api/network/*` lines:
-   `/api/netpolicy`, `/api/netpolicy/delete`, `/api/netpolicy/plan` (no new approve route — reuse
+   `/api/netpolicy/plan` (CRUD + graph routes already exist; no new approve route — reuse
    `/api/network/approvals/approve`).
 8. **`server.go` `applyScriptFor`** — add the `case "nftpolicy"` branch (validate → snapshot → dead-man
    timer → commit → selfcheck → disarm), using the existing `heredocWrite` helper.
@@ -512,17 +541,21 @@ commits; small coherent slices.
     said nft apply was future work — it now exists for policy.
 
 **Phase v2 (after MVP merges)**
-14. `internal/netpolicy/graph.go` + `handleNetPolicyGraph` (`GET /api/netpolicy/graph`) — derive the
-    graph from the *same* compiler internals; tests that graph edges match emitted nft.
+14. `internal/netpolicy/graph.go` + `handleNetPolicyGraph` (`GET /api/netpolicy/graph`) — a
+    safe graph builder landed in iter-020. After the compiler lands, add tests
+    that graph edges match emitted nft so visualization and enforcement cannot
+    drift.
 15. Ingress (`input` chain) in the compiler + resolve the `lattice_guard` coexistence question (open
     item §9.3) with a test that both rulesets compose without double-drop.
 16. `handleNodesGeo` (`GET/POST /api/nodes/geo`) + bulk seed importer from the ASN/latency report.
-17. **Dashboard** (`lattice-dashboard/assets/`): new ES module `netpolicy.js` (graph: build inline SVG
-    `<line>`/`<circle>` from the graph JSON; list view) and `geomap.js` (inline world-outline SVG +
-    equirectangular pin placement + hover tooltip). Wire into `app.js` `state` + a new panel in
-    `index.html`. **No inline `<script>`, no inline styles** — SVG built via DOM APIs, classes from
-    `styles.css`, to stay inside `script-src 'self'` / `style-src 'self'`. The world-outline SVG path is
-    a static asset shipped under `assets/` (served as `'self'`).
+17. **Dashboard** (`lattice-dashboard/assets/`): basic `netpolicy.js` payload
+    helpers and a policy/graph-list panel landed in iter-020. Next UI work:
+    upgrade graph rendering to inline SVG (`<line>`/`<circle>` from graph JSON)
+    and add `geomap.js` (inline world-outline SVG + equirectangular pin
+    placement + hover tooltip). **No inline `<script>`, no inline styles** —
+    SVG built via DOM APIs, classes from `styles.css`, to stay inside
+    `script-src 'self'` / `style-src 'self'`. The world-outline SVG path is a
+    static asset shipped under `assets/` (served as `'self'`).
 18. Verify (add a dashboard render smoke check), review, commit per slice.
 
 **Phase Later** — IPv6 parity, boot-persistence unit, optional CF map-pin DNS (ADR if default-on),

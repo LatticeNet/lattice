@@ -2,7 +2,15 @@
 
 These are **framework designs + development guides** for the next major capabilities, produced 2026-06-13 from research of reference panels (remnawave, pasarguard, s-ui, 3x-ui, Sub-Store, nezha) + the operator's own notes, and grounded in Lattice's current architecture. Each doc is buildable directly: data model → API → agent work → config rendering → security → phasing → file-by-file checklist.
 
-**Status:** mostly designed, with Design 04's MVP implemented and the shared nft-input prerequisite landed. Design 04 Half A (`HostFacts` inventory telemetry) shipped in iter-017, Half B (`MachineProfile` cost/renewal + reminder MVP) shipped in iter-018, and the shared per-node `NFTInputs` state that gates DNS/ACL work shipped in iter-019. The remaining designs are still design-ready but unbuilt. Each new build slice becomes a numbered `iterations/iter-NNN-*.md` (per `development-workflow.md`: plan → design → build → verify → review → commit).
+**Status:** mostly designed, with Design 04's MVP implemented and Design 05's
+safe control-plane foundation started. Design 04 Half A (`HostFacts` inventory
+telemetry) shipped in iter-017, Half B (`MachineProfile` cost/renewal + reminder
+MVP) shipped in iter-018, shared per-node `NFTInputs` state shipped in iter-019,
+and `NetPolicy` state + reachability graph + dashboard panel shipped in
+iter-020. Remaining Design 05 work is the nft compiler/plan/apply path with
+dead-man rollback plus the geo-map. Designs 01/02/03 remain design-ready but
+unbuilt. Each new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
+`development-workflow.md`: plan → design → build → verify → review → commit).
 
 ## The five designs
 
@@ -12,7 +20,7 @@ These are **framework designs + development guides** for the next major capabili
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; **pure-Go CoreDNS** (digest-pinned) via plan→approve→apply; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
-| 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy` nft compiler, **fail-closed with a 60s agent dead-man rollback** (no self-lockout); zero-dep inline-SVG map under strict CSP. Shared `NFTInputs` prerequisite landed iter-019 |
+| 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; next is the nft compiler + **60s agent dead-man rollback** apply path; zero-dep inline-SVG map remains pending |
 
 ## Shared architecture (all five honor)
 
@@ -28,10 +36,16 @@ These are **framework designs + development guides** for the next major capabili
 
 ## Recommended build order (rationale)
 
-1. **05 network ACL + map** — now unblocked by shared `NFTInputs` (high operator value; map reuses 04's facts).
-2. **02 Self-host DNS** — builds on the same nft work + existing ddns; self-contained.
-3. **01 Proxy cores & subscriptions** — the flagship and largest; sequence after the smaller wins so the platform (store/agent/apply) is battle-tested. Ship MVP = vless+reality + expiry-only subs first.
-4. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real store backend is wired, or ship the bounded standalone store as an interim.
-5. **Design 04 v2 polish** — audited reveal endpoint, per-currency rollups, facts-changed signal, and richer dashboard grouping.
+1. **05 network ACL apply + map** — continue from iter-020: compiler, plan,
+   approval, agent selfcheck/rollback, then the geo-map.
+2. **02 Self-host DNS** — builds on the same nft work + existing ddns; keep DNS
+   port opening folded into the single firewall render.
+3. **01 Proxy cores & subscriptions** — the flagship and largest; sequence after
+   the smaller wins so the platform (store/agent/apply) is battle-tested. Ship
+   MVP = vless+reality + expiry-only subs first.
+4. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real
+   store backend is wired, or ship the bounded standalone store as an interim.
+5. **Design 04 v2 polish** — audited reveal endpoint, per-currency rollups,
+   facts-changed signal, and richer dashboard grouping.
 
 (Order is a recommendation; each is independently shippable. Re-confirm against the live roadmap when starting.)
