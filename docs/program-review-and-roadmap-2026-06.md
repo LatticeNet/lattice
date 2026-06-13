@@ -7,6 +7,11 @@
 > bbolt durability before concrete plugin artifact execution.** All modules
 > build, `go vet` clean, `gofmt` clean, `go test -race` green, dashboard
 > `node --test` 31/31.
+>
+> 2026-06-13 closeout update: bbolt import/export, JSON migration/rollback CLI,
+> and record-level APIs for nodes, KV, audit, static objects, Worker scripts,
+> plugin lifecycle records, and approvals are now documented as the current
+> storage baseline. Runtime still defaults to encrypted JSON.
 
 ---
 
@@ -159,7 +164,9 @@ per-node RBAC, capability tiers).
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
   beyond that. The decided replacement is bbolt, not SQLite, to preserve zero
-  CGo.
+  CGo. Bucketized import/export, JSON migration/rollback, and the first
+  low-risk record-level APIs have landed; runtime cutover, medium-risk buckets,
+  secret-bearing buckets, and backup/restore drills are still pending.
 - **F-P1-3 · Task execution is bounded but not OS-sandboxed.** The agent has
   interpreter allowlists, env limits, timeouts, output caps, and isolated
   workdirs. It still lacks a non-root unit profile, cgroup CPU/mem caps,
@@ -235,7 +242,9 @@ capabilities, deadlines, and audit.*
 - **P** Replace the whole-file JSON store with **bbolt**: per-entity writes,
   indices on node/task/monitor/plugin/audit, bounded audit/monitor retention,
   JSON export/import, and a tested migration path from the current encrypted
-  JSON file. *(F-P1-2; highest backend leverage.)*
+  JSON file. *(F-P1-2; highest backend leverage. Import/export, rollback CLI,
+  and first low-risk record-level buckets delivered; default runtime store is
+  still JSON.)*
 - **S/P** Move ephemeral high-churn records (OIDC auth states, TOTP challenges,
   sessions, monitor history) off whole-file rewrites.
 - **S** Audit WAL head anchoring: expose and optionally ship the head hash so

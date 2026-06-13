@@ -12,6 +12,9 @@
 > bucketized bbolt import/export, JSON migration/rollback CLI, and record-level
 > bbolt APIs for low-risk buckets have landed, but JSON is still the default
 > server store.
+>
+> **2026-06-13 closeout:** the current six-repo baseline and next development
+> order are captured in [`development-report-2026-06-13.md`](./development-report-2026-06-13.md).
 
 
 ## V1 Hardening
@@ -20,7 +23,8 @@
   encryption and moving hot/ephemeral records off whole-file rewrites.
   *(Bucketized import/export, JSON rollback CLI, and record-level APIs for
   nodes/KV/audit/static/Workers/plugin lifecycle/approvals delivered;
-  secret-bearing writes and default store switch pending.)*
+  tasks/results, monitors/results, tunnels, secret-bearing writes, and default
+  store switch pending.)*
 - Keep protobuf/ConnectRPC transport and generated TypeScript clients as a later
   API-boundary upgrade; current JSON APIs remain the bootstrap surface.
 - TOTP setup and recovery codes. *(Delivered 2026-06-12; enforce-2FA policy,

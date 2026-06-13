@@ -242,3 +242,10 @@ boundary with AES-256-GCM; one-way password/token/recovery-code hashes remain
 hashes. The server `internal/store` package is intentionally isolated so a
 bbolt implementation can replace whole-file JSON rewrites without changing
 handlers or agents while preserving the pure-Go / zero-CGo constraint.
+
+The bbolt path currently supports full import/export, JSON migration, JSON
+rollback export, and record-level APIs for nodes, KV, audit, static objects,
+Worker scripts, plugin lifecycle records, and approvals. Server startup still
+uses the JSON store by default. Runtime cutover is blocked on record-level
+coverage for tasks/results, monitors/results, tunnels, secret-bearing buckets,
+backup/restore drills, and an explicit operator opt-in.
