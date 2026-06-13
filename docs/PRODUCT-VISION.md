@@ -11,8 +11,9 @@
 > TOTP replay, session-epoch). The bbolt record-level store exists as a foundation
 > but JSON remains the runtime backend. **Five next-capability designs are written
 > and ready to build** (proxy cores+subscriptions, self-host DNS, log ingestion,
-> machine inventory+cost, per-node nft ACL + geo-map) — see `designs/README.md` for
-> the cross-cutting dependencies and recommended build order.
+> machine inventory+cost, per-node nft ACL + geo-map); the first machine-inventory
+> slice (`HostFacts`) has landed. See `designs/README.md` for the remaining
+> cross-cutting dependencies and recommended build order.
 
 ## 1. North star
 
@@ -32,7 +33,7 @@ The bar is not "works." The bar is **惊艳 — a product that makes a self-host
 
 ## 3. Honest current state (2026-06-13)
 
-Delivered and pushed: control plane + node agent + SDK + dashboard across 6 repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker/server adapter + lifecycle registry/API + dashboard panel + runtime manager + runner contract; TOTP 2FA; tamper-evident audit WAL; node-token rotation; bounded task execution; **AES-256-GCM at-rest encryption** (ADR-002); bbolt state import/export foundation with explicit JSON migration/rollback CLI and record-level APIs for current state buckets, including secret-bearing identity/auth/DDNS/notify/OIDC records. Minimal external Go deps are currently limited to the OIDC stack approved in ADR-001 (`oauth2`, `go-oidc`, transitive `go-jose`) plus bbolt for Phase C storage; still zero CGo. The 2026-06-13 closeout baseline is recorded in `development-report-2026-06-13.md`.
+Delivered and pushed: control plane + node agent + SDK + dashboard across 6 repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker/server adapter + lifecycle registry/API + dashboard panel + runtime manager + runner contract; TOTP 2FA; tamper-evident audit WAL; node-token rotation; bounded task execution; **AES-256-GCM at-rest encryption** (ADR-002); bbolt state import/export foundation with explicit JSON migration/rollback CLI and record-level APIs for current state buckets, including secret-bearing identity/auth/DDNS/notify/OIDC records; and low-trust `HostFacts` inventory telemetry from node-agent through server to dashboard. Minimal external Go deps are currently limited to the OIDC stack approved in ADR-001 (`oauth2`, `go-oidc`, transitive `go-jose`) plus bbolt for Phase C storage; still zero CGo. The 2026-06-13 closeout baseline is recorded in `development-report-2026-06-13.md`.
 
 The three gaps that most separate us from 惊艳, in dependency order: **identity policy polish**, **the platform actually running plugins**, and **a storage engine that scales** — plus a **dashboard worthy of the backend**.
 

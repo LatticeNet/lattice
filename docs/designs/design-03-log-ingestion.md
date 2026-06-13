@@ -371,8 +371,8 @@ The path allowlist is what stops a node-token thief from tailing `/etc/shadow`:
 **Back-pressure / rate limits (first-class).**
 - **Agent-side:** bounded in-memory buffer; overflow drops oldest and counts
   `Dropped` (visible). Batch cap `MaxBatchLines`, flush timer ≤1s.
-- **Wire:** `withAgentLimit` (existing) + ingest body cap (reuse the 1 MiB
-  `decodeJSON` cap; a batch of 500×16KiB lines ≈ 8 MiB → so cap
+- **Wire:** `withAgentLimit` (existing) + ingest body cap (use a dedicated
+  `decodeAgentJSON`/`decodeJSONBody` limit for this route; a batch of 500×16KiB lines ≈ 8 MiB → so cap
   `MaxBatchLines×MaxLineBytes ≤ ingest body limit`, e.g. default 500×16KiB but
   raise the ingest decode cap for this route to 16 MiB, or lower line/batch caps;
   **pick caps so a max batch fits the decode limit** — call it out in tests).

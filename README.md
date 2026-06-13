@@ -19,7 +19,7 @@ separately.
 ## Current MVP
 
 - Go server and Go node-agent.
-- Outbound agent enrollment, heartbeat, metric reporting, task polling, and task result upload.
+- Outbound agent enrollment, heartbeat, metric/HostFacts reporting, task polling, and task result upload.
 - Session login, CSRF checks, TOTP 2FA, OIDC/SSO, PBKDF2 password/token hashing, PAT scopes, server allowlists, and tamper-evident audit WAL.
 - Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, approvals, and audit views.
 - nftables plan generation with explicit approval before apply.

@@ -33,7 +33,7 @@
 | C7 | Low | **FIX** | CSRF compared with non-constant-time `!=`. Use `subtle.ConstantTimeCompare`. | `server.go:603` |
 | C8 | Low | **FIX** | Recovery-code outer path not constant-time (membership/timing leak). Fixed-count CT compares. | `store.go:862-889` |
 | C9 | Low | **FIX** | 4xx echoes raw decoder/validation strings. Generic "invalid request body" for decoder 400s; keep request_id. | `server.go:3274`, `:3167` |
-| C10 | Low | **FIX** | `decodeJSON` lacks DisallowUnknownFields/trailing-value/depth guard. Unify with `decodeLimitedJSON`. | `server.go:3164` |
+| C10 | Low | **FIX** | Request-body decoding lacked clear strict/lenient semantics. Client/operator APIs now use strict `decodeClientJSON`; agent ingestion uses explicit forward-compatible `decodeAgentJSON` while still rejecting malformed/trailing JSON. | `server.go:3418` |
 | C11 | Low/Med | **FIX** | `trust-proxy` honors `CF-Connecting-IP`/XFF with no trusted-proxy CIDR allowlist → IP spoof defeats IP-binding+rate-limit. Add `-trusted-proxy-cidrs`; only honor headers when RemoteAddr ∈ set. | `server.go:3131` |
 | C12 | Low | **FIX** | No session invalidation on 2FA-disable/password/scope change. Add `User.SecurityEpoch`; stamp into sessions; reject stale; bump on those events. | `server.go:801`, 2FA/password flows |
 | C13 | Low | **FIX** | Password login per-IP only (no per-account brake). Per-user failure backoff mirroring TOTP limiter. | `server.go:761-794` |
@@ -92,9 +92,9 @@ Done:
 - **C14** — the post-SSO TOTP challenge now also sets an HttpOnly/SameSite=Lax cookie (`lattice_totp_challenge`); `handleLoginTOTP` constant-time-requires it to match the submitted challenge id when present, so a front-channel `?totp_challenge=` leak alone can't complete 2FA. Password→2FA path (no cookie) unaffected.
 - **D4** — explicit secret-free `approvalView`/`monitorView`/`tunnelView` projections (`server_views.go`); the four GET/approve responses serialize through them so a future sensitive model field can't auto-leak.
 
-**C10 — confirmed DEFER (with evidence).** Making `decodeJSON` blanket-strict (`DisallowUnknownFields`) broke `TestAgentPostEndpointsRejectBodyTokenWithoutBearer`: agent endpoints must tolerate a forward-compatible extra field from a newer agent (strict decode turned a 401 into a 400). This validates the audit's "per-handler audit, not a blanket flip" guidance — strict decoding stays opt-in via `decodeLimitedJSON` for operator handlers; agent/lenient handlers keep `decodeJSON`. C9's generic-error part is kept (no raw decoder strings leak). Not re-attempted as a blanket change.
+**C10 — landed as a semantic split (follow-up).** Making every request body blanket-strict (`DisallowUnknownFields`) correctly failed the compatibility test `TestAgentPostEndpointsRejectBodyTokenWithoutBearer`: unauthenticated agent POSTs with forward-compatible fields must still authenticate first and return 401, not 400. The final shape is explicit instead of blanket: dashboard/operator/public request bodies use strict `decodeClientJSON` (unknown fields + trailing values rejected, generic 400), while `/api/agent/*` POST ingestion uses `decodeAgentJSON` (unknown fields tolerated, malformed/trailing values rejected). Regression tests cover both sides.
 
-Everything that is a real security or stability risk is fixed and shipped; the only un-done audit item (C10 blanket) is deliberately scoped out with a regression test proving why.
+Everything that is a real security or stability risk is fixed and shipped. C10 is intentionally not a blanket strict flip; it is now closed by route-class semantics that preserve agent forward compatibility.
 
 ## Review outcome
 Each security-critical fix reviewed against source by the lead (C1/C2/C3/C4/C6/C7/C12/C13 read and confirmed correct: constant-time compares, compare-and-set under lock, fail-closed epoch check, namespace escape rejected). Subagents ran the `-race` suite per lane; the lead ran the full workspace verify. No regressions. Deferred items recorded in §Deferred / Batch 2.

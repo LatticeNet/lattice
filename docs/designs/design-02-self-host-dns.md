@@ -181,7 +181,7 @@ Request/response shapes:
 func (s *Server) handleDNSPlan(w http.ResponseWriter, r *http.Request, p principal) {
     // method guard …
     var req struct{ ID string `json:"id"` }
-    if !decodeJSON(w, r, &req) { return }
+    if !decodeClientJSON(w, r, &req) { return }
     dep, ok := s.store.DNSDeployment(req.ID)
     if !ok { writeError(w, http.StatusNotFound, errors.New("dns deployment not found")); return }
     if !s.requireNodeScope(w, p, "dns:admin", dep.NodeID) { return }

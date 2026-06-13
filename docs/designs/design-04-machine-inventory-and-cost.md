@@ -1,12 +1,12 @@
 # Design 04 — Machine Inventory + Cost / Renewal Management
 
-> Status: design (pre-implementation). Author target: the operator builds against this directly.
+> Status: **partially implemented**. Half A (`HostFacts` auto-detection/reporting/display) landed in iter-017 on 2026-06-13. Half B (`MachineProfile` cost/vendor/renewal + reminders) remains design-ready but unbuilt.
 > Scope owner: `lattice-server` (core provider) + `lattice-node-agent` (fact collection) + `lattice-sdk/model` + `lattice-dashboard`.
 > Constraints inherited: pure Go, **zero CGo**, tiny dep surface (new external dep ⇒ ADR), security-first, fail-closed, audit everything.
 
 This feature has **two halves with very different trust models**, and the design keeps them separate on purpose:
 
-- **Half A — auto-detected static facts** (CPU cores, RAM total, arch, OS/platform, kernel, boot time): *node-reported*, low-trust, advisory. The agent already reports `model.Metrics`; we extend the hello/metrics envelope with a `host` block. No new privileges, no apply flow.
+- **Half A — auto-detected static facts** (CPU cores, RAM total, arch, OS/platform, kernel, boot time): *node-reported*, low-trust, advisory. **Implemented in iter-017** as `model.HostFacts`, reported by the agent in hello/metrics, sanitized server-side, and shown in the dashboard node table. No new privileges, no apply flow.
 - **Half B — cost / vendor / renewal** (price, currency, cycle, next renewal date, console/detail links, reminders): *operator-authored server-side metadata*, never touched by the agent, never sent to a node. This is pure control-plane state plus a server-side reminder scheduler reusing `internal/notify`.
 
 The mental model: **Half A describes the machine; Half B describes the contract you signed for it.** A compromised node can lie about Half A and can never see or influence Half B.
@@ -62,7 +62,7 @@ A plugin could *later* consume this (e.g. a "cost report to Slack weekly" plugin
 All additions go in `lattice-sdk/model/model.go` (shared wire model) so server, agent, and dashboard agree. New scopes are server-side strings.
 
 ### 3.1 Half A — host facts on `model.Node`
-Add a `HostFacts` block to `model.Node` (kept distinct from the live, fast-changing `Metrics`). These are *static-ish*: they change only on reboot/resize, so they ride the `hello` and occasionally on `metrics`, and the server stores the last-reported snapshot.
+Add a `HostFacts` block to `model.Node` (kept distinct from the live, fast-changing `Metrics`). These are *static-ish*: they change only on reboot/resize, so they ride the `hello` and `metrics`, and the server stores the last-reported snapshot. **Current implementation note:** the server stamps `ReportedAt` with receive time and clamps strings/numeric ceilings before persisting.
 
 ```go
 // HostFacts are auto-detected, slow-changing machine facts reported by the agent.
@@ -72,8 +72,8 @@ type HostFacts struct {
 	Hostname     string    `json:"hostname,omitempty"`
 	OS           string    `json:"os,omitempty"`            // runtime.GOOS: "linux", ...
 	Platform     string    `json:"platform,omitempty"`      // distro id, e.g. "debian", "alpine" (from /etc/os-release ID)
-	PlatformVer  string    `json:"platform_version,omitempty"` // os-release VERSION_ID
-	KernelVer    string    `json:"kernel_version,omitempty"` // uname -r equivalent via syscall.Uname
+	PlatformVersion string `json:"platform_version,omitempty"` // os-release VERSION_ID
+	KernelVersion  string `json:"kernel_version,omitempty"` // kernel release, best-effort
 	Arch         string    `json:"arch,omitempty"`          // runtime.GOARCH: "amd64", "arm64", ...
 	CPUCores     int       `json:"cpu_cores,omitempty"`     // logical cores (runtime.NumCPU / nproc)
 	CPUModel     string    `json:"cpu_model,omitempty"`     // /proc/cpuinfo "model name" (first), best-effort
@@ -81,7 +81,7 @@ type HostFacts struct {
 	SwapTotal    uint64    `json:"swap_total,omitempty"`    // bytes
 	Virtualization string  `json:"virtualization,omitempty"` // best-effort hint: "kvm","vmware","lxc","docker","none","unknown"
 	BootTime     time.Time `json:"boot_time,omitempty"`     // derived: now - uptime, UTC
-	ReportedAt   time.Time `json:"reported_at,omitempty"`   // when the agent collected this
+	ReportedAt   time.Time `json:"reported_at,omitempty"`   // server receive time in current implementation
 }
 ```
 
@@ -225,7 +225,7 @@ Sources (all zero-CGo, Linux-first, degrade gracefully elsewhere):
 - `CPUCores` → `runtime.NumCPU()`
 - `CPUModel` → first `model name` line of `/proc/cpuinfo` (best-effort)
 - `MemoryTotal`/`SwapTotal` → `/proc/meminfo` (`MemTotal`, `SwapTotal` ×1024)
-- `KernelVer` → `syscall.Uname` `Release` (Linux; empty elsewhere — build-tag the uname bit like taskexec splits `_linux.go`/`_other.go`)
+- `KernelVersion` → `/proc/sys/kernel/osrelease` on Linux; empty elsewhere.
 - `Platform`/`PlatformVer` → parse `/etc/os-release` `ID` / `VERSION_ID`
 - `Virtualization` → best-effort: presence of `/proc/vz`, `/.dockerenv`, `systemd-detect-virt` output if on PATH, or `hypervisor` flag in `/proc/cpuinfo`; default `"unknown"`. Keep it cheap and non-fatal.
 - `BootTime` → `now - uptime` using the existing `readUptime()` value (export it or recompute)
@@ -323,11 +323,11 @@ Each phase is a shippable, tested, reviewed, committed slice (per the operating 
 
 ### MVP (smallest shippable slice) — "see the fleet + get reminded"
 **Half A minimal + Half B core + reminders, no reveal.**
-- SDK: `HostFacts`, add to `Node`; `MachineProfile` (+cycle consts).
-- Agent: `internal/hostfacts.Collect()` (hostname/os/arch/cores/mem/kernel/boot; virtualization = "unknown" is fine), wire into hello+metrics.
-- Server: store collection + crypto wiring (console/detail encrypted) + `stateHasEnvelope` extension; `server_inventory.go` with `GET/POST/update/delete/renew`; ingest host facts in hello/metrics with clamping; reminder scheduler + `evaluateReminders` + idempotency cursor; `inventory.*` audit.
-- Dashboard: a **Machines** panel (table): node name, online dot, arch/cores/RAM, vendor, price+currency, next renewal + `days_until` (color: red overdue, amber ≤7d), and an edit form. Console/detail shown as `has_*` badges only (no reveal yet — link lives in operator's password manager).
-- **Exit bar:** an operator can add cost/renewal data to `gmami-jp1`, the dashboard shows auto-detected specs, and a reminder fires through an existing Telegram/Bark channel N days before renewal, exactly once per offset; `go test -race ./...` + gofmt + dashboard green; independent security review of the crypto-field wiring + host-fact clamping.
+- SDK: `HostFacts`, add to `Node` **done iter-017**; `MachineProfile` (+cycle consts) pending.
+- Agent: `internal/hostfacts.Collect()` (hostname/os/arch/cores/mem/kernel/boot; virtualization best-effort), wire into hello+metrics. **Done iter-017.**
+- Server: host-fact ingest in hello/metrics with clamping is **done iter-017**. Store collection + crypto wiring (console/detail encrypted) + `stateHasEnvelope` extension; `server_inventory.go` with `GET/POST/update/delete/renew`; reminder scheduler + `evaluateReminders` + idempotency cursor; `inventory.*` audit remain pending.
+- Dashboard: compact host summary in the existing node table is **done iter-017**. A dedicated **Machines** panel remains pending: node name, online dot, arch/cores/RAM, vendor, price+currency, next renewal + `days_until` (color: red overdue, amber ≤7d), and an edit form. Console/detail shown as `has_*` badges only (no reveal yet — link lives in operator's password manager).
+- **Exit bar for remaining Half B:** an operator can add cost/renewal data to `gmami-jp1`, the dashboard shows auto-detected specs, and a reminder fires through an existing Telegram/Bark channel N days before renewal, exactly once per offset; `go test -race ./...` + gofmt + dashboard green; independent security review of the crypto-field wiring + host-fact clamping.
 
 ### v2 — "polish + reveal + safety signals"
 - `POST /api/machines/reveal` (audited single-link decrypt) + write-only update semantics for links.
@@ -360,7 +360,7 @@ Each phase is a shippable, tested, reviewed, committed slice (per the operating 
 ## 10. What to borrow vs avoid from the reference panels
 
 From the **nezha** research (machine facts + map reference):
-- **Borrow — the host-fact set.** nezha's per-machine card shows platform/OS, arch, CPU model + cores, total memory/swap, boot time/uptime, and a virtualization hint. Mirror that exact set in `HostFacts` — it's the proven "what is this box" vocabulary self-hosters expect, and it's all cheap to read from `/proc`+`uname` with zero CGo.
+- **Borrow — the host-fact set.** nezha's per-machine card shows platform/OS, arch, CPU model + cores, total memory/swap, boot time/uptime, and a virtualization hint. Mirror that exact set in `HostFacts` — it's the proven "what is this box" vocabulary self-hosters expect, and it's cheap to read from `/proc`, `/etc/os-release`, and Go runtime calls with zero CGo.
 - **Borrow — facts ride the agent report, server stores the snapshot.** nezha's agent pushes static info on connect and refreshes periodically; we already have hello (connect) + metrics (periodic), so we slot facts into both with hello carrying the authoritative first snapshot. This is the minimal-surface path.
 - **Borrow — the map consumes facts + a location field.** nezha derives map placement from geo/region. We add a free-text `Region` now and leave the map (geo lookup, rendering) to Design-05; this design just guarantees the field exists. Avoid bundling a GeoIP database (CGo/`mmdb` dep + ADR) into this slice.
 - **Avoid — nezha's agent-trusts-itself posture for anything privileged.** nezha treats agent-reported data as ground truth for display, which is fine; but Lattice's bar is higher: we explicitly forbid authz on facts and clamp them on ingest. Keep nezha's *display* model, reject its *trust* model anywhere a decision is made.
@@ -381,8 +381,8 @@ Follow the project cadence: write the iteration doc first, then TDD each slice, 
 **Step 0 — Plan.** Write `lattice/docs/iterations/iter-NNN-machine-inventory-and-cost.md` (goal, scope = MVP from §8, risks from §9, test plan, exit bar). Add an ADR only if you end up reaching for a new dependency (you should not — everything here is stdlib + existing packages).
 
 **Step 1 — SDK model (`lattice-sdk/model/model.go`).**
-- Add `HostFacts` struct; add `HostFacts` field to `Node`.
-- Add `MachineProfile` struct + `RenewalCycle*` consts.
+- Add `HostFacts` struct; add `HostFacts` field to `Node`. **Done iter-017.**
+- Add `MachineProfile` struct + `RenewalCycle*` consts. **Pending Half B.**
 - Update `proto_contract_test.go` expectations for the new fields.
 - `go test ./...` in `lattice-sdk`.
 
@@ -397,15 +397,15 @@ Follow the project cadence: write the iteration doc first, then TDD each slice, 
 - Extend `stateHasEnvelope` with the two fields. **Do not skip this.**
 - Add a round-trip + lost-key-guard test (copy the DDNS crypto test).
 
-**Step 4 — Agent host facts (`lattice-node-agent/internal/hostfacts/`).**
-- `hostfacts.go` (cross-platform bits) + `hostfacts_linux.go` / `hostfacts_other.go` for `syscall.Uname` (build-tag split like `taskexec`).
-- `Collect() model.HostFacts`, table-driven tests for the pure parsers (os-release, cpuinfo, meminfo) using fixture strings — no real `/proc` in tests (mirror `metrics_test.go`'s `cpuBusy` pure-function testing).
-- Wire into `cmd/lattice-agent/main.go`: add `"host_facts": hostfacts.Collect()` to the hello payload and to `reportMetrics`.
+**Step 4 — Agent host facts (`lattice-node-agent/internal/hostfacts/`) — done iter-017.**
+- `hostfacts.go` uses stdlib + best-effort `/proc`/`/etc/os-release` reads; no new dependency.
+- `Collect() model.HostFacts`, table-driven tests for pure parsers (os-release, cpuinfo, meminfo, uptime).
+- Wired into `cmd/lattice-agent/main.go`: `"host_facts": hostfacts.Collect()` in hello and `reportMetrics`.
 
-**Step 5 — Agent ingest (`lattice-server/internal/server/server.go`).**
-- Add `HostFacts model.HostFacts \`json:"host_facts"\`` to `agentAuthRequest`.
-- In `handleAgentHello` and `handleAgentMetrics`, after auth: clamp facts (`sanitizeHostFacts`), stamp `ReportedAt`/`BootTime` if zero, set `n.HostFacts`, `UpsertNode`.
-- Add `sanitizeHostFacts` (length caps, control-char strip, numeric ceilings) + tests in `server_agent_security_test.go`.
+**Step 5 — Agent ingest (`lattice-server/internal/server/server.go`) — done iter-017.**
+- Added `HostFacts model.HostFacts \`json:"host_facts"\`` to `agentAuthRequest`.
+- `handleAgentHello` and `handleAgentMetrics` sanitize facts, stamp `ReportedAt` with server receive time, and persist `n.HostFacts`.
+- Added `normalizeHostFacts` (length caps, control-char strip, numeric ceilings) + tests in `server_agent_security_test.go`.
 
 **Step 6 — Inventory API (`lattice-server/internal/server/server_inventory.go`, NEW).**
 - `handleMachines` (GET list / POST create), `handleMachineUpdate`, `handleDeleteMachine`, `handleMachineRenew`, `handleMachineRemindersRun`, (v2) `handleMachineReveal`.

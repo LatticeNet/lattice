@@ -29,7 +29,8 @@ The current pushed baseline includes:
   secrets at the store boundary.
 - Node enrollment, metrics, bounded task execution, task result upload,
   monitor probes, DDNS, notifications, WireGuard/nft/tunnel planning, approvals,
-  and audit filtering.
+  audit filtering, and low-trust HostFacts inventory telemetry from agent
+  collection through dashboard display.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -96,17 +97,20 @@ Remaining before runtime cutover:
 
 ## Next Development Order
 
-Feature expansion is intentionally paused after this closeout. When development
-resumes, the next work should be:
+Development resumed with iter-017 (`HostFacts` inventory MVP). The next work
+should now be:
 
-1. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
+1. **Design 04 Half B - Machine cost/renewal.** Add server-only
+   `MachineProfile`, encrypted console/detail links, `inventory:read/admin`,
+   renewal reminder evaluation, and a Machines dashboard panel.
+2. **C1.5 - Runtime cutover flag.** Add an explicit `-data-engine=bolt` path,
    preserve JSON default, and document migration/rollback as an operator drill.
-2. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
+3. **A3 - Identity policy polish.** Enforce 2FA policy, add recovery workflow
    hardening, and prepare WebAuthn/passkey dependency review.
-3. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
+4. **D1 - Dashboard parity.** Add first-class UI for PATs, DDNS, monitors,
    notification channels, WireGuard plans, tunnels, audit WAL verification, and
    runtime drill-through.
-4. **B2 - Real plugin execution.** Only after storage and identity gates: add a
+5. **B2 - Real plugin execution.** Only after storage and identity gates: add a
    constrained system runner with deadlines, cancellation, process isolation,
    per-plugin rate limits, output/log caps, and adversarial tests.
 
