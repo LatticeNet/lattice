@@ -51,6 +51,9 @@
 > the public plain/base64 `/sub/{token}` subscription MVP with hashed-token
 > audit and duplicate-token fail-closed behavior. Iter-045 landed the dashboard
 > proxy management panel plus explicit audited subscription URL rotation/copy.
+> Iter-046 landed the first proxy usage reporting baseline: node-token
+> `/api/agent/proxy-usage`, server-side monotonic rollup, an agent file bridge,
+> and dashboard usage/last-seen display.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -150,8 +153,12 @@
   limiting, constant-time token scan, raw-token-free audit metadata, and
   fail-closed duplicate-token handling. Iter-045 delivered dashboard proxy
   inbounds/users/profiles management and explicit audited rotate/copy
-  subscription URL workflow. Next slices: usage reporting, richer subscription
-  formats, focused proxy apply UI, then xray. *(Partially built.)*
+  subscription URL workflow. Iter-046 delivered baseline usage reporting:
+  `/api/agent/proxy-usage`, `/api/proxy/usage`, server-side monotonic diffing,
+  per-node eligibility filtering, an agent `-proxy-usage-file` bridge, and
+  dashboard usage/last-seen display. Next slices: direct sing-box stats
+  collection, richer subscription formats, focused proxy apply UI, usage
+  notifications, then xray. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

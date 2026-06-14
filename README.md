@@ -39,7 +39,9 @@ separately.
   task-result status reconciliation, and a public plain/base64 `/sub/{token}`
   MVP with `Subscription-Userinfo`, dedicated rate limiting, hashed-token audit,
   duplicate-token fail-closed handling, plus dashboard inbounds/users/profiles
-  management and an explicit audited rotate/copy subscription URL workflow.
+  management, an explicit audited rotate/copy subscription URL workflow, and a
+  baseline usage-reporting path with server-side monotonic rollup plus
+  dashboard usage/last-seen display.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.

@@ -91,7 +91,8 @@ go build ./cmd/lattice-server
 - Audit events record successful and failed fetches without raw tokens.
 - Docs and roadmap identify dashboard proxy UI, drift detection, usage, and xray
   as remaining work. Dashboard proxy UI and subscription-token rotation were
-  resolved in iter-045; drift detection, usage, richer formats, and xray remain
+  resolved in iter-045. Baseline usage reporting was resolved in iter-046; drift
+  detection, direct core stats collectors, richer formats, and xray remain
   future work.
 
 ## Execution Log

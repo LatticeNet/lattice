@@ -137,5 +137,7 @@ Known environment notes:
    token lookup or constant-time scan with rate limiting before exposing
    subscription URLs. **Resolved in iter-044** with a constant-time full scan,
    dedicated public limiter, and raw-token-free audit metadata.
-4. Usage accounting is still pending. Add `/api/agent/proxy-usage`, monotonic
-   diffs, quota/expiry alerts, and dashboard rollups after the subscription MVP.
+4. Usage accounting was still pending at this point. **Baseline resolved in
+   iter-046** with `/api/agent/proxy-usage`, monotonic diffs,
+   `/api/proxy/usage`, an agent file bridge, and dashboard rollups. Direct core
+   collectors and quota/expiry alerts remain future work.

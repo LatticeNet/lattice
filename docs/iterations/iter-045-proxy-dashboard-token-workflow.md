@@ -74,7 +74,8 @@ node --check assets/proxy.js
   subscription URL.
 - Ordinary dashboard refresh does not retain or display raw subscription tokens.
 - Long-lived docs reflect that dashboard proxy management and token rotation
-  are now partially landed, while usage/formats/xray remain pending.
+  are now partially landed. Baseline usage reporting landed in iter-046; richer
+  formats, direct core collectors, and xray remain pending.
 
 ## Execution Log
 
@@ -124,9 +125,10 @@ node --check assets/proxy.js
 - Dashboard plan creation queues the existing approval object, but the operator
   still completes apply through the existing Approvals panel. A later UI pass
   should add a focused proxy plan diff/approve flow.
-- Subscription output remains MVP plain/base64 VLESS+REALITY. Usage reporting,
-  Clash/sing-box client formats, xray renderer, and import-link UX remain
-  future slices.
+- Subscription output remains MVP plain/base64 VLESS+REALITY. Baseline usage
+  reporting landed in iter-046; Clash/sing-box client formats, direct
+  sing-box/xray collectors, xray renderer, and import-link UX remain future
+  slices.
 - Rotation returns a full URL derived from `LATTICE_PUBLIC_URL` when configured;
   deployments should set that value behind reverse proxies. Without it, the API
   returns a relative `/sub/{token}` path rather than reflecting request `Host`.

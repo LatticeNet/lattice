@@ -300,7 +300,8 @@ Cloudflare Tunnel.
 The current implementation includes the iter-039 persistence foundation, the
 iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
 reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
-public subscription slice, plus the iter-045 dashboard/token-workflow slice:
+public subscription slice, plus the iter-045 dashboard/token-workflow slice and
+the iter-046 usage-reporting baseline:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -345,11 +346,25 @@ public subscription slice, plus the iter-045 dashboard/token-workflow slice:
   node profiles. It can create/edit/delete those records, request proxy plan
   approvals, and rotate/copy a user's subscription URL without receiving raw
   token material during ordinary refresh.
+- `POST /api/agent/proxy-usage` lets an authenticated node report a
+  `ProxyUsageSnapshot`. The server forces the node id from the authenticated
+  request, filters counters to users eligible for that node profile, rejects
+  malformed/negative input, applies deltas under a dedicated mutex, and audits
+  aggregate counts only.
+- `GET /api/proxy/usage` returns secret-free per-node snapshots and per-user
+  usage views for the dashboard. The first report is baseline-only; later
+  reports advance `ProxyUser.UsedBytes` monotonically, treat `core_uptime_sec`
+  decreases as resets, and never subtract usage on counter rollback.
+- `lattice-node-agent` currently supports `-proxy-usage-file` /
+  `LATTICE_PROXY_USAGE_FILE` as a bounded JSON snapshot bridge. This is the
+  stable collector contract for sidecars and future direct sing-box/xray
+  collectors; direct core API polling remains a later slice.
 
-Stats reporting, richer subscription formats, a focused proxy plan/apply UI,
-and xray rendering remain pending. The subscription route deliberately does not
-persist raw subscription tokens as map keys; keep that property if a future
-SHA-256 token index replaces the MVP full scan.
+Direct sing-box/xray stats collectors, richer subscription formats, a focused
+proxy plan/apply UI, usage notifications, and xray rendering remain pending.
+The subscription route deliberately does not persist raw subscription tokens as
+map keys; keep that property if a future SHA-256 token index replaces the MVP
+full scan.
 
 ## Storage
 

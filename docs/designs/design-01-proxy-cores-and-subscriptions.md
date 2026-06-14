@@ -69,17 +69,18 @@ and at-rest encryption for `RealityPrivateKey`, `UUID`, `Password`, and
 `vless`+TCP+REALITY. It emits a canonical secret-bearing config artifact with a
 SHA-256 and fail-closed structural validation, omits disabled/expired/over-quota
 users, rejects unsupported transport/protocol combinations, and is covered by
-table-driven tests. Iter-041 through iter-045 have since landed HTTP CRUD,
-reviewed plan/apply, public subscriptions, and the first dashboard workflow.
-Stats reporting, richer subscription formats, and xray remain pending.
+table-driven tests. Iter-041 through iter-046 have since landed HTTP CRUD,
+reviewed plan/apply, public subscriptions, the first dashboard workflow, and a
+baseline usage-reporting path. Direct core stats collectors, richer
+subscription formats, and xray remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
 global inbounds/users require unrestricted `proxy:read`/`proxy:admin`, profiles
 are node-allowlist filtered, and views expose only `has_*` booleans for
 credential material. Plan/apply, dashboard UI, usage reporting, and public
-subscriptions were intentionally deferred to later slices and have now started
-landing incrementally.
+subscriptions were intentionally deferred to later slices and have now landed
+incrementally through the iter-046 baseline.
 
 **Landed in iter-042:** `POST /api/proxy/nodes/{node_id}/plan` creates a
 pending `Plugin:"proxycore"` approval from the current profile/inbounds/users.
@@ -270,13 +271,13 @@ collection `GET`/`POST` plus explicit `POST .../delete`.
 | POST | `/api/proxy/profiles` | `proxy:admin` + node allowlist | full node profile upsert → view |
 | POST | `/api/proxy/profiles/delete` | `proxy:admin` + node allowlist | `{node_id}` → `{ok:true}` |
 | POST | `/api/proxy/nodes/{node_id}/plan` | `network:plan` on node + unrestricted `proxy:read` | `{}` → `ApprovalView`; plan text redacts secrets and action binds real config SHA |
+| GET | `/api/proxy/usage` | `proxy:read` + unrestricted server allowlist | → `{snapshots, users}`; secret-free usage rollup for dashboard accounting |
 
 ### Deployment/subscription routes
 
 | Method | Path | Scope | Request → Response |
 |---|---|---|---|
 | POST | `/api/network/approvals/approve` | `network:apply` on node | Existing handler; for `proxycore`, approval requires `plan_sha256`, re-renders the current desired config, rejects stale SHA, and `queue_apply:true` creates the validated sing-box apply task |
-| GET | `/api/proxy/usage` | `proxy:read` | → per-user/per-node usage rollup for the dashboard |
 | **GET** | `/sub/{token}` | **public (token-auth)** | → subscription body (format negotiated, see §6); iter-044 supports `format=base64` default and `format=plain`; rate-limited via a dedicated `internal/ratelimit` bucket; never requires a session |
 
 Agent-facing (bearer node-token auth, like existing `/api/agent/*`):
@@ -301,11 +302,21 @@ is now enabled because `model.Task.Script` is encrypted at rest in both JSON and
 bbolt stores. The queued task still carries the real sing-box config to the
 owning node, so future task/artifact fields must not bypass `internal/store/crypto.go`.
 
+**Implementation note after iter-046:** `/api/agent/proxy-usage` is landed as a
+low-trust accounting endpoint. The server forces `node_id` from the
+authenticated request, filters counters to users eligible for that node's
+profile, treats the first snapshot as a baseline, diffs later snapshots
+monotonically, handles `core_uptime_sec` decreases as resets, and serializes
+the read-diff-update sequence with a dedicated mutex. `/api/proxy/usage`
+returns only secret-free counters/status.
+
 ---
 
 ## 5. Agent responsibilities
 
-The agent gains a small **proxy module** (`internal/proxycore/` in lattice-node-agent) and **one new reporting goroutine**. It does **not** gain inbound ports or new trust.
+The agent does **not** gain inbound ports or new trust. Iter-046 adds the first
+proxy accounting bridge (`internal/proxyusage`) and keeps core-specific stats
+polling behind the same `ProxyUsageSnapshot` contract for later slices.
 
 ### Apply-task contract (reuses existing task plumbing)
 The server's `applyScriptFor(approval)` has `case "proxycore"`. The rendered task is an ordinary `model.Task{Interpreter:"sh"}` the agent already knows how to run sandboxed. The script:
@@ -342,10 +353,28 @@ applied.
 
 > Secrets in the plan/apply split: the approval plan is redacted and safe for review screenshots. The queued task script **does** contain user UUIDs/passwords and REALITY private keys (the core needs them). This is acceptable because (a) it only reaches the one node that serves those users, over the same HTTPS bearer channel that already carries every task, (b) `Task.Script` is encrypted at rest, and (c) it is the minimum that node must know to function. Unlike WireGuard's private key (node-owned and substituted locally), proxy client secrets are server-issued and inherently must land on the serving node.
 
-### Usage reporting goroutine
-- Reads the core's local stats API (`ProxyNodeProfile.StatsAPI`, default `127.0.0.1:9090` clash-api for sing-box, or xray's gRPC stats in v2), every N seconds.
-- Maps core-reported per-user counters to `userID` and POSTs a `ProxyUsageSnapshot` to `/api/agent/proxy-usage`.
-- Purely local read; no inbound exposure. If the stats API is unreachable, it reports an empty snapshot with an error string (visible, not silent).
+### Usage reporting
+
+**Landed baseline (iter-046):**
+- `lattice-agent -proxy-usage-file /path/to/usage.json` (or
+  `LATTICE_PROXY_USAGE_FILE`) reads a local JSON `ProxyUsageSnapshot` each loop
+  and POSTs it to `/api/agent/proxy-usage`.
+- The agent overrides `node_id` with its configured node id, defaults `at` when
+  absent, rejects empty user ids, rejects negative counters, and caps the file
+  at 1 MiB.
+- The file bridge is intended for sidecar collectors or operator experiments;
+  the server owns monotonic diffing, eligibility filtering, quota status, and
+  audit.
+
+**Next collector slice:**
+- Reads the core's local stats API (`ProxyNodeProfile.StatsAPI`, default
+  `127.0.0.1:9090` Clash API for sing-box, or xray's gRPC stats in v2), every N
+  seconds.
+- Maps core-reported per-user counters to `userID` and POSTs a
+  `ProxyUsageSnapshot` to `/api/agent/proxy-usage`.
+- Purely local read; no inbound exposure. If the stats API is unreachable, it
+  should report an explicit health/error signal rather than silently suppressing
+  accounting.
 
 ### Health
 A `tcp` `Monitor` on each inbound `host:port` (created automatically when a profile is applied, or by the operator) reuses the existing monitor/alert pipeline for "core down" detection — no new health code path.
@@ -383,7 +412,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 
 **Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. The iter-044 `/sub/{token}` route uses a constant-time full scan and hashed-token audit metadata; it does not persist raw sub-tokens as lookup keys. Iter-045 adds `POST /api/proxy/users/rotate-sub-token`: it bumps the credential, invalidates the old subscription URL immediately, and returns the new URL/path only in the explicit rotate response (`LATTICE_PUBLIC_URL` when configured, otherwise relative `/sub/{token}`). The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
 
-**Blast radius / compromised node.** A node only ever holds: its own rendered config (its inbounds + the subset of users provisioned to it) and its own node token. It does **not** hold the central user DB, other nodes' configs, subscription tokens, or reality private keys for inbounds it doesn't run. A compromised node can: serve/sniff transit for *its own* users (inherent to being an exit), lie about usage (mitigation: monotonic diffing + sanity caps + the server treats usage as advisory for accounting, authoritative gating stays server-side on expiry/quota-estimate), and attempt to return a bad task result (bounded by existing output caps). It **cannot** mint users, read other nodes' secrets, or pivot to the control plane (it only dials out; no inbound from server).
+**Blast radius / compromised node.** A node only ever holds: its own rendered config (its inbounds + the subset of users provisioned to it) and its own node token. It does **not** hold the central user DB, other nodes' configs, subscription tokens, or reality private keys for inbounds it doesn't run. A compromised node can: serve/sniff transit for *its own* users (inherent to being an exit), lie about usage for users eligible on its own profile, and attempt to return a bad task result (bounded by existing output caps). Iter-046 mitigates usage abuse with profile eligibility filtering, first-snapshot baselining, negative-counter rejection, monotonic diffing, reset handling, and serialized apply; nevertheless usage remains low-trust accounting data and quota enforcement is best-effort. It **cannot** mint users, report usage for unrelated profile-only users, read other nodes' secrets, or pivot to the control plane (it only dials out; no inbound from server).
 
 **Audit events** (hash-chained WAL, via `recordPrincipalAudit`): `proxy.inbound.{create,update,delete}`, `proxy.user.{create,update,delete}`, `proxy.user.rotate_sub_token`, `proxy.profile.update`, `proxy.plan` (with node + plan sha256), `network.proxycore.approve` (shared approve handler), `proxy.apply.applied` / `proxy.apply.failed` (task-result reconciliation), `proxy.subscription.fetch` (token id hash + source IP, for abuse detection), `proxy.usage.report`. Expiry/quota/core-down notifications fan out via `internal/notify`.
 
@@ -391,17 +420,18 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 
 ## 8. Phasing
 
-### MVP (smallest shippable slice) — *sing-box, vless+reality, single inbound type, manual usage*
+### MVP (smallest shippable slice) — *sing-box, vless+reality, single inbound type, baseline usage*
 - Model: `ProxyInbound`, `ProxyUser`, `ProxyNodeProfile` (+ store collections, crypto wiring).
 - One protocol path end-to-end: **vless + reality + tcp** (the operator's most-wanted, no cert needed).
 - Server: inbounds/users/profiles CRUD; `internal/proxycore` renderer (sing-box JSON) for vless/reality; `POST /api/proxy/nodes/{id}/plan` → `Approval{Plugin:"proxycore"}`; approve→apply queues the sing-box validation/atomic-swap task after config-SHA revalidation.
 - Agent: nothing new beyond running the apply task (it already can). `sing-box check` in the script.
-- Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header. **Landed in iter-044.** Usage currently reflects `ProxyUser.UsedBytes` when present; live usage reporting remains v2.
+- Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header. **Landed in iter-044.** Usage reflects `ProxyUser.UsedBytes`; baseline node reporting through `/api/agent/proxy-usage` landed in iter-046.
+- Usage: agent `-proxy-usage-file` bridge, server monotonic diffing, `/api/proxy/usage`, and dashboard usage/last-seen display. **Landed in iter-046.**
 - DDNS: document that the node needs a DDNS profile; warn in plan if missing.
 - **Exit bar:** operator creates an inbound + user + profile, plans `gmami-jp1`, approves, the agent applies, sing-box serves vless/reality, the user's `/sub` link imports into a client and connects. `-race` + gofmt green, adversarial security review of the new surface passed, audit events present.
 
-### v2 — *accounting, more protocols, enforcement, xray*
-- Agent usage goroutine + `/api/agent/proxy-usage` + monotonic diff → `ProxyUser.UsedBytes`/`Status`; quota/expiry **notify** alerts.
+### v2 — *direct collectors, more protocols, enforcement, xray*
+- Direct sing-box stats collector and xray stats collector behind the already-landed `ProxyUsageSnapshot` contract; quota/expiry **notify** alerts.
 - More protocols: vmess, trojan, shadowsocks, hysteria2; cert-path TLS inbounds; ws/grpc transports.
 - Subscription formats: sing-box JSON + clash/clash.meta YAML; UA sniffing.
 - Enforcement: expired/over-quota users dropped from rendered config on next apply (and a scheduled re-apply, or an agent-side disable hook).
@@ -465,13 +495,13 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
    - `reality.go`: X25519 keypair gen (pure Go `crypto/ecdh`), short-ID gen.
    - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 covers renderer shape/validation/hash/leak checks; iter-044 covers VLESS link shape, plain/base64 bodies, inactive users, unsafe host/public-key rejection, and secret leak checks. Optional `sing-box check` integration remains pending.
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045. Remaining handler work: `/api/proxy/usage` and richer subscription formats. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045; `/api/agent/proxy-usage` and `/api/proxy/usage` with monotonic rollup landed in iter-046. Remaining handler work: richer subscription formats, direct core collector health/error surfaces, and xray-specific routes only if the common model is insufficient. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
 
 6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 
-7. **Agent usage (v2 slice, can defer)** — `lattice-node-agent/internal/proxycore/usage.go` + a poll goroutine in `cmd/lattice-agent/main.go`; server `/api/agent/proxy-usage` handler + monotonic diff into `ProxyUser.UsedBytes`/`Status`; quota/expiry `notify` hooks. *Commit: `feat(agent,server): proxy usage reporting + quota/expiry alerts`.*
+7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Next: add a direct sing-box collector behind the same `ProxyUsageSnapshot` contract, then quota/expiry `notify` hooks. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
 
-8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045. Remaining dashboard work: focused proxy plan diff/approve UI (currently uses the existing Approvals panel), usage/expiry display, richer import helpers, and visual polish.
+8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046. Remaining dashboard work: focused proxy plan diff/approve UI (currently uses the existing Approvals panel), richer import helpers, direct collector health/error display, and visual polish.
 
 9. **Verify** — `GOWORK=… go test -race ./...` across server/agent/sdk; gofmt; dashboard smoke; a manual end-to-end on one node (plan→approve→apply→connect→import sub). Record evidence in the iteration doc.
 
