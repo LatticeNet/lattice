@@ -5,8 +5,10 @@
 > iter-020; egress-only nft compile/plan/apply with 60s dead-man rollback and
 > unauthenticated agent control-plane selfcheck landed in iter-021; operator
 > `NodeGeo` CRUD + dashboard inline-SVG fleet map landed in iter-022; dashboard
-> policy graph SVG landed in iter-023. Remaining: ingress composition,
-> domain/DDNS-backed nft sets, IPv6, bulk geo import, and map overlays.
+> policy graph SVG landed in iter-023; Network Guard rollback apply plus
+> ingress composition into the single `lattice_guard` input chain landed in
+> iter-024. Remaining: domain/DDNS-backed nft sets, IPv6, bulk geo import, and
+> map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -50,7 +52,7 @@ Three capabilities, one cohesive slice:
 - **Not a plugin.** This is a CORE server-owned provider (see §2).
 - **Map tiles / basemap detail:** a single static low-poly world outline, not a real GIS basemap.
 
-### Current implementation slices (iter-021 / iter-022)
+### Current implementation slices (iter-021 / iter-024)
 
 The first committed apply path is intentionally narrower than the full design:
 
@@ -68,6 +70,16 @@ The first committed apply path is intentionally narrower than the full design:
   `network.policy.failed`.
 - Dashboard NetPolicy cards have a `Plan Apply` button, but execution remains
   approval-gated through the existing approvals panel.
+- `POST /api/network/nft/plan` now renders `table inet lattice_guard` from the
+  node's persisted `NFTInputs`, folds enabled ingress `NetPolicy` rules into the
+  same input chain, and creates a pending `Approval{Plugin:"nft"}`. The agent
+  writes `/etc/lattice/guard.nft.new`, validates with `nft -c`, snapshots
+  `/etc/lattice/guard.rollback.nft`, arms a 60s watchdog, commits with `nft -f`,
+  and runs the control-plane selfcheck when `public_url` is configured.
+- Ingress rules are rendered before broad public/WireGuard service-port allows,
+  so a targeted deny can constrain an otherwise-open saved port. If a node has
+  ingress policy, callers need `network:plan` plus `netpolicy:read` on that node;
+  otherwise the server refuses to generate a policy-omitting guard plan.
 - `GET/POST /api/nodes/geo` stores operator-owned `NodeGeo` on `model.Node`,
   validates coordinates/country/ASN server-side, records `node.geo.update` /
   `node.geo.clear`, and filters reads/writes through the existing `node:read` /
@@ -333,36 +345,46 @@ geo and bulk import are still intentionally unbuilt.
 
 ## 6. Config rendering / external integration
 
-### 6.1 The nft compiler (`internal/netpolicy/compile.go`)
-Input: a `NetPolicy` + a resolver `func(nodeID string) ([]net.IP, bool)` over current node IPs
-(public + mesh, mirroring how the server already knows `WireGuardIP`/`PublicIP`). Output: a single
-`table inet lattice_policy { … }` document, structured like `nft.go` today:
+### 6.1 The nft compiler (`internal/netpolicy/compile.go` + `internal/network/nft.go`)
 
-- One `table inet lattice_policy` (distinct table from `lattice_guard` so the two coexist; the existing
-  inbound-services ruleset is untouched).
-- `chain output { type filter hook output priority 0; policy drop; … }` for egress rules.
-- `chain input  { type filter hook input  priority 0; policy drop; … }` for ingress rules.
-- Both chains always begin with `ct state established,related accept` and `oif/iif lo accept`, and
-  **always end with `counter drop`** — the fail-closed baseline appended by the compiler, never the
-  operator. **Critical:** because `output` is default-drop, the compiler must *always* emit an allow for
-  the node's dial-out path to the control plane and DNS, or every node bricks itself. Encode this as a
-  non-removable, compiler-injected "control-plane reachability" allow (the server's address/port + 53),
-  ordered first. This is the single most important safety invariant in the feature.
-- Node refs expand to their resolved IPs as `nft` set elements (`ip daddr { … }` for egress,
-  `ip saddr { … }` for ingress). CIDR refs are parsed/re-emitted canonically. `any` ⇒ omit the address
-  match. Ports ⇒ `tcp dport { … }` / `udp dport { … }`; empty ports ⇒ no port match. `protocol==any` ⇒
-  emit both or omit the L4 match as appropriate.
-- Every operator rule carries a `comment "<sanitized comment / rule id>"` so `nft list ruleset` and the
-  graph stay legible.
-- Deterministic ordering (stable sort by rule index) so the same policy always yields byte-identical
-  output — required for the `plan_sha256` binding and clean diffs.
+Input: a `NetPolicy`, the node's persisted `NFTInputs`, and a resolver over
+current node IPs (public + mesh, mirroring how the server already knows
+`WireGuardIP`/`PublicIP`).
 
-Validation: reuse the `nft -c -f` agent-side validate (already proven in the current nft flow) **plus**
-a server-side dry compile at CRUD time. The server never emits a ruleset it didn't first build from
-validated structs.
+Current output is split by hook ownership:
+
+- **Egress:** `POST /api/netpolicy/plan` renders `table inet lattice_policy`
+  with an `output` hook default-drop. It injects control-plane IPv4 + DNS allows
+  before operator egress rules. `LATTICE_PUBLIC_URL` / `-public-url` must still
+  be an IPv4 literal until the domain/DDNS named-set updater lands.
+- **Ingress:** `CompileIngressInputRules` converts enabled ingress `NetPolicy`
+  rules into typed `network.NFTInputRule` values. `GenerateNFTPlan` folds those
+  into the single `table inet lattice_guard` input chain rendered by Network
+  Guard. This deliberately avoids a second default-drop input hook.
+- Both renderers canonicalize operator-controlled addresses/ports before nft
+  output. Node refs expand to resolved IPv4s (`ip daddr { … }` for egress,
+  `ip saddr { … }` for ingress). CIDR refs are parsed/re-emitted canonically.
+  `any` omits the address match. `protocol=any` cannot carry ports.
+- Every operator rule carries a quoted comment derived from the sanitized rule id
+  and comment so `nft list ruleset` and the graph stay legible.
+- Deterministic ordering (stable rule order plus sorted sets/ports) keeps the
+  same policy byte-identical for review and `plan_sha256` binding.
+
+Safety-critical ordering: `lattice_guard` always starts with
+`ct state established,related accept` and `iif lo accept`, then composed ingress
+policy, then broad public/WireGuard service-port allows, then `counter drop`.
+That order is what lets a deny like "node B may not hit node A tcp/1234" override
+a saved broad WireGuard service port.
+
+Validation: server-side render validation plus agent-side `nft -c -f` happen
+before commit. The server never emits a ruleset it did not build from validated
+structs.
 
 ### 6.2 Generated artifacts
-- On node: `/etc/lattice/policy.nft` (committed ruleset), `/etc/lattice/policy.rollback` (snapshot).
+- On node, egress policy: `/etc/lattice/policy.nft` (committed ruleset),
+  `/etc/lattice/policy.rollback.nft` (snapshot).
+- On node, Network Guard: `/etc/lattice/guard.nft` (committed ruleset),
+  `/etc/lattice/guard.rollback.nft` (snapshot).
 - No systemd unit change required; `nft -f` is atomic. (Optional v2: a tiny
   `lattice-policy.service` that re-applies `/etc/lattice/policy.nft` on boot so policy survives reboot —
   otherwise the operator re-applies, or the agent re-applies on its first poll after restart.)
@@ -481,12 +503,11 @@ Smallest end-to-end slice that delivers the operator's exact ask.
    is stale until re-planned. *Decision:* surface "policy stale — peer IP changed" in the graph/list
    (the server already detects IP changes for DDNS) and let the operator re-plan; do **not** auto-apply
    firewall changes without approval. Optional later: a "re-plan needed" notify.
-3. **nft table coexistence.** `lattice_policy` (this feature) vs `lattice_guard` (existing inbound
-   services) vs any operator-hand-written rules. Separate tables avoid clobbering, but two default-drop
-   `input` hooks compose by *both* needing to accept — verify the interaction so the inbound-services
-   ruleset and the ingress-policy ruleset don't silently deny each other. *Open:* do we merge ingress
-   policy into `lattice_guard`'s input chain instead of a second input hook? Leaning yes for ingress in
-   v2 to avoid double-drop confusion; egress is unambiguous (one output hook).
+3. **nft table coexistence.** `lattice_policy` owns egress output filtering;
+   `lattice_guard` owns inbound services and ingress policy. Iter-024 resolved
+   the previous open question: ingress policy is folded into `lattice_guard`
+   rather than emitted as a second default-drop input hook. Future providers
+   (DNS/proxy ports) must keep composing into that same guard render.
 4. **Geo data provenance.** Operator-supplied is authoritative; agent-reported is low-trust fill-only.
    *Open:* exact bulk-import format for the ASN/latency report (CSV vs JSON) — define when seeding.
 5. **Graph scale.** Node-link SVG is fine to ~50 nodes; beyond that the adjacency *list* stays the
@@ -539,9 +560,16 @@ and map overlays.
 
 **Progress note (2026-06-14 / iter-023):** the dashboard policy graph SVG is
 complete. It renders the existing server-derived `/api/netpolicy/graph` response
-only; the client still does not evaluate policy semantics. Continue with
-ingress/domain sets/IPv6, then add compiler-vs-graph parity tests for ingress
-and map overlays.
+only; the client still does not evaluate policy semantics. The next slice was
+ingress composition, followed by domain sets/IPv6, compiler-vs-graph parity
+tests for ingress, and map overlays.
+
+**Progress note (2026-06-14 / iter-024):** ingress composition is now implemented
+through Network Guard, not a second `lattice_policy input` hook. `POST
+/api/network/nft/plan` folds enabled ingress `NetPolicy` rules into the single
+`lattice_guard` input chain and `nft` approvals now commit the guard ruleset with
+`nft -c`, rollback snapshot, watchdog, and optional control-plane selfcheck.
+Continue with domain/DDNS-backed nft named sets, IPv6, and visualization overlays.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this

@@ -11,9 +11,31 @@ The operator creates a plan from the dashboard:
 - WireGuard CIDR, default `10.66.0.0/24`.
 
 The baseline Network Guard plan stores the generated `inet lattice_guard`
-ruleset as an approval. Approval currently queues an agent-side `nft -c -f`
-validation task for that baseline path, which prevents accidental immediate
-input-firewall changes during local development.
+ruleset as an approval. Approval now queues an agent-side guard apply task:
+
+- write `/etc/lattice/guard.nft.new`;
+- validate with `nft -c -f`;
+- snapshot the current ruleset to `/etc/lattice/guard.rollback.nft`;
+- arm a 60s watchdog rollback;
+- commit with `nft -f`;
+- run `lattice-agent --selfcheck-controlplane -server <public-url>` when the
+  server public URL is configured;
+- move the candidate to `/etc/lattice/guard.nft` after validation succeeds.
+
+If `public_url` is unset, the guard apply still validates, snapshots, and commits
+the nft ruleset, but it cannot perform the control-plane selfcheck. Production
+deployments should set `LATTICE_PUBLIC_URL` / `-public-url`.
+
+Ingress NetPolicy composition:
+
+- Save ingress rules in the Network Policy panel.
+- Save or load the target node's Network Guard inputs.
+- Create a Network Guard plan for the same node. The server folds enabled
+  ingress rules into the same `lattice_guard` input chain before broad public
+  or WireGuard service allows.
+- A caller with `network:plan` must also have `netpolicy:read` on that node when
+  ingress policy exists; otherwise Lattice rejects the plan rather than silently
+  omitting access-control rules.
 
 Per-node Network Policy has a narrower committed apply MVP:
 
@@ -29,10 +51,11 @@ Per-node Network Policy has a narrower committed apply MVP:
   hash. Re-plan before approving; stale approvals and stale task results cannot
   mark the edited policy as applied.
 
-Current limitations: NetPolicy apply is **egress-only**, requires an IPv4-literal
-server `PublicURL`, and does not compile ingress/IPv6/domain-backed nft sets yet.
-Those remain later design slices so the input hook and DDNS trust semantics are
-handled deliberately.
+Current limitations: `POST /api/netpolicy/plan` remains **egress-only** and
+requires an IPv4-literal server `PublicURL`; ingress enforcement is composed via
+Network Guard's `lattice_guard` plan instead. IPv6 and domain/DDNS-backed nft
+sets remain later design slices so the DDNS trust semantics are handled
+deliberately.
 
 Recommended host firewall layers:
 

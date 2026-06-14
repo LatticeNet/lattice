@@ -25,9 +25,15 @@
 > domain-backed nft sets, IPv6, policy-graph SVG, bulk geo import, and map
 > overlays.
 >
-> 2026-06-14 graph update: iter-023 shipped the dashboard policy-graph SVG.
-> Remaining Design 05 work is ingress, domain-backed nft sets, IPv6, bulk geo
-> import, and map overlays.
+> 2026-06-14 graph update: iter-023 shipped the dashboard policy-graph SVG. At
+> iter-023 close, remaining Design 05 work was ingress, domain-backed nft sets,
+> IPv6, bulk geo import, and map overlays.
+>
+> 2026-06-14 guard update: iter-024 shipped rollback-protected Network Guard
+> apply for `lattice_guard` and composes enabled ingress NetPolicy rules into
+> that single input chain. Remaining Design 05 work is domain-backed nft sets,
+> IPv6, compiler-vs-graph parity tests for ingress, bulk geo import, and map
+> overlays.
 
 ---
 

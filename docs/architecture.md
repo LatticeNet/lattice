@@ -41,8 +41,20 @@ Dangerous operations use this flow:
 5. Agent returns result.
 6. Audit log records each step.
 
-The current nft flow queues `nft -c` validation after approval. A future apply
-mode should require a separate explicit `apply=true` request and a rollback note.
+The current nft flow has two committed apply paths:
+
+- Network Guard (`Approval.Plugin == "nft"`) owns the single
+  `table inet lattice_guard` input ruleset. It validates with `nft -c`, snapshots
+  rollback state, arms a 60s watchdog, commits with `nft -f`, and performs a
+  control-plane selfcheck when `public_url` is configured.
+- NetPolicy egress (`Approval.Plugin == "nftpolicy"`) owns
+  `table inet lattice_policy` output filtering. It always injects the
+  control-plane/DNS egress allows before operator rules, then applies with the
+  same validate -> rollback snapshot -> watchdog -> commit -> selfcheck pattern.
+
+Ingress NetPolicy rules are not emitted as a second input hook. They are folded
+into Network Guard's `lattice_guard` render so input filtering has one coherent
+default-drop chain.
 
 ## Plugin Types
 

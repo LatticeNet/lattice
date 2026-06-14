@@ -57,6 +57,12 @@ The current pushed baseline includes:
   with allow/deny edges, online/offline nodes, tooltips, external rule summary,
   and the existing textual fallback. The client still performs no policy
   evaluation.
+- Design 05 ingress guard composition (iter-024, 2026-06-14): Network Guard
+  `nft` approvals now commit the full `lattice_guard` ruleset with `nft -c`,
+  rollback snapshot, 60s watchdog, and optional control-plane selfcheck. Enabled
+  ingress `NetPolicy` rules are compiled into typed input rules and folded into
+  the same `lattice_guard` chain before broad public/WireGuard allows; callers
+  need both `network:plan` and `netpolicy:read` when ingress policy exists.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -130,13 +136,14 @@ Development resumed with iter-017 (`HostFacts` inventory MVP), iter-018
 (`MachineProfile` cost/renewal MVP), iter-019 (shared nft input persistence),
 iter-020 (`NetPolicy` state + graph foundation), iter-021 (egress-only
 NetPolicy nft apply with rollback/selfcheck), iter-022 (`NodeGeo` + Fleet Map
-MVP), and iter-023 (policy graph SVG). The next work should now be:
+MVP), iter-023 (policy graph SVG), and iter-024 (Network Guard rollback apply +
+ingress guard composition). The next work should now be:
 
-1. **Design 05 - ingress/domain-set composition + visualization polish.**
-   Continue from iter-023: fold ingress policy into the single `lattice_guard`
-   input render, add a safe DNS/DDNS-backed nft named-set updater for domain
-   public URLs, add IPv6 policy, then add bulk geo import and map
-   latency/renewal overlays.
+1. **Design 05 - domain-set composition + visualization polish.**
+   Continue from iter-024: add a safe DNS/DDNS-backed nft named-set updater for
+   domain public URLs, add IPv6 policy, then add bulk geo import and map
+   latency/renewal overlays. Also add compiler-vs-graph parity tests now that
+   ingress has a committed render path.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

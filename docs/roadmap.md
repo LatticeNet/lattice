@@ -30,8 +30,10 @@
 > iter-020; egress-only nft compiler/plan/apply with dead-man rollback and
 > agent control-plane selfcheck landed in iter-021; operator `NodeGeo` CRUD and
 > the dependency-free dashboard Fleet Map landed in iter-022; dashboard
-> policy-graph SVG landed in iter-023. Ingress, domain-backed nft sets, IPv6,
-> bulk geo import, and map overlays remain pending.
+> policy-graph SVG landed in iter-023; Network Guard now commits
+> `lattice_guard` with rollback/selfcheck and composes enabled ingress policy
+> into the single input chain in iter-024. Domain-backed nft sets, IPv6, bulk
+> geo import, and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -69,7 +71,10 @@
 
 ## Network Plugins
 
-- nft apply mode with rollback file and explicit `apply=true`.
+- nft Network Guard apply mode with rollback file. *(Delivered 2026-06-14 in
+  iter-024; `nft` approvals now commit `/etc/lattice/guard.nft` after `nft -c`,
+  with a rollback watchdog and optional control-plane selfcheck when
+  `public_url` is configured.)*
 - WireGuard peer renderer using `/32` cryptokey routing.
 - Cloudflare IP set updater for HTTP origins.
 - cloudflared tunnel installation and health monitoring.
@@ -81,9 +86,11 @@
   nft compiler, `/api/netpolicy/plan`, agent selfcheck/rollback apply, task
   result status tracking, and dashboard `Plan Apply` entry landed in iter-021.
   Operator `NodeGeo` CRUD and the zero-dependency inline-SVG Fleet Map landed in
-  iter-022. Dashboard policy-graph SVG landed in iter-023. Ingress composition,
-  domain/DDNS-backed nft sets, IPv6, bulk geo import, and map overlays remain
-  pending. *(Partially built.)*
+  iter-022. Dashboard policy-graph SVG landed in iter-023. Ingress rules now
+  compose into the single `lattice_guard` Network Guard render in iter-024,
+  so a deny can constrain broad public/WireGuard port allows without creating a
+  second input hook. Domain/DDNS-backed nft sets, IPv6, bulk geo import, and map
+  overlays remain pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 

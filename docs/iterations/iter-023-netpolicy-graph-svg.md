@@ -99,9 +99,9 @@ backed by server graph JSON, while retaining the existing textual rule detail.
 
 ## Residuals / Next
 
-- Ingress composition remains the next high-risk Design 05 backend slice; fold
-  ingress into `lattice_guard` rather than adding a second default-drop input
-  table.
+- Ingress composition was the next high-risk Design 05 backend slice and is now
+  closed by iter-024: ingress folds into `lattice_guard` rather than adding a
+  second default-drop input table.
 - Domain/DDNS-backed nft named sets and IPv6 policy remain pending.
 - Bulk geo import and map overlays (latency, ASN, renewal/cost) remain pending.
 - Once ingress compilation lands, add compiler-vs-graph parity tests so

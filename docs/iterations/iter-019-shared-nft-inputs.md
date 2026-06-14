@@ -53,9 +53,9 @@ firewall source of truth.
 - Values are normalized before storage so attacker-controlled strings cannot be
   interpolated into nft syntax. Rendering still validates again before creating
   an approval.
-- The current nft apply branch still performs `nft -c` validation only; the
-  future Design 05 committed apply path must add the documented dead-man
-  rollback before it ever runs `nft -f`.
+- At iter-019 close, the nft apply branch still performed `nft -c` validation
+  only. Iter-024 later closed this by adding rollback-protected `lattice_guard`
+  apply before running `nft -f`.
 
 ## Verification Evidence
 
