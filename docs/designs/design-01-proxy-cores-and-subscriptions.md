@@ -72,6 +72,13 @@ users, rejects unsupported transport/protocol combinations, and is covered by
 table-driven tests. HTTP handlers, dashboard UI, agent apply scripts, stats
 reporting, and public subscriptions remain pending.
 
+**Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
+users, and per-node profiles. The JSON views mirror the proto view contract:
+global inbounds/users require unrestricted `proxy:read`/`proxy:admin`, profiles
+are node-allowlist filtered, and views expose only `has_*` booleans for
+credential material. Plan/apply, dashboard UI, usage reporting, and public
+subscriptions remain pending.
+
 ### 3.1 Inbounds (central, node-agnostic template)
 
 ```go
@@ -235,19 +242,27 @@ subscription token a persisted map key.
 
 New handlers in `internal/server/server_proxy.go`, registered in the existing mux. Scopes: `proxy:read` (GET), `proxy:admin` (mutations), reuse `network:plan`/`network:apply` for deploy. All list/GET responses use **view structs** that strip secret fields (mirroring `toApprovalView`, DDNS/notify list shaping).
 
+### Landed bootstrap JSON routes (iter-041)
+
+These follow the current Lattice convention used by DDNS/DNS/NetPolicy:
+collection `GET`/`POST` plus explicit `POST .../delete`.
+
 | Method | Path | Scope | Request → Response |
 |---|---|---|---|
-| GET | `/api/proxy/inbounds` | `proxy:read` | → `[]ProxyInboundView` (no reality private key) |
-| POST | `/api/proxy/inbounds` | `proxy:admin` | `ProxyInbound` (server generates reality keypair if `security=reality` & empty) → `ProxyInboundView` |
-| PUT | `/api/proxy/inbounds/{id}` | `proxy:admin` | partial → view |
-| DELETE | `/api/proxy/inbounds/{id}` | `proxy:admin` | → 204 (rejected if referenced by an enabled profile unless `force`) |
-| GET | `/api/proxy/users` | `proxy:read` | → `[]ProxyUserView` (no UUID/password/token; includes `used_bytes`, `status`, link count) |
-| POST | `/api/proxy/users` | `proxy:admin` | `{name, inbound_ids, traffic_limit_bytes, expires_at}` → view incl. **one-time** sub URL |
-| PUT | `/api/proxy/users/{id}` | `proxy:admin` | limits/enable/inbounds → view |
-| POST | `/api/proxy/users/{id}/rotate` | `proxy:admin` | rotates UUID/password and/or sub-token → new sub URL |
-| DELETE | `/api/proxy/users/{id}` | `proxy:admin` | → 204 |
-| GET | `/api/proxy/profiles` | `proxy:read` | → `[]ProxyNodeProfileView` |
-| PUT | `/api/proxy/profiles/{node_id}` | `proxy:admin` | `{core, inbound_ids, hostname, listen_ip, config_path, stats_api}` → view |
+| GET | `/api/proxy/inbounds` | `proxy:read` + unrestricted server allowlist | → `{inbounds: []ProxyInboundView}` (no reality private key) |
+| POST | `/api/proxy/inbounds` | `proxy:admin` + unrestricted server allowlist | full MVP `ProxyInbound` upsert → `ProxyInboundView`; write-only `reality_private_key` is preserved on update; automatic keypair generation is pending |
+| POST | `/api/proxy/inbounds/delete` | `proxy:admin` + unrestricted server allowlist | `{id, force?}` → `{ok:true}`; rejects referenced inbounds unless `force` |
+| GET | `/api/proxy/users` | `proxy:read` + unrestricted server allowlist | → `{users: []ProxyUserView}` (no UUID/password/token) |
+| POST | `/api/proxy/users` | `proxy:admin` + unrestricted server allowlist | full `ProxyUser` upsert → `ProxyUserView`; UUID/sub-token are generated when absent and preserved on update |
+| POST | `/api/proxy/users/delete` | `proxy:admin` + unrestricted server allowlist | `{id}` → `{ok:true}` |
+| GET | `/api/proxy/profiles` | `proxy:read` + node allowlist | → `{profiles: []ProxyNodeProfileView}` filtered to visible nodes |
+| POST | `/api/proxy/profiles` | `proxy:admin` + node allowlist | full node profile upsert → view |
+| POST | `/api/proxy/profiles/delete` | `proxy:admin` + node allowlist | `{node_id}` → `{ok:true}` |
+
+### Pending deployment/subscription routes
+
+| Method | Path | Scope | Request → Response |
+|---|---|---|---|
 | POST | `/api/proxy/nodes/{node_id}/plan` | `network:plan` | `{plan_sha256?}` → `{approval_id, plan, sha256}` (renders config, creates `Approval{Plugin:"proxycore"}`) |
 | — | `/api/network/approve` | `network:apply` | **existing handler**; `{approval_id, queue_apply, plan_sha256}` queues the apply task |
 | GET | `/api/proxy/usage` | `proxy:read` | → per-user/per-node usage rollup for the dashboard |
@@ -259,6 +274,14 @@ Agent-facing (bearer node-token auth, like existing `/api/agent/*`):
 | POST | `/api/agent/proxy-usage` | node token | agent reports `ProxyUsageSnapshot` |
 
 The plan endpoint is the only new "dangerous" surface; it produces a diffable plan and **never** mutates the node. Approve/apply is the unchanged shared path. The `/sub/{token}` endpoint is the one public, unauthenticated-by-session route — it is guarded by an unguessable per-user token, constant-time compared, rate-limited, and emits an audit/usage event on hit.
+
+**Implementation note after iter-041:** the bootstrap JSON API uses the existing
+project convention (`POST .../delete`) rather than path-param `DELETE` routes:
+`/api/proxy/inbounds/delete`, `/api/proxy/users/delete`, and
+`/api/proxy/profiles/delete`. The first CRUD slice is intentionally MVP-limited:
+it accepts only `sing-box` + `vless` + TCP + REALITY until more renderers are
+implemented. It preserves write-only secrets on update but does **not** generate
+REALITY keypairs yet; key generation remains in the planned `reality.go` slice.
 
 ---
 
@@ -409,7 +432,7 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
    - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 currently covers renderer shape/validation/hash/leak checks; optional `sing-box check` integration remains pending.
    *Next commit shape: `feat(proxycore): vless/reality links + subscription encoders`.*
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets), `/api/proxy/nodes/{id}/plan` (creates `Approval{Plugin:"proxycore"}`), `/sub/{token}` (public, rate-limited, constant-time token compare), `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Commit: `feat(server): proxy CRUD, plan, subscription endpoint`.*
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets). **CRUD/read views landed in iter-041.** Remaining handler work: `/api/proxy/nodes/{id}/plan` (creates `Approval{Plugin:"proxycore"}`), `/sub/{token}` (public, rate-limited, constant-time token compare), `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Next commit shape: `feat(server): reviewed proxycore plan endpoint`.*
 
 6. **Approve→apply wiring** — `internal/server/server.go`: add `case "proxycore"` to `applyScriptFor` (heredoc config + `sing-box check` + atomic swap + reload). No new agent interpreter. Test the rendered script shape. *Commit: `feat(server): proxycore apply task in plan→approve→apply`.*
 

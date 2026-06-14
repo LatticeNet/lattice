@@ -297,8 +297,8 @@ It owns bearer credentials, subscription tokens, and reviewed host mutations, so
 it uses the same server-owned trust boundary as DNS, DDNS, nft, WireGuard, and
 Cloudflare Tunnel.
 
-The current implementation includes the iter-039 persistence foundation and the
-iter-040 first renderer slice:
+The current implementation includes the iter-039 persistence foundation, the
+iter-040 first renderer slice, and the iter-041 CRUD/read-view slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -312,8 +312,14 @@ iter-040 first renderer slice:
   sing-box config for the narrow MVP path: `vless` over TCP with REALITY. The
   renderer is fail-closed, typed-JSON only, filters ineligible users, and treats
   the output as a node-scoped secret-bearing artifact.
+- `lattice-server/internal/server/server_proxy.go` exposes JSON CRUD for
+  inbounds, users, and profiles. Inbound/user reads require unrestricted
+  `proxy:read` because they are global policy/credential objects; profile reads
+  are node-allowlist filtered. Views expose `has_reality_private_key`,
+  `has_uuid`, `has_password`, and `has_sub_token` booleans instead of secret
+  fields.
 
-HTTP CRUD APIs, dashboard UI, agent apply scripts, stats reporting, and
+Plan/apply APIs, dashboard UI, agent apply scripts, stats reporting, and
 `/sub/{token}` are intentionally pending. The future subscription route
 must not persist raw subscription tokens as map keys; add an opaque SHA-256
 token index or a constant-time scan with explicit rate limits before exposing

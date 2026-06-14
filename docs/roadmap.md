@@ -44,8 +44,9 @@
 > optional pinned CoreDNS executable install with SHA-256 verification. Proxy
 > core/subscription work has started: iter-039 landed the SDK model/proto/store
 > foundation with encrypted proxy credentials, and iter-040 landed the first
-> fail-closed sing-box `vless`+TCP+REALITY config renderer. Bulk geo import and
-> map overlays remain pending.
+> fail-closed sing-box `vless`+TCP+REALITY config renderer. Iter-041 landed
+> scoped proxy inbounds/users/profiles CRUD with secret-free JSON views. Bulk
+> geo import and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -132,9 +133,10 @@
   private keys, UUID/password credentials, and subscription tokens. Iter-040
   delivered the first server-side sing-box `vless`+TCP+REALITY renderer with
   typed JSON generation, canonical config SHA-256, user eligibility filtering,
-  and fail-closed validation. Next slices: scoped CRUD API/read views, reviewed
-  `proxycore` plan/apply, then `/sub/{token}` with an explicit opaque-token
-  lookup design. *(Partially built.)*
+  and fail-closed validation. Iter-041 delivered scoped inbounds/users/profiles
+  CRUD with secret-free JSON views and node-allowlist-filtered profiles. Next
+  slices: reviewed `proxycore` plan/apply, then `/sub/{token}` with an explicit
+  opaque-token lookup design. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered
