@@ -267,11 +267,11 @@ collection `GET`/`POST` plus explicit `POST .../delete`.
 | POST | `/api/proxy/profiles/delete` | `proxy:admin` + node allowlist | `{node_id}` → `{ok:true}` |
 | POST | `/api/proxy/nodes/{node_id}/plan` | `network:plan` on node + unrestricted `proxy:read` | `{}` → `ApprovalView`; plan text redacts secrets and action binds real config SHA |
 
-### Pending deployment/subscription routes
+### Deployment/subscription routes
 
 | Method | Path | Scope | Request → Response |
 |---|---|---|---|
-| — | `/api/network/approve` | `network:apply` | Existing handler; for `proxycore`, approval without queue is allowed after plan-hash/current-config checks, but `queue_apply:true` is rejected until the apply slice lands |
+| POST | `/api/network/approvals/approve` | `network:apply` on node | Existing handler; for `proxycore`, approval requires `plan_sha256`, re-renders the current desired config, rejects stale SHA, and `queue_apply:true` creates the validated sing-box apply task |
 | GET | `/api/proxy/usage` | `proxy:read` | → per-user/per-node usage rollup for the dashboard |
 | **GET** | `/sub/{token}` | **public (token-auth)** | → subscription body (format negotiated, see §6); rate-limited via existing `internal/ratelimit`; never requires a session |
 
@@ -290,12 +290,12 @@ it accepts only `sing-box` + `vless` + TCP + REALITY until more renderers are
 implemented. It preserves write-only secrets on update but does **not** generate
 REALITY keypairs yet; key generation remains in the planned `reality.go` slice.
 
-**Implementation note after iter-042:** the first plan endpoint is secret-free
-for reviewers. It does **not** put the real rendered config into
-`Approval.Plan`; it stores only a redacted review plan and the real config hash.
-Before implementing apply, decide how the secret-bearing queued artifact is
-protected at rest. The current default is fail-closed: `queue_apply:true` for
-`proxycore` returns conflict and creates no task.
+**Implementation note after iter-043:** the plan endpoint is secret-free for
+reviewers. It does **not** put the real rendered config into `Approval.Plan`; it
+stores only a redacted review plan and the real config hash. `queue_apply:true`
+is now enabled because `model.Task.Script` is encrypted at rest in both JSON and
+bbolt stores. The queued task still carries the real sing-box config to the
+owning node, so future task/artifact fields must not bypass `internal/store/crypto.go`.
 
 ---
 
@@ -304,23 +304,39 @@ protected at rest. The current default is fail-closed: `queue_apply:true` for
 The agent gains a small **proxy module** (`internal/proxycore/` in lattice-node-agent) and **one new reporting goroutine**. It does **not** gain inbound ports or new trust.
 
 ### Apply-task contract (reuses existing task plumbing)
-The server's `applyScriptFor(approval)` gets `case "proxycore"`. The rendered task is an ordinary `model.Task{Interpreter:"sh"}` the agent already knows how to run sandboxed. The script:
+The server's `applyScriptFor(approval)` has `case "proxycore"`. The rendered task is an ordinary `model.Task{Interpreter:"sh"}` the agent already knows how to run sandboxed. The script:
 ```sh
 set -e
 umask 077
-mkdir -p /etc/sing-box
-cat > /etc/sing-box/config.json.new <<'LATTICE_SB_EOF'
+command -v sing-box >/dev/null
+TARGET=/etc/sing-box/config.json
+CANDIDATE="${TARGET}.lattice-new"
+BACKUP="${TARGET}.lattice-prev"
+mkdir -p "$(dirname "$TARGET")"
+cat > '/etc/sing-box/config.json.lattice-new' <<'LATTICE_SB_EOF'
 <rendered config.json>
 LATTICE_SB_EOF
-sing-box check -c /etc/sing-box/config.json.new          # fail-closed: bad config never goes live
-mv /etc/sing-box/config.json.new /etc/sing-box/config.json
+sing-box check -c "$CANDIDATE"          # fail-closed: bad config never goes live
+if [ -e "$TARGET" ]; then
+  cp -p "$TARGET" "$BACKUP"
+fi
+mv -f "$CANDIDATE" "$TARGET"
 systemctl reload sing-box 2>/dev/null \
-  || systemctl restart sing-box 2>/dev/null \
-  || echo 'config written; start sing-box manually'
+  || systemctl restart sing-box
 ```
-This mirrors the cftunnel/wireguard cases exactly: heredoc-write + validate + reload, all via the sandboxed `sh` interpreter with the existing rlimits/process-group-kill/output-cap. **No new interpreter is added to the allowlist.** The agent reports stdout/stderr/exit through the existing `TaskResult` path; on non-zero exit the old config stays live (atomic `mv` only after `check` passes) — fail-closed.
+If systemd is unavailable, the actual script attempts `service sing-box reload`
+and then `service sing-box restart`; if no supported service manager can
+activate the checked config, the task exits non-zero. This mirrors the
+cftunnel/wireguard shape where possible: heredoc-write + validate + reload, all
+via the sandboxed `sh` interpreter with the existing
+rlimits/process-group-kill/output-cap. **No new interpreter is added to the
+allowlist.** The agent reports stdout/stderr/exit through the existing
+`TaskResult` path; on non-zero exit before the atomic move the old config stays
+live, and on service-manager failure the actual script restores the previous
+target file, tries to restart the previous config, and does not mark the profile
+applied.
 
-> Secrets in the plan: the rendered `config.json` **does** contain user UUIDs/passwords (the core needs them). This is acceptable because (a) it only ever reaches the one node that serves those users, over the same HTTPS bearer channel that already carries every task, and (b) it is the minimum that node must know to function. Unlike WireGuard's private key (which is node-owned and substituted locally), proxy client secrets are server-issued and inherently must land on the serving node. The approval **diff shown to the operator** can optionally mask client secrets to keep review screenshots safe, while the queued task carries the real values (the `plan_sha256` binds the *masked-or-real* canonical text consistently — pick one and hash that).
+> Secrets in the plan/apply split: the approval plan is redacted and safe for review screenshots. The queued task script **does** contain user UUIDs/passwords and REALITY private keys (the core needs them). This is acceptable because (a) it only reaches the one node that serves those users, over the same HTTPS bearer channel that already carries every task, (b) `Task.Script` is encrypted at rest, and (c) it is the minimum that node must know to function. Unlike WireGuard's private key (node-owned and substituted locally), proxy client secrets are server-issued and inherently must land on the serving node.
 
 ### Usage reporting goroutine
 - Reads the core's local stats API (`ProxyNodeProfile.StatsAPI`, default `127.0.0.1:9090` clash-api for sing-box, or xray's gRPC stats in v2), every N seconds.
@@ -365,7 +381,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 
 **Blast radius / compromised node.** A node only ever holds: its own rendered config (its inbounds + the subset of users provisioned to it) and its own node token. It does **not** hold the central user DB, other nodes' configs, subscription tokens, or reality private keys for inbounds it doesn't run. A compromised node can: serve/sniff transit for *its own* users (inherent to being an exit), lie about usage (mitigation: monotonic diffing + sanity caps + the server treats usage as advisory for accounting, authoritative gating stays server-side on expiry/quota-estimate), and attempt to return a bad task result (bounded by existing output caps). It **cannot** mint users, read other nodes' secrets, or pivot to the control plane (it only dials out; no inbound from server).
 
-**Audit events** (hash-chained WAL, via `recordPrincipalAudit`): `proxy.inbound.{create,update,delete}`, `proxy.user.{create,update,rotate,delete}`, `proxy.profile.update`, `proxy.plan` (with node + plan sha256), `proxy.approve`/`proxy.apply` (via the shared approve handler, `Plugin:"proxycore"`), `proxy.subscription.fetch` (token id hash + source IP, for abuse detection), `proxy.usage.report`. Expiry/quota/core-down notifications fan out via `internal/notify`.
+**Audit events** (hash-chained WAL, via `recordPrincipalAudit`): `proxy.inbound.{create,update,delete}`, `proxy.user.{create,update,rotate,delete}`, `proxy.profile.update`, `proxy.plan` (with node + plan sha256), `network.proxycore.approve` (shared approve handler), `proxy.apply.applied` / `proxy.apply.failed` (task-result reconciliation), `proxy.subscription.fetch` (token id hash + source IP, for abuse detection), `proxy.usage.report`. Expiry/quota/core-down notifications fan out via `internal/notify`.
 
 ---
 
@@ -374,7 +390,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 ### MVP (smallest shippable slice) — *sing-box, vless+reality, single inbound type, manual usage*
 - Model: `ProxyInbound`, `ProxyUser`, `ProxyNodeProfile` (+ store collections, crypto wiring).
 - One protocol path end-to-end: **vless + reality + tcp** (the operator's most-wanted, no cert needed).
-- Server: inbounds/users/profiles CRUD; `internal/proxycore` renderer (sing-box JSON) for vless/reality; `POST /api/proxy/nodes/{id}/plan` → `Approval{Plugin:"proxycore"}`; reuse approve→apply with `case "proxycore"` in `applyScriptFor`.
+- Server: inbounds/users/profiles CRUD; `internal/proxycore` renderer (sing-box JSON) for vless/reality; `POST /api/proxy/nodes/{id}/plan` → `Approval{Plugin:"proxycore"}`; approve→apply queues the sing-box validation/atomic-swap task after config-SHA revalidation.
 - Agent: nothing new beyond running the apply task (it already can). `sing-box check` in the script.
 - Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header (expiry only; usage shows 0).
 - DDNS: document that the node needs a DDNS profile; warn in plan if missing.
@@ -446,9 +462,9 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
    - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 currently covers renderer shape/validation/hash/leak checks; optional `sing-box check` integration remains pending.
    *Next commit shape: `feat(proxycore): vless/reality links + subscription encoders`.*
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042. Remaining handler work: real `proxycore` queue/apply, `/sub/{token}` (public, rate-limited, constant-time token compare), `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Next commit shape: `feat(server): proxycore apply task with secret-safe artifact handling`.*
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043. Remaining handler work: `/sub/{token}` (public, rate-limited, constant-time token compare) and `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Next commit shape: `feat(server): proxy subscriptions with opaque-token lookup`.*
 
-6. **Approve→apply wiring** — `internal/server/server.go`: replace the current fail-closed `case "proxycore"` with real apply once the secret-bearing task/artifact storage boundary is decided. The script should heredoc the real config, run `sing-box check -c`, atomically swap, reload/restart, and reconcile status. No new agent interpreter. Test the rendered script shape and at-rest behavior. *Commit: `feat(server): proxycore apply task in plan→approve→apply`.*
+6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 
 7. **Agent usage (v2 slice, can defer)** — `lattice-node-agent/internal/proxycore/usage.go` + a poll goroutine in `cmd/lattice-agent/main.go`; server `/api/agent/proxy-usage` handler + monotonic diff into `ProxyUser.UsedBytes`/`Status`; quota/expiry `notify` hooks. *Commit: `feat(agent,server): proxy usage reporting + quota/expiry alerts`.*
 

@@ -32,10 +32,11 @@ separately.
   optional pinned CoreDNS executable install.
 - Proxy-core/subscription foundation: shared models, redacted proto views,
   JSON/bbolt persistence, and encrypted Reality/user/subscription credentials
-  plus the first fail-closed sing-box `vless`+TCP+REALITY renderer for future
-  reviewed plan/apply orchestration, with scoped CRUD/read APIs that return
-  secret-free views and a redacted reviewed plan endpoint that binds the real
-  rendered config hash.
+  plus the first fail-closed sing-box `vless`+TCP+REALITY renderer, scoped
+  CRUD/read APIs that return secret-free views, a redacted reviewed plan
+  endpoint that binds the real rendered config hash, and secret-safe reviewed
+  queue/apply with encrypted task scripts, `sing-box check`, atomic config swap,
+  and task-result status reconciliation.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.

@@ -138,9 +138,12 @@
   and fail-closed validation. Iter-041 delivered scoped inbounds/users/profiles
   CRUD with secret-free JSON views and node-allowlist-filtered profiles.
   Iter-042 delivered a redacted reviewed `/api/proxy/nodes/{id}/plan` endpoint
-  that binds the real rendered config hash and rejects stale approvals. Next
-  slices: secret-safe `proxycore` queue/apply, then `/sub/{token}` with an
-  explicit opaque-token lookup design. *(Partially built.)*
+  that binds the real rendered config hash and rejects stale approvals.
+  Iter-043 encrypted persisted task scripts and enabled `proxycore`
+  queue/apply with `sing-box check`, atomic config swap, reload/restart
+  activation, and task-result status reconciliation. Next slices:
+  `/sub/{token}` with an explicit opaque-token lookup design, dashboard proxy
+  UI, then usage reporting. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

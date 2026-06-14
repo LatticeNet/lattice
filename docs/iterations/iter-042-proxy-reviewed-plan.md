@@ -14,9 +14,10 @@ reviewable deployment surface:
 - Exact rendered config SHA-256 bound into the stored approval action.
 - Approval-time drift detection before any future apply can be queued.
 
-This is intentionally still **review-only**. `queue_apply:true` for `proxycore`
-fails closed until the apply script and secret-at-rest story for queued tasks
-are implemented.
+This iteration was intentionally **review-only** when it landed.
+`queue_apply:true` for `proxycore` failed closed until the apply script and
+secret-at-rest story for queued tasks were implemented. That follow-up landed in
+[`iter-043-proxy-apply-secret-safe.md`](./iter-043-proxy-apply-secret-safe.md).
 
 ## Route
 
@@ -36,9 +37,10 @@ are implemented.
   proxycore config and rejects the approval if the SHA no longer matches the
   approval action. Editing an inbound/user/profile after planning requires a
   new plan.
-- **Apply remains fail-closed.** `queue_apply:true` returns conflict and creates
-  no task. `applyScriptFor("proxycore")` also exits non-zero as a defense in
-  depth, so proxycore cannot fall through to the legacy nft default branch.
+- **Apply remained fail-closed in this slice.** At iter-042 time,
+  `queue_apply:true` returned conflict and created no task. Iter-043 enabled
+  apply only after encrypting persisted task scripts and adding status
+  reconciliation.
 - **Authz is stricter than ordinary node planning.** The caller needs
   `network:plan` for the node and unrestricted `proxy:read`, because planning
   resolves fleet-global inbounds/users even though the plan text is redacted.
@@ -78,23 +80,22 @@ Known environment note: the Go tool still prints a non-fatal stat-cache warning
 when it attempts to write under `/Users/cdcd/go/pkg/mod/cache`; the build exit
 code is 0.
 
-## Tests added
+## Tests added at the time
 
 - Proxy plan creates a `proxycore` approval with redacted config text.
 - Plan text does not contain REALITY private key, user UUID, password, or
   subscription token.
 - Stored action binds the real config SHA while the view action stays stable.
-- `queue_apply:true` fails closed and creates no task.
+- `queue_apply:true` failed closed and created no task in iter-042. This
+  assertion was intentionally replaced by iter-043's successful queue/apply
+  regression after task-script encryption landed.
 - Node-allowlisted PAT cannot plan proxycore without unrestricted proxy read.
 - A changed config after planning makes approval fail with conflict.
 
 ## Next work
 
-1. Add a safe proxycore apply payload design. The queued task script will carry
-   secret-bearing config, so either `Task.Script` must become encrypted at rest
-   or the queued script must reference an encrypted, node-scoped artifact.
-2. Implement `applyScriptFor("proxycore")` for real: write `.new`, run
-   `sing-box check -c`, atomic move, reload/restart fallback, and status
-   reconciliation.
-3. Only after reviewed apply is safe, add dashboard proxy plan/apply UI.
-4. Add `/sub/{token}` after opaque token lookup and rate limiting are designed.
+1. ✅ Completed in iter-043: encrypted `Task.Script` at rest for JSON and bbolt.
+2. ✅ Completed in iter-043: real `proxycore` apply script with `sing-box check`,
+   atomic swap, reload/restart activation, and task-result status reconciliation.
+3. Next: add dashboard proxy plan/apply UI.
+4. Next: add `/sub/{token}` after opaque token lookup and rate limiting are designed.

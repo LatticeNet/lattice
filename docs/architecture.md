@@ -298,8 +298,8 @@ it uses the same server-owned trust boundary as DNS, DDNS, nft, WireGuard, and
 Cloudflare Tunnel.
 
 The current implementation includes the iter-039 persistence foundation, the
-iter-040 first renderer slice, the iter-041 CRUD/read-view slice, and the
-iter-042 reviewed-plan slice:
+iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
+reviewed-plan slice, and the iter-043 secret-safe apply slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -323,15 +323,17 @@ iter-042 reviewed-plan slice:
   approval whose plan text is a redacted sing-box config. The stored action
   binds the SHA-256 of the real rendered config, and approval re-renders the
   current config to reject stale plans.
+- `queue_apply:true` for `proxycore` creates a normal agent task after
+  plan-hash and current-config checks. The task script carries the real
+  node-scoped sing-box config, so `model.Task.Script` is encrypted at rest in
+  both JSON and bbolt stores. The agent script runs `sing-box check -c`, swaps
+  the config atomically, reloads/restarts `sing-box`, and task results reconcile
+  `ProxyNodeProfile.AppliedSHA256`, `LastApplyAt`, and `LastError`.
 
-Real queue/apply, dashboard UI, agent apply scripts, stats reporting, and
-`/sub/{token}` are intentionally pending. `queue_apply:true` for `proxycore`
-currently fails closed because the real queued artifact would contain subscriber
-credentials and REALITY private keys; before enabling apply, protect that
-secret-bearing task/artifact at rest. The future subscription route must not
-persist raw subscription tokens as map keys; add an opaque SHA-256 token index
-or a constant-time scan with explicit rate limits before exposing that public
-endpoint.
+Dashboard proxy UI, stats reporting, and `/sub/{token}` are intentionally
+pending. The future subscription route must not persist raw subscription tokens
+as map keys; add an opaque SHA-256 token index or a constant-time scan with
+explicit rate limits before exposing that public endpoint.
 
 ## Storage
 

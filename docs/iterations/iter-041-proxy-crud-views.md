@@ -108,8 +108,8 @@ exit code is 0.
 
 1. `/api/proxy/nodes/{id}/plan` using the iter-040 renderer and iter-041 CRUD
    data landed in iter-042 with a redacted plan and real config hash binding.
-2. Add secret-safe `proxycore` queue/apply handling. The task/artifact will
-   carry credentials, so protect it at rest before enabling `queue_apply`.
-3. Add `applyScriptFor("proxycore")` with `sing-box check`, atomic swap,
-   reload/restart fallback, and status reconciliation.
-4. Add subscription link generation only after the plan/apply path is safe.
+2. Secret-safe `proxycore` queue/apply landed in iter-043 after encrypting
+   persisted `Task.Script`.
+3. `applyScriptFor("proxycore")` now writes a candidate config, runs
+   `sing-box check`, swaps atomically, reloads/restarts, and reconciles status.
+4. Next: add subscription link generation and dashboard proxy UI.

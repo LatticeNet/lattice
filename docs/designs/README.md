@@ -35,7 +35,9 @@ JSON-store/bbolt persistence, and at-rest encryption for proxy credentials;
 iter-040 adds the first fail-closed sing-box `vless`+TCP+REALITY renderer with
 canonical config hashes; iter-041 adds scoped proxy inbounds/users/profiles CRUD
 with secret-free JSON views; iter-042 adds the redacted reviewed proxy plan
-endpoint and current-config SHA binding while keeping apply fail-closed.
+endpoint and current-config SHA binding; iter-043 encrypts queued task scripts
+at rest and enables reviewed proxycore queue/apply with sing-box validation,
+atomic swap, and task-result status reconciliation.
 Remaining Design 05 work is bulk geo import and map overlays. Design 03 remains
 design-ready but unbuilt. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
@@ -45,7 +47,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 
 | # | Design | What it delivers | Core decision |
 |---|--------|------------------|---------------|
-| 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box (v1) / xray (v2) management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; SDK model/proto/store/encryption foundation landed iter-039; sing-box `vless+reality+tcp` renderer landed iter-040; scoped CRUD/read views landed iter-041; redacted reviewed plan endpoint landed iter-042; next is secret-safe queue/apply; node-agnostic `ProxyUser` → one `/sub/{token}` spans the fleet (remnawave model); secrets encrypted at rest |
+| 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box (v1) / xray (v2) management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; SDK model/proto/store/encryption foundation landed iter-039; sing-box `vless+reality+tcp` renderer landed iter-040; scoped CRUD/read views landed iter-041; redacted reviewed plan endpoint landed iter-042; secret-safe queue/apply landed iter-043; next is `/sub/{token}` + dashboard UI; node-agnostic `ProxyUser` → one subscription spans the fleet (remnawave model); secrets encrypted at rest |
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; `DNSDeployment` model/API/dashboard foundation landed iter-033; CoreDNS render + `/api/dns/plan` landed iter-034; rollback-protected apply/status landed iter-035; Cloudflare publish landed iter-036; apply/publish status split landed iter-037; pinned CoreDNS install landed iter-038; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
@@ -81,8 +83,8 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
    pinned CoreDNS install is plan-bound by URL + SHA-256.
 3. **01 Proxy cores & subscriptions** — the flagship and largest. The
    persistence/proto foundation, first sing-box renderer, scoped CRUD/read
-   views, and reviewed redacted plan endpoint are now landed; next ship
-   secret-safe `proxycore` queue/apply, then expiry-only subscriptions.
+   views, reviewed redacted plan endpoint, and secret-safe queue/apply are now
+   landed; next ship expiry-only subscriptions and the dashboard proxy UI.
 4. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real
    store backend is wired, or ship the bounded standalone store as an interim.
 5. **Design 04 v2 polish** — audited reveal endpoint, per-currency rollups,
