@@ -34,7 +34,9 @@ In scope:
 
 Out of scope:
 
-- Clash YAML, sing-box client JSON, UA sniffing, and cache.
+- Clash YAML, sing-box client JSON, UA sniffing, and cache. **sing-box JSON and
+  Clash/Mihomo YAML were resolved in iter-047 for VLESS+REALITY+TCP; UA sniffing
+  and cache remain future work.**
 - `/api/proxy/usage` and agent usage reporting.
 - Dashboard proxy UI.
 - xray renderer.
@@ -181,8 +183,12 @@ new surface.
   returns the new URL once and invalidates the old token.
 - Usage reporting is not live; `Subscription-Userinfo` reflects stored
   `ProxyUser.UsedBytes`, but no agent proxy-usage reporter updates it yet.
+  **Resolved in iter-046** with `/api/agent/proxy-usage`, monotonic rollup, an
+  agent file bridge, and dashboard usage display.
 - No Clash YAML or sing-box client JSON output yet; plain/base64 VLESS links
-  are the MVP only.
+  are the MVP only. **Resolved in iter-047** for the supported
+  VLESS+REALITY+TCP shape with `format=sing-box`, `format=clash`, and
+  `format=clash-meta`.
 - No xray renderer yet; keep `Core=xray` as v2 behind the same abstractions.
 - Optional future optimization: stored SHA-256 subscription-token index keyed by
   token hash, with an ADR if it adds a new secret-at-rest class.

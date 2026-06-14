@@ -32,7 +32,8 @@ In scope:
 Out of scope:
 
 - Usage reporting and quota counters from sing-box stats.
-- Clash YAML / sing-box client JSON subscription formats.
+- Clash YAML / sing-box client JSON subscription formats. **Resolved in
+  iter-047 for VLESS+REALITY+TCP.**
 - xray renderer.
 - Full visual redesign of the dashboard.
 
@@ -74,8 +75,9 @@ node --check assets/proxy.js
   subscription URL.
 - Ordinary dashboard refresh does not retain or display raw subscription tokens.
 - Long-lived docs reflect that dashboard proxy management and token rotation
-  are now partially landed. Baseline usage reporting landed in iter-046; richer
-  formats, direct core collectors, and xray remain pending.
+  are now partially landed. Baseline usage reporting landed in iter-046;
+  sing-box JSON and Clash/Mihomo YAML formats landed in iter-047. Direct core
+  collectors and xray remain pending.
 
 ## Execution Log
 
@@ -125,9 +127,10 @@ node --check assets/proxy.js
 - Dashboard plan creation queues the existing approval object, but the operator
   still completes apply through the existing Approvals panel. A later UI pass
   should add a focused proxy plan diff/approve flow.
-- Subscription output remains MVP plain/base64 VLESS+REALITY. Baseline usage
-  reporting landed in iter-046; Clash/sing-box client formats, direct
-  sing-box/xray collectors, xray renderer, and import-link UX remain future
+- Subscription output no longer stops at MVP plain/base64 VLESS+REALITY:
+  baseline usage reporting landed in iter-046, and Clash/Mihomo plus sing-box
+  client formats landed in iter-047. Direct sing-box/xray collectors, xray
+  renderer, focused import-link UX, and broader protocol formats remain future
   slices.
 - Rotation returns a full URL derived from `LATTICE_PUBLIC_URL` when configured;
   deployments should set that value behind reverse proxies. Without it, the API

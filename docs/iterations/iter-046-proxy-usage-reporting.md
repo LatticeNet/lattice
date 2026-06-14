@@ -74,7 +74,9 @@ rules first, then leaves the direct core-specific collectors for later.
 - Usage anomaly alerts, quota notification hooks, and scheduled over-quota
   enforcement.
 - Richer subscription output formats (`sing-box` client JSON, Clash YAML,
-  v2ray-style format negotiation).
+  v2ray-style format negotiation). **sing-box JSON and Clash/Mihomo YAML were
+  resolved in iter-047 for VLESS+REALITY+TCP; v2ray-style negotiation remains
+  future work.**
 - A focused proxy plan/apply dashboard; approvals still use the shared
   Approvals panel.
 
@@ -177,8 +179,9 @@ Manual security/code review focused on the new trust boundary:
 1. Add a direct sing-box usage collector behind the same `ProxyUsageSnapshot`
    contract after pinning the supported API/version behavior.
 2. Add usage anomaly/over-quota notification hooks through `internal/notify`.
-3. Add richer subscription formats and decide whether to hand-roll fixed YAML
-   emitters or introduce an ADR-approved YAML dependency.
+3. Add subscription import helpers and optional User-Agent/v2ray-style format
+   negotiation. The first richer formats landed in iter-047 using a fixed-shape
+   dependency-free YAML emitter.
 4. Add a focused proxy plan/apply dashboard so proxy operators do not have to
    context-switch into the generic Approvals panel.
 5. Add xray renderer and xray usage collector behind the same core abstraction.

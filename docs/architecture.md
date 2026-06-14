@@ -301,7 +301,7 @@ The current implementation includes the iter-039 persistence foundation, the
 iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
 reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
 public subscription slice, plus the iter-045 dashboard/token-workflow slice and
-the iter-046 usage-reporting baseline:
+the iter-046 usage-reporting baseline and iter-047 subscription-format slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -331,12 +331,15 @@ the iter-046 usage-reporting baseline:
   both JSON and bbolt stores. The agent script runs `sing-box check -c`, swaps
   the config atomically, reloads/restarts `sing-box`, and task results reconcile
   `ProxyNodeProfile.AppliedSHA256`, `LastApplyAt`, and `LastError`.
-- `GET /sub/{token}` is the first public subscription endpoint. It supports
-  `format=base64` by default and `format=plain`, emits `Subscription-Userinfo`,
-  rate-limits before credential lookup, scans subscription tokens in constant
-  time, rejects duplicate stored tokens fail-closed, and records
-  `proxy.subscription.fetch` audit events using a token SHA-256 hash rather
-  than raw token material.
+- `GET /sub/{token}` is the public subscription endpoint. It supports
+  `format=base64` by default, `format=plain`, `format=sing-box`, `format=clash`,
+  and `format=clash-meta` (`clash.meta` / `clashmeta` aliases). Plain/base64
+  emit VLESS URIs, sing-box emits `application/json` client `outbounds`, and
+  Clash/Mihomo emits `text/yaml` `proxies:` output. The route emits
+  `Subscription-Userinfo`, rate-limits before credential lookup, scans
+  subscription tokens in constant time, rejects duplicate stored tokens
+  fail-closed, and records `proxy.subscription.fetch` audit events using a
+  token SHA-256 hash rather than raw token material.
 - `POST /api/proxy/users/rotate-sub-token` explicitly rotates a user's
   subscription token, invalidates the old public URL, audits old/new token
   SHA-256 hashes only, and returns the new subscription URL/path once for
@@ -360,8 +363,8 @@ the iter-046 usage-reporting baseline:
   stable collector contract for sidecars and future direct sing-box/xray
   collectors; direct core API polling remains a later slice.
 
-Direct sing-box/xray stats collectors, richer subscription formats, a focused
-proxy plan/apply UI, usage notifications, and xray rendering remain pending.
+Direct sing-box/xray stats collectors, a focused proxy plan/apply UI, usage
+notifications, subscription import helpers, and xray rendering remain pending.
 The subscription route deliberately does not persist raw subscription tokens as
 map keys; keep that property if a future SHA-256 token index replaces the MVP
 full scan.

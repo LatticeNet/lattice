@@ -53,7 +53,10 @@
 > proxy management panel plus explicit audited subscription URL rotation/copy.
 > Iter-046 landed the first proxy usage reporting baseline: node-token
 > `/api/agent/proxy-usage`, server-side monotonic rollup, an agent file bridge,
-> and dashboard usage/last-seen display.
+> and dashboard usage/last-seen display. Iter-047 landed `format=sing-box`,
+> `format=clash`, and `format=clash-meta` subscription output for
+> VLESS+REALITY+TCP, with a shared secret-free endpoint projection and no new
+> dependency.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -156,9 +159,12 @@
   subscription URL workflow. Iter-046 delivered baseline usage reporting:
   `/api/agent/proxy-usage`, `/api/proxy/usage`, server-side monotonic diffing,
   per-node eligibility filtering, an agent `-proxy-usage-file` bridge, and
-  dashboard usage/last-seen display. Next slices: direct sing-box stats
-  collection, richer subscription formats, focused proxy apply UI, usage
-  notifications, then xray. *(Partially built.)*
+  dashboard usage/last-seen display. Iter-047 delivered sing-box client JSON
+  and Clash/Mihomo YAML subscription bodies through the existing public
+  `/sub/{token}` endpoint, while keeping subscription rendering secret-free and
+  dependency-free. Next slices: focused proxy apply UI, direct sing-box stats
+  collection, usage notifications, subscription import helpers, then xray.
+  *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

@@ -69,10 +69,11 @@ and at-rest encryption for `RealityPrivateKey`, `UUID`, `Password`, and
 `vless`+TCP+REALITY. It emits a canonical secret-bearing config artifact with a
 SHA-256 and fail-closed structural validation, omits disabled/expired/over-quota
 users, rejects unsupported transport/protocol combinations, and is covered by
-table-driven tests. Iter-041 through iter-046 have since landed HTTP CRUD,
-reviewed plan/apply, public subscriptions, the first dashboard workflow, and a
-baseline usage-reporting path. Direct core stats collectors, richer
-subscription formats, and xray remain pending.
+table-driven tests. Iter-041 through iter-047 have since landed HTTP CRUD,
+reviewed plan/apply, public subscriptions, the first dashboard workflow,
+baseline usage reporting, and sing-box JSON plus Clash/Mihomo YAML subscription
+formats for the supported VLESS+REALITY+TCP path. Direct core stats collectors
+and xray remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
@@ -80,7 +81,7 @@ global inbounds/users require unrestricted `proxy:read`/`proxy:admin`, profiles
 are node-allowlist filtered, and views expose only `has_*` booleans for
 credential material. Plan/apply, dashboard UI, usage reporting, and public
 subscriptions were intentionally deferred to later slices and have now landed
-incrementally through the iter-046 baseline.
+incrementally through the iter-047 subscription-format slice.
 
 **Landed in iter-042:** `POST /api/proxy/nodes/{node_id}/plan` creates a
 pending `Plugin:"proxycore"` approval from the current profile/inbounds/users.
@@ -278,7 +279,7 @@ collection `GET`/`POST` plus explicit `POST .../delete`.
 | Method | Path | Scope | Request → Response |
 |---|---|---|---|
 | POST | `/api/network/approvals/approve` | `network:apply` on node | Existing handler; for `proxycore`, approval requires `plan_sha256`, re-renders the current desired config, rejects stale SHA, and `queue_apply:true` creates the validated sing-box apply task |
-| **GET** | `/sub/{token}` | **public (token-auth)** | → subscription body (format negotiated, see §6); iter-044 supports `format=base64` default and `format=plain`; rate-limited via a dedicated `internal/ratelimit` bucket; never requires a session |
+| **GET** | `/sub/{token}` | **public (token-auth)** | -> subscription body (format negotiated, see §6); iter-044 supports `format=base64` default and `format=plain`; iter-047 adds `format=sing-box`, `format=clash`, and `format=clash-meta` (`clash.meta` / `clashmeta` aliases); rate-limited via a dedicated `internal/ratelimit` bucket; never requires a session |
 
 Agent-facing (bearer node-token auth, like existing `/api/agent/*`):
 | Method | Path | Auth | Purpose |
@@ -309,6 +310,14 @@ profile, treats the first snapshot as a baseline, diffs later snapshots
 monotonically, handles `core_uptime_sec` decreases as resets, and serializes
 the read-diff-update sequence with a dedicated mutex. `/api/proxy/usage`
 returns only secret-free counters/status.
+
+**Implementation note after iter-047:** `/sub/{token}` now derives every public
+format from a shared `VLESSRealityEndpoint` projection rather than from
+secret-bearing control-plane structs. Besides plain/base64 URI bodies, it emits
+sing-box client JSON (`application/json`) and Clash/Mihomo YAML (`text/yaml`)
+for the supported VLESS+REALITY+TCP shape. The API now accepts a constrained
+`fingerprint` value on `ProxyInbound` because the subscription formatter
+consumes it as client uTLS metadata.
 
 ---
 
@@ -389,10 +398,11 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
    - `vless://uuid@host:port?type=ws&security=reality&pbk=...&sid=...&sni=...&fp=chrome#node-label`
    - `vmess://<base64(json)>`, `trojan://pass@host:port?...#label`, `hysteria2://pass@host:port?...#label`, `ss://<base64(method:pass)>@host:port#label`
    - One link **per (user × inbound × node that runs that inbound)**; `host` = `ProxyNodeProfile.Hostname` (the DDNS name) so links survive IP changes.
-   - Formats served (content-negotiated by `?format=` or `User-Agent` sniffing, remnawave-style):
-     - **plain** (newline-joined URIs), **base64** (whole body base64 — the de-facto default many clients expect),
-     - **sing-box** (full `outbounds` JSON for sing-box clients),
-     - **clash** / **clash.meta** (YAML `proxies:` list) — pure Go YAML emit via hand-rolled writer or the already-tiny dependency surface; prefer hand-rolled to avoid a new dep, since the structure is fixed.
+   - Formats served by `?format=`:
+     - **plain** (newline-joined URIs), **base64** (whole body base64, the de-facto default many clients expect) — landed in iter-044.
+     - **sing-box** (minimal client `outbounds` JSON for sing-box clients) — landed in iter-047 for VLESS+REALITY+TCP.
+     - **clash** / **clash.meta** / **clash-meta** (Mihomo/Clash `proxies:` YAML list) — landed in iter-047 with a hand-rolled fixed-shape writer to avoid a YAML dependency.
+     - `User-Agent` sniffing remains pending; explicit `?format=` is the stable contract for now.
    - Subscription headers: `Subscription-Userinfo: upload=…; download=…; total=…; expire=…` (Unix ts) so clients show quota/expiry — this is the single most loved remnawave/v2board UX touch.
 3. **DDNS**: proxy node hostnames are ordinary `DDNSProfile`s (reuse `internal/ddns`, Cloudflare provider, `*.dns.roobli.org`). No new DNS code; the design only *requires* that a node intended for subscriptions has a DDNS profile (surface a warning in the plan if `Hostname` resolves to no bound profile).
 4. **nft** (optional, operator-driven): the operator's per-node access rules ("deny gmami-jp1 → dmit:1234") remain pure `internal/network/nft` plan→apply, independent of this feature. The renderer may *emit a suggested* nft snippet to restrict the core's listen set, but does not own nft.
@@ -425,7 +435,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 - One protocol path end-to-end: **vless + reality + tcp** (the operator's most-wanted, no cert needed).
 - Server: inbounds/users/profiles CRUD; `internal/proxycore` renderer (sing-box JSON) for vless/reality; `POST /api/proxy/nodes/{id}/plan` → `Approval{Plugin:"proxycore"}`; approve→apply queues the sing-box validation/atomic-swap task after config-SHA revalidation.
 - Agent: nothing new beyond running the apply task (it already can). `sing-box check` in the script.
-- Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header. **Landed in iter-044.** Usage reflects `ProxyUser.UsedBytes`; baseline node reporting through `/api/agent/proxy-usage` landed in iter-046.
+- Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header. **Landed in iter-044.** sing-box client JSON and Clash/Mihomo YAML for VLESS+REALITY+TCP landed in iter-047. Usage reflects `ProxyUser.UsedBytes`; baseline node reporting through `/api/agent/proxy-usage` landed in iter-046.
 - Usage: agent `-proxy-usage-file` bridge, server monotonic diffing, `/api/proxy/usage`, and dashboard usage/last-seen display. **Landed in iter-046.**
 - DDNS: document that the node needs a DDNS profile; warn in plan if missing.
 - **Exit bar:** operator creates an inbound + user + profile, plans `gmami-jp1`, approves, the agent applies, sing-box serves vless/reality, the user's `/sub` link imports into a client and connects. `-race` + gofmt green, adversarial security review of the new surface passed, audit events present.
@@ -433,7 +443,8 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 ### v2 — *direct collectors, more protocols, enforcement, xray*
 - Direct sing-box stats collector and xray stats collector behind the already-landed `ProxyUsageSnapshot` contract; quota/expiry **notify** alerts.
 - More protocols: vmess, trojan, shadowsocks, hysteria2; cert-path TLS inbounds; ws/grpc transports.
-- Subscription formats: sing-box JSON + clash/clash.meta YAML; UA sniffing.
+- Additional subscription depth: UA sniffing, import-helper UX, cache keyed by
+  token + fleet config hash, and formats for new protocols as they land.
 - Enforcement: expired/over-quota users dropped from rendered config on next apply (and a scheduled re-apply, or an agent-side disable hook).
 - **xray** second renderer behind the same `Core` abstraction + `xray test -c`.
 - **Exit bar:** usage visible in dashboard, alerts fire, over-quota users lose access on next reconcile, both cores supported, all formats import cleanly in their target clients.
@@ -453,7 +464,10 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 2. **Reality key custody.** Server holds reality private keys (needed to render config). Acceptable (same class as DDNS tokens) but it does mean server compromise exposes them. Open: per-inbound rotation cadence?
 3. **Subscription scale / caching.** `/sub/{token}` renders on every hit; a popular fleet could see frequent polls. Mitigation: cheap render (no node round-trip, pure server-side), `internal/ratelimit`, and a short in-memory cache keyed by (token, fleet-config-hash). Open: cache TTL vs. freshness after a user edit.
 4. **Config schema drift.** sing-box config schema evolves across versions. Mitigation: pin a supported core version range, validate node-side with the node's own `sing-box check` (authoritative for that node's binary), and keep the renderer's schema minimal. Open: version negotiation — agent reports `sing-box version`?
-5. **New external dep?** clash/clash.meta YAML output: prefer **hand-rolled emit** (fixed structure) to avoid a YAML dependency and the ADR it would need. Open: confirm hand-rolled is acceptable vs. a vetted tiny YAML writer (would need an ADR per the zero-dep rule).
+5. **YAML dependency avoided.** iter-047 uses a fixed-shape hand-written
+   Clash/Mihomo YAML emitter with quoted scalars, so no YAML dependency or ADR
+   was needed. Future protocol/format expansion should keep this dependency
+   posture unless the structure stops being fixed.
 6. **Atomic multi-node rollout.** Editing a shared inbound changes many nodes' desired config at once. v1 is per-node plan/approve (explicit, safe, tedious). Open: a "plan all affected nodes" batch that produces N approvals — desirable but more blast radius per click.
 
 ---
@@ -491,17 +505,17 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 
 4. **Renderer** — new `internal/proxycore/`:
    - `singbox.go`: `RenderSingBoxConfigJSON(profile, inbounds, users, opts) (SingBoxArtifact, error)` → canonical JSON + SHA-256 + target path + warnings; MVP path vless+reality+tcp; structural validation. **Landed in iter-040.**
-   - `links.go`: `VLESSRealityLinks(user, profiles, inbounds, opts)`, `PlainSubscription`, `Base64Subscription`, and `SubscriptionUserinfo`. **Landed in iter-044** for applied sing-box profiles only; skipped/unapplied profiles return warnings and no links rather than exposing stale nodes.
+   - `links.go`: `VLESSRealityLinks(user, profiles, inbounds, opts)`, `VLESSRealityEndpoints`, `PlainSubscription`, `Base64Subscription`, `SingBoxClientSubscription`, `ClashMetaSubscription`, and `SubscriptionUserinfo`. Plain/base64 landed in iter-044; sing-box JSON and Clash/Mihomo YAML landed in iter-047 for applied sing-box VLESS+REALITY+TCP profiles only. Skipped/unapplied profiles return warnings and no links rather than exposing stale nodes.
    - `reality.go`: X25519 keypair gen (pure Go `crypto/ecdh`), short-ID gen.
-   - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 covers renderer shape/validation/hash/leak checks; iter-044 covers VLESS link shape, plain/base64 bodies, inactive users, unsafe host/public-key rejection, and secret leak checks. Optional `sing-box check` integration remains pending.
+   - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 covers renderer shape/validation/hash/leak checks; iter-044 covers VLESS link shape, plain/base64 bodies, inactive users, unsafe host/public-key rejection, and secret leak checks; iter-047 covers sing-box JSON, Clash/Mihomo YAML, content types, safe `fingerprint` persistence, unsafe fingerprint rejection, and no secret leaks in added formats. Optional `sing-box check` integration remains pending.
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045; `/api/agent/proxy-usage` and `/api/proxy/usage` with monotonic rollup landed in iter-046. Remaining handler work: richer subscription formats, direct core collector health/error surfaces, and xray-specific routes only if the common model is insufficient. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045; `/api/agent/proxy-usage` and `/api/proxy/usage` with monotonic rollup landed in iter-046; `format=sing-box`, `format=clash`, and `format=clash-meta` landed in iter-047. Remaining handler work: direct core collector health/error surfaces, usage notifications, and xray-specific routes only if the common model is insufficient. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
 
 6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 
 7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Next: add a direct sing-box collector behind the same `ProxyUsageSnapshot` contract, then quota/expiry `notify` hooks. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
 
-8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046. Remaining dashboard work: focused proxy plan diff/approve UI (currently uses the existing Approvals panel), richer import helpers, direct collector health/error display, and visual polish.
+8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046. Remaining dashboard work: focused proxy plan diff/approve UI (currently uses the existing Approvals panel), import helpers that surface `format=plain|base64|sing-box|clash-meta`, direct collector health/error display, and visual polish.
 
 9. **Verify** — `GOWORK=… go test -race ./...` across server/agent/sdk; gofmt; dashboard smoke; a manual end-to-end on one node (plan→approve→apply→connect→import sub). Record evidence in the iteration doc.
 
