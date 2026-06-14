@@ -23,8 +23,9 @@ separately.
 - Machine inventory profiles for vendor/region/cost/renewal tracking, encrypted
   console/detail links, and renewal reminders.
 - Session login, CSRF checks, TOTP 2FA, OIDC/SSO, PBKDF2 password/token hashing, PAT scopes, server allowlists, and tamper-evident audit WAL.
-- Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, saved network policy intent/graph, approvals, and audit views.
-- nftables plan generation with explicit approval before apply.
+- Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, saved network policy intent/graph, egress-only NetPolicy apply planning, approvals, and audit views.
+- nftables plan generation with explicit approval before apply, including an
+  egress-only NetPolicy path with agent-side rollback/selfcheck.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
 

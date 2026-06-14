@@ -2,8 +2,10 @@
 
 > Status: partially implemented. Shared `NFTInputs` prerequisite landed in
 > iter-019; `NetPolicy` state/API/graph/dashboard foundation landed in
-> iter-020. nft compile/plan/apply, agent rollback/selfcheck, and geo-map remain
-> pending. Author: design pass · Date: 2026-06-13
+> iter-020; egress-only nft compile/plan/apply with 60s dead-man rollback and
+> unauthenticated agent control-plane selfcheck landed in iter-021. Remaining:
+> ingress composition, domain/DDNS-backed nft sets, IPv6, and geo-map.
+> Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
 > Constraints inherited: pure Go, zero CGo, tiny dep surface (new dep ⇒ ADR), security-first,
@@ -45,6 +47,25 @@ Three capabilities, one cohesive slice:
 - **No IPv6 policy in the first MVP slice** (the data model is v6-ready; rendering lands in v2).
 - **Not a plugin.** This is a CORE server-owned provider (see §2).
 - **Map tiles / basemap detail:** a single static low-poly world outline, not a real GIS basemap.
+
+### Current implementation slice (iter-021)
+
+The first committed apply path is intentionally narrower than the full design:
+
+- `POST /api/netpolicy/plan` compiles only **egress** rules into
+  `table inet lattice_policy` with `output` hook default-drop.
+- The compiler injects control-plane IPv4 and DNS egress allows before operator
+  rules. `LATTICE_PUBLIC_URL` / `-public-url` must currently be an IPv4 literal;
+  domain/DDNS-backed allowlists need the later named-set updater design.
+- The node apply task validates with `nft -c`, snapshots rollback state, arms a
+  60s watchdog, applies the nft batch, then runs
+  `lattice-agent --selfcheck-controlplane -server <public-url>`. The task shell
+  never receives a node bearer token.
+- Successful task results mark the approval `applied` and update
+  `NetPolicy.LastAppliedAt`; failures write `LastError` and audit
+  `network.policy.failed`.
+- Dashboard NetPolicy cards have a `Plan Apply` button, but execution remains
+  approval-gated through the existing approvals panel.
 
 ---
 

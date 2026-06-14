@@ -13,6 +13,12 @@
 > identity/auth/DDNS/notify/OIDC records, are now documented as the current
 > storage baseline.
 > Runtime still defaults to encrypted JSON.
+>
+> 2026-06-13 network-policy update: Design 05 now has an egress-only committed
+> nft apply path (iter-021): `/api/netpolicy/plan`, plan-hash approvals,
+> agent-side `nft -c` + 60s rollback watchdog, unauthenticated `/api/health`
+> selfcheck, and result-backed applied/failed status. Ingress, domain-backed nft
+> sets, IPv6, and the geo-map remain later work.
 
 ---
 

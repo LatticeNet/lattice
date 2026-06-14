@@ -27,8 +27,9 @@
 > iter-017, MachineProfile cost/renewal reminder MVP landed in iter-018, and
 > shared per-node nft input persistence landed in iter-019. Design 05's
 > `NetPolicy` state/API/reachability graph/dashboard foundation landed in
-> iter-020; actual nft apply with dead-man rollback and the geo-map remain
-> pending.
+> iter-020; egress-only nft compiler/plan/apply with dead-man rollback and
+> agent control-plane selfcheck landed in iter-021. Ingress, domain-backed nft
+> sets, IPv6, and the geo-map remain pending.
 
 
 ## V1 Hardening
@@ -74,9 +75,11 @@
   [`designs/design-05-network-acl-and-map.md`](./designs/design-05-network-acl-and-map.md)
   (fail-closed compiler with dead-man rollback; zero-dep inline-SVG map).
   Shared `NFTInputs` persistence delivered 2026-06-13, and `NetPolicy`
-  validation/store/API/graph/dashboard state delivered in iter-020. nft
-  compiler, `/api/netpolicy/plan`, agent selfcheck/rollback apply, and the
-  geo-map are still pending. *(Partially built.)*
+  validation/store/API/graph/dashboard state delivered in iter-020. Egress-only
+  nft compiler, `/api/netpolicy/plan`, agent selfcheck/rollback apply, task
+  result status tracking, and dashboard `Plan Apply` entry landed in iter-021.
+  Ingress composition, domain/DDNS-backed nft sets, IPv6, and the geo-map remain
+  pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 
