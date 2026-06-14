@@ -1,6 +1,6 @@
 # Design 02 — One-Click Self-Hosted DNS Deployment
 
-> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + review-only `/api/dns/plan` landed in iter-034 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
+> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + `/api/dns/plan` landed in iter-034; rollback-protected apply + status reconciliation landed in iter-035 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
 > Companion to: `architecture.md` (DDNS, Cloudflare Tunnel, WireGuard, Storage, Safety Model), `PRODUCT-VISION.md` (pillars P1 Trust / P4 Durability), `development-workflow.md` (Plan→Execute→Review→Iterate).
 
 This document specifies a **CORE server-owned provider** (in the same class as `internal/ddns`, `internal/cftunnel`, `internal/wireguard`, `internal/network`) that lets an operator deploy a private DNS resolver/authoritative server onto a chosen node with a single approval, pair it with per-node nftables access rules, and publish a Cloudflare subdomain (e.g. `gmami-jp1.dns.roobli.org`) that DDNS keeps pointed at that node's public IP. It reuses the existing `plan → approve → apply` machinery verbatim; it adds no new external Go dependency and no CGo.
@@ -18,13 +18,17 @@ for engine/exposure/ports/hostnames/upstreams/static records.
 **Landed in iter-034:** dependency-free `internal/selfdns` renderer for
 CoreDNS Corefile/static zone files/block zones, DNS listener composition into
 the single `lattice_guard` candidate, `POST /api/dns/plan`, and dashboard
-`Plan review`. The plan is review-only: `selfdns` approvals are hash-bound, but
-`queue_apply` is deliberately rejected until the apply script exists.
+`Plan review`.
 
-**Still pending:** `/api/dns/publish`, agent apply script, rollback/selfcheck,
-task-result status reconciliation, DDNS IP-change publication, and dashboard
-publish/apply controls. Until those land, a DNS deployment can be reviewed but
-is not an applied resolver.
+**Landed in iter-035:** selfdns `queue_apply` now writes the reviewed artifacts,
+commits the reviewed `lattice_guard` candidate with rollback, manages
+`lattice-selfdns.service`, and reconciles task results into
+`DNSDeployment.Status`.
+
+**Still pending:** `/api/dns/publish`, CoreDNS binary provenance/install
+support, DDNS IP-change publication, and dashboard publish controls. Until
+publish lands, a DNS deployment can run on a node but its Cloudflare hostname is
+not automatically created or updated.
 
 ---
 
@@ -33,10 +37,9 @@ is not an applied resolver.
 ### 1.1 What it does (v1)
 - An operator picks a node, picks a DNS engine (**CoreDNS** is the v1 default — single static pure-Go binary, no CGo, trivial config), sets a listen port and bind protocols (UDP/TCP/DoT later), and supplies the upstream/zone policy.
 - The server renders a complete DNS-engine config plus the firewall candidate
-  and records it as a **pending approval** for the bound node. **Current
-  iter-034 state:** this is review-only; approval can be recorded, but
-  `queue_apply` is blocked until the bounded apply task lands (install binary if
-  missing → write config → validate → reload).
+  and records it as a **pending approval** for the bound node. Approval with
+  `queue_apply` dispatches the bounded apply task the agent pulls and executes
+  (write reviewed config → nft rollback commit → restart/verify service).
 - The server **auto-creates/maintains a Cloudflare DNS record** for the deployment's public hostname (e.g. `gmami-jp1.dns.roobli.org` → node A/AAAA) by **reusing the `internal/ddns` Cloudflare provider** and binding it to the node's IP-change trigger, so the hostname tracks the node forever with zero further clicks.
 - The server **renders the matching nftables open/restrict rule** for the DNS port and folds it into the node's existing `internal/network` nft plan, so opening the resolver is one coordinated, audited change — never a hand-edited firewall.
 - Status (installed/running/last-reload/last-error, resolved hostname, last published IP) is reported back and surfaced per node.
@@ -187,15 +190,14 @@ New handlers live in **`internal/server/server_dns.go`** (server.go is large; th
 | `GET` | `/api/dns/deployments` | `dns:admin` | → `[]dnsView` (node-allowlist filtered, token stripped) |
 | `POST` | `/api/dns/deployments` | `dns:admin` | `DNSDeployment` (create/update; validates engine+zones+port+hostname) → `dnsView` |
 | `POST` | `/api/dns/deployments/delete` | `dns:admin` | `{id}` → `{ok:true}` (also withdraws nft rule + optionally CF record on next plan) |
-| `POST` | `/api/dns/plan` | `dns:admin` + same-node `network:plan` | `{id}` → `model.Approval` (renders config+nft bundle, records pending approval; review-only as of iter-034) |
+| `POST` | `/api/dns/plan` | `dns:admin` + same-node `network:plan` | `{id}` → `model.Approval` (renders config+nft bundle, records pending approval) |
 | `POST` | `/api/dns/publish` | `dns:admin` | `{id}` → `{ok, ipv4, ipv6}` (synchronously push the CF record now, like `/api/ddns/run`) |
 
 Reused, **not** re-implemented:
 - **Approval/apply:** the operator uses the existing
-  `POST /api/network/approve` with `{approval_id, plan_sha256:<hash>}`. As of
-  iter-034 the dashboard submits `queue_apply:false` for `selfdns`, and the
-  server rejects selfdns `queue_apply:true` until the apply slice lands. No new
-  approve endpoint.
+  `POST /api/network/approve` with
+  `{approval_id, queue_apply:true, plan_sha256:<hash>}`. No new approve
+  endpoint.
 - **Agent task pull / result:** existing `GET /api/agent/tasks` + task-result path.
 - **CF record on IP change:** existing `maybeTriggerDDNS` (extended to also walk `DNSDeploymentsForNode`).
 
@@ -207,8 +209,8 @@ Request/response shapes:
   whose `Plan` is the **human-reviewable bundle**: the rendered engine config,
   static zone files if any, the composed `lattice_guard` candidate, and a
   one-line summary of the CF hostname action. The reviewer hashes exactly this
-  text for `plan_sha256`. As of iter-034 this is review-only; apply is blocked
-  until the dedicated apply slice lands.
+  text for `plan_sha256`. As of iter-035, queueing apply uses the reviewed plan
+  as the source of truth for the generated agent script.
 - **dnsView** = the deployment minus `CFAPIToken`, plus non-secret status,
   node, listener, zone, hostname, DDNS reference, and `has_credential` fields.
   UI-only firewall summaries should be derived client-side or added through a
@@ -264,11 +266,11 @@ case "selfdns":
 The agent does **only** what every other apply task already does — no new agent code path, no new endpoint, no inbound port. The DNS apply is a bounded `sh` task pulled from `GET /api/agent/tasks` and run through `internal/taskexec` (rlimits, process-group kill, interpreter allowlist — `sh` is already allowed; root-refusal applies as today, and binding port 53 legitimately needs privilege, see §7).
 
 **Apply-task contract** (what the server-rendered script guarantees):
-1. **Idempotent install:** if the engine binary is absent at the pinned path, fetch the pinned-version static binary and verify its SHA-256 against a server-embedded digest **before** executing it; otherwise skip. (Fail-closed: digest mismatch aborts with non-zero exit.)
-2. **Atomic config write:** write the Corefile to a `.new` temp, validate (`coredns -conf <file> -plugins` style dry check, or `coredns -validate` where available), then `mv` into place — never leave a half-written config.
-3. **Reload, not restart-if-avoidable:** `systemctl reload coredns || systemctl restart coredns`, falling back to a "config written; start manually" message on a host without the unit (mirrors the cftunnel branch's tolerant reload).
-4. **Bounded:** `TimeoutSec` (30–60s; install may need the higher bound), `OutputLimit` 64 KiB, exactly like the nft/tunnel apply tasks.
-5. **Report:** the agent returns exit code + stdout/stderr via the normal task-result path. **Exit 0 ⇒ server marks `DNSStatusRunning`; non-zero ⇒ `DNSStatusFailed` with `LastError` = trimmed stderr.** The server reconciles this in the task-result handler by correlating the task back to the approval/deployment (carry `dns_id` in task metadata or approval linkage).
+1. **Binary precondition:** iter-035 requires `coredns`, `nft`, and `systemctl` to already exist on the node and fails closed if any are missing. A future binary provenance/install slice may add pinned download + SHA-256 verification, but that is not implemented yet.
+2. **Plan-sourced writes:** parse Corefile, static zone files, and the merged `lattice_guard` candidate from the reviewed `approval.Plan`; write each artifact through `.new` candidates and move into place only after the complete candidate has been emitted.
+3. **Rollback-protected nft/service apply:** run `nft -c -f` first, save the current nft ruleset, commit with `nft -f`, install/restart `lattice-selfdns.service`, and require `systemctl is-active --quiet lattice-selfdns.service`. Any `ERR`, `INT`, `TERM`, or `HUP` restores the previous config directory and nft ruleset.
+4. **Bounded:** `TimeoutSec` 30s, `OutputLimit` 64 KiB, exactly like the nft/tunnel apply tasks.
+5. **Report:** the agent returns exit code + stdout/stderr via the normal task-result path. Queueing marks `DNSStatusApplying`; **exit 0 ⇒ server marks `DNSStatusRunning`; non-zero ⇒ `DNSStatusFailed` with `LastError` = the bounded failure summary.** The server reconciles this in the task-result handler by correlating the task back to the approval/deployment through the encoded `dns_id` in the approval action.
 
 **Fact reporting:** the agent may include `coredns_version` in its `/api/agent/hello` payload (run `coredns -version` if the binary exists). This drives a "engine present / version drift" indicator and lets the server skip re-install. Purely additive; absence means "unknown".
 
@@ -303,13 +305,27 @@ New package **`lattice-server/internal/selfdns/`** — peer of `cftunnel`, depen
 - Records are created **un-proxied** (grey-cloud) — the CF client already forces `Proxied:false` — because we want the raw node IP for DNS, not Cloudflare's proxy.
 
 ### 6.2 Apply-script encoding (chosen)
-Keep `approval.Plan` = the **human-reviewable bundle** (Corefile + the merged nft ruleset + a CF action summary), because `plan_sha256` must cover *everything the reviewer approved*, including the firewall change. The apply script (`selfdns.ApplyScript`) is built from the **same** dep+renderer at approve time (not parsed back out of Plan text): it `heredoc`-writes the Corefile and the nft ruleset (reusing the existing `heredocWrite`/`heredocDelimiter` helpers), validates, commits nft, validates Corefile, reloads. Because both Plan and ApplyScript derive deterministically from the approved deployment + node state, they stay consistent, and the `plan_sha256` guard still defends against a plan-swap between review and approve.
+Keep `approval.Plan` = the **human-reviewable bundle** (Corefile + static zone
+files + the merged nft ruleset + a CF action summary), because `plan_sha256`
+must cover *everything the reviewer approved*, including the firewall change.
+The apply script is generated by `selfdns.ApplyScriptFromPlan`, which parses the
+exact fenced artifacts from that reviewed plan text. This is intentional: the
+approve path must not re-render from mutable store state after review, because a
+deployment or nft input could have changed between planning and approval. If the
+plan cannot be parsed, or if the encoded `dns_id` no longer resolves to a
+deployment on the same node, approval with `queue_apply` fails and the operator
+must re-plan.
 
 ### 6.3 Validation & reload summary
-- Corefile: dry-validate before swap; abort on failure (config untouched).
+- Corefile/zone files: emitted from strict server-side renderers into candidate
+  files, then moved into place as a group; `coredns -conf ... -plugins` is used
+  as a binary/plugin sanity check, while actual service health is verified by
+  `systemctl is-active`.
 - nft: `nft -c -f` (check) then `nft -f` (commit); the table is `inet lattice_guard` so a bad load can't silently coexist with the old one.
-- Engine binary: SHA-256 pin verified pre-exec.
-- Reload tolerant of missing systemd unit.
+- Engine binary: currently a precondition (`command -v coredns`); pinned
+  install/provenance remains a future slice.
+- Reload/restart: install `lattice-selfdns.service`, restart it, and require
+  active status. Failure triggers the rollback trap.
 
 ---
 
@@ -322,7 +338,10 @@ Keep `approval.Plan` = the **human-reviewable bundle** (Corefile + the merged nf
 **Fail-closed defaults.**
 - `Exposure` defaults to `mesh` — the resolver answers only from the WireGuard CIDR; the nft rule restricts to `@wg_peers4`; CoreDNS also binds to the mesh IP. Public exposure is opt-in and audited with a distinct `dns.exposure.public` reason so it stands out in the log.
 - No recursion to the public internet unless `public`. An unconfigured/empty zone set renders a deny-all resolver, not an open one.
-- Digest mismatch on the engine binary, Corefile validation failure, or nft check failure all abort with non-zero exit → server marks `DNSStatusFailed`, no partial open.
+- Missing engine binary, unsafe/unparseable reviewed plan, nft check failure, nft
+  commit failure, or service activation failure all abort with non-zero exit →
+  server marks `DNSStatusFailed` and the script rolls back the previous config
+  directory and nft ruleset where those backups exist.
 
 **Secret handling.**
 - `CFAPIToken` is the only secret; encrypted at rest via `internal/store/crypto.go` (§3.1), never returned in any view, never sent to the agent. Prefer `DDNSProfileID` reuse so the token lives in exactly one place.
@@ -423,7 +442,10 @@ Consistent with `development-workflow.md` (research/reuse → plan → TDD → r
 
 **Step 4 — Renderer package (`internal/selfdns/`).**
 1. `selfdns.go`: `GenerateConfig(model.DNSDeployment) (string, error)` (Corefile, forward zones for MVP) with the regex/parse validation gates from §6.1; `GenerateNFTFragment` / the helper that maps the DNS port into `network.NFTPlan` inputs for mesh exposure; `RenderApprovalPlan(dep, cfg, mergedNft) string`.
-2. `apply.go`: `ApplyScript(model.Approval) string` (digest-verified install → atomic Corefile write+validate → `nft -c` then `nft -f` commit → reload), reusing `heredocWrite`/`heredocDelimiter` (move those helpers to a shared spot or duplicate minimally).
+2. `apply.go` / current `selfdns.go`: `ParseApprovalPlan(plan)` +
+   `ApplyScriptFromPlan(plan)` (parse reviewed Corefile/zone/nft artifacts →
+   write candidates → `nft -c` then `nft -f` commit with rollback watchdog →
+   install/restart `lattice-selfdns.service` → verify active).
 3. **TDD first (`selfdns_test.go`):** golden Corefile for a forward zone; injection inputs (newline/brace/bad upstream/bad port/bad suffix) all rejected; mesh exposure maps to WG sets, never public; plan render is stable/deterministic.
 
 **Step 5 — nft input composition.** Use the persisted `model.NFTInputs`
@@ -438,7 +460,7 @@ ruleset. Do not create a second nft table.
 3. Add `case "selfdns"` to `applyScriptFor` (delegates to `selfdns.ApplyScript`).
 4. Extend `maybeTriggerDDNS` to also publish `DNSDeploymentsForNode` (v2 continuous publish) — for MVP, wire `handleDNSPublish` to `ddns.NewProvider`+`ddns.Apply` for one-shot publish, recording `LastIPv4/6/LastAppliedAt/LastError` and an audit event.
 4. Stamp `dns_id` into the queued apply task (metadata/link) and reconcile status in the task-result handler (`running`/`failed`).
-5. **TDD (`server_dns_test.go`):** create validates+hides token; plan records a pending approval with the right `Plugin`; plan text contains Corefile + nft candidate and no secret material; `queue_apply` is rejected until apply exists; `plan_sha256` mismatch is rejected; publish calls the (mocked) CF provider and records the IP once that endpoint lands; node-allowlist denial for a wrong-node token.
+5. **TDD (`server_dns_test.go`):** create validates+hides token; plan records a pending approval with the right `Plugin`; plan text contains Corefile + nft candidate and no secret material; `queue_apply` creates an apply task whose script is generated from the reviewed plan; task results reconcile DNS status; `plan_sha256` mismatch is rejected; publish calls the (mocked) CF provider and records the IP once that endpoint lands; node-allowlist denial for a wrong-node token.
 
 **Step 7 — Agent fact (optional, `lattice-node-agent`).** Report `coredns_version` in the hello payload when the binary exists. No other agent change (apply runs through the existing privileged-apply task path).
 
