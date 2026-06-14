@@ -63,6 +63,10 @@ The current pushed baseline includes:
   ingress `NetPolicy` rules are compiled into typed input rules and folded into
   the same `lattice_guard` chain before broad public/WireGuard allows; callers
   need both `network:plan` and `netpolicy:read` when ingress policy exists.
+- Approval plan-hash hardening (iter-025, 2026-06-14): pending high-risk
+  approvals now require dashboard-computed `sha256(plan)` before approve/apply;
+  missing hashes return 400, mismatches return 409, and already-decided
+  approvals stay idempotent.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -136,8 +140,9 @@ Development resumed with iter-017 (`HostFacts` inventory MVP), iter-018
 (`MachineProfile` cost/renewal MVP), iter-019 (shared nft input persistence),
 iter-020 (`NetPolicy` state + graph foundation), iter-021 (egress-only
 NetPolicy nft apply with rollback/selfcheck), iter-022 (`NodeGeo` + Fleet Map
-MVP), iter-023 (policy graph SVG), and iter-024 (Network Guard rollback apply +
-ingress guard composition). The next work should now be:
+MVP), iter-023 (policy graph SVG), iter-024 (Network Guard rollback apply +
+ingress guard composition), and iter-025 (required plan hashes for high-risk
+apply approvals). The next work should now be:
 
 1. **Design 05 - domain-set composition + visualization polish.**
    Continue from iter-024: add a safe DNS/DDNS-backed nft named-set updater for

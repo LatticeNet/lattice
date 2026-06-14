@@ -51,6 +51,8 @@
   and WebAuthn groundwork pending.)*
 - Add PAT creation/revocation UI. (API delivered 2026-06-11: `POST/GET /api/tokens`, `/api/tokens/revoke`; UI pending.)
 - Add approval re-authentication for `network:apply` and `task:run`.
+- Require reviewed-plan SHA-256 binding before high-risk apply approvals.
+  *(Delivered 2026-06-14 in iter-025; re-authentication still pending.)*
 - Add systemd units and install scripts.
 - Add end-to-end browser QA.
 - Add node-token last-used telemetry and optional source-IP policy. (Rotation API

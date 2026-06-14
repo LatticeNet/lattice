@@ -36,10 +36,14 @@ Dangerous operations use this flow:
 
 1. Server creates a plan.
 2. Operator reviews the diff/plan.
-3. Operator approves.
+3. Operator approves with the dashboard-computed `sha256(plan)`.
 4. Server queues a bounded validation/apply task.
 5. Agent returns result.
 6. Audit log records each step.
+
+Pending host-mutating approvals require `plan_sha256`; the server rejects a
+missing hash with `400` and a mismatched hash with `409`. Already-decided
+approvals remain idempotent and do not queue duplicate tasks.
 
 The current nft flow has two committed apply paths:
 

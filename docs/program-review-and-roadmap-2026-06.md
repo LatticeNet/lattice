@@ -34,6 +34,10 @@
 > that single input chain. Remaining Design 05 work is domain-backed nft sets,
 > IPv6, compiler-vs-graph parity tests for ingress, bulk geo import, and map
 > overlays.
+>
+> 2026-06-14 approval-safety update: iter-025 made `plan_sha256` mandatory for
+> pending high-risk approvals and added dashboard-side SHA-256 calculation over
+> the visible plan text. Missing hashes now fail before any apply task is queued.
 
 ---
 

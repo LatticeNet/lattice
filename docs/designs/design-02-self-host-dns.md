@@ -278,7 +278,7 @@ Keep `approval.Plan` = the **human-reviewable bundle** (Corefile + the merged nf
 
 **Authz & blast radius.**
 - CRUD/plan require `dns:admin`; the apply gate requires `network:apply`; both are additionally constrained by the **per-node allowlist** via `requireNodeScope`. A token scoped to node X cannot deploy DNS to node Y.
-- The destructive step (open firewall + run a resolver) is **two-person-shaped**: `dns:admin` plans, `network:apply` approves, with optional `plan_sha256` binding. Reuse, not new code.
+- The destructive step (open firewall + run a resolver) is **two-person-shaped**: `dns:admin` plans, `network:apply` approves, with required `plan_sha256` binding for the pending apply approval. Reuse, not new code.
 
 **Fail-closed defaults.**
 - `Exposure` defaults to `mesh` — the resolver answers only from the WireGuard CIDR; the nft rule restricts to `@wg_peers4`; CoreDNS also binds to the mesh IP. Public exposure is opt-in and audited with a distinct `dns.exposure.public` reason so it stands out in the log.

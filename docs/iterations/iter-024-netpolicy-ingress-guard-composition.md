@@ -88,11 +88,10 @@ and ingress guard composition are still two separate planning surfaces.
   rule ordering, RBAC omission risk, and apply rollback semantics.
 - Must-fix found and fixed: committed guard apply requires replacement semantics,
   so `GenerateNFTPlan` now starts with `destroy table inet lattice_guard`.
-- Accepted residual: `approve` still treats `plan_sha256` as optional for
-  non-`nftpolicy` approvals because the dashboard does not yet compute hashes.
-  This is pre-existing but more important now that `nft` commits; add dashboard
-  plan-hash submission and server-side requirement for high-risk plugins in a
-  follow-up.
+- Accepted residual at iter-024 close: `approve` still treated `plan_sha256` as
+  optional for non-`nftpolicy` approvals because the dashboard did not yet
+  compute hashes. Iter-025 closes this residual by requiring plan hashes for
+  pending high-risk approvals and computing them in the dashboard before apply.
 
 ## Residuals
 

@@ -41,8 +41,8 @@ Per-node Network Policy has a narrower committed apply MVP:
 
 - Save egress rules in the dashboard Network Policy panel.
 - Click `Plan Apply` to call `/api/netpolicy/plan`.
-- Review the generated `nftpolicy` approval. The plan is hash-bound by the
-  approval endpoint when the client supplies `plan_sha256`.
+- Review the generated `nftpolicy` approval. Pending high-risk approvals require
+  `plan_sha256`, computed by the dashboard from the visible plan text.
 - Approve with queue apply. The agent writes the candidate ruleset, validates
   `nft -c`, snapshots rollback state, arms a 60s watchdog, applies the dedicated
   `inet lattice_policy` output table, then runs
