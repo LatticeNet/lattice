@@ -59,6 +59,9 @@
 > dependency. Iter-048 landed the focused dashboard proxy apply review flow, so
 > proxy operators can review pending `proxycore/apply-config` plans and queue
 > apply from the Proxy Core panel without using the generic Approvals panel.
+> Iter-049 landed the node-agent loopback HTTP/V2Ray-stats proxy usage
+> collector foundation with no new Go dependencies; true sing-box/xray API
+> transport remains pending.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -165,9 +168,11 @@
   and Clash/Mihomo YAML subscription bodies through the existing public
   `/sub/{token}` endpoint, while keeping subscription rendering secret-free and
   dependency-free. Iter-048 delivered a focused dashboard proxy apply review
-  flow over the existing plan-hash-bound approval API. Next slices: direct
-  sing-box stats collection, usage notifications, subscription import helpers,
-  then xray.
+  flow over the existing plan-hash-bound approval API. Iter-049 delivered a
+  stdlib-only node-agent loopback HTTP/V2Ray-stats collector foundation behind
+  the existing `ProxyUsageSnapshot` contract. Next slices: true sing-box/xray
+  API transport, usage notifications, subscription import helpers, then xray
+  rendering.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered

@@ -69,7 +69,9 @@ rules first, then leaves the direct core-specific collectors for later.
 
 ## Out of Scope
 
-- Direct sing-box Clash API / gRPC stats collection.
+- Direct sing-box Clash API / gRPC stats collection. **Partially advanced in
+  iter-049:** the agent now has a loopback HTTP/V2Ray-stats collector
+  foundation; true sing-box/xray API transport remains pending.
 - Direct xray stats collection.
 - Usage anomaly alerts, quota notification hooks, and scheduled over-quota
   enforcement.
@@ -169,15 +171,18 @@ Manual security/code review focused on the new trust boundary:
 - **Fixed before landing:** existing server tests that use local `httptest`
   listeners now skip cleanly when this sandbox forbids binding instead of
   panicking, so `go test ./...` can be used as completion evidence.
-- **Accepted residual:** direct core stats collection is deliberately deferred
+- **Accepted residual:** true direct core API transport is deliberately deferred
   until a specific supported sing-box/xray stats interface is pinned and tested.
+  Iter-049 landed the stdlib-only loopback HTTP/V2Ray-stats collector
+  foundation behind the same server ingest contract.
   The current file bridge lets a sidecar collector integrate without freezing
   Lattice to an uncertain core API shape.
 
 ## Residuals & Next
 
-1. Add a direct sing-box usage collector behind the same `ProxyUsageSnapshot`
-   contract after pinning the supported API/version behavior.
+1. Iter-049 added a loopback HTTP/V2Ray-stats usage collector foundation behind
+   the same `ProxyUsageSnapshot` contract. Add true sing-box/xray API transport
+   after pinning the supported API/version behavior.
 2. Add usage anomaly/over-quota notification hooks through `internal/notify`.
 3. Add subscription import helpers and optional User-Agent/v2ray-style format
    negotiation. The first richer formats landed in iter-047 using a fixed-shape

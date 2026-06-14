@@ -72,8 +72,10 @@ users, rejects unsupported transport/protocol combinations, and is covered by
 table-driven tests. Iter-041 through iter-048 have since landed HTTP CRUD,
 reviewed plan/apply, public subscriptions, the first dashboard workflow,
 baseline usage reporting, sing-box JSON plus Clash/Mihomo YAML subscription
-formats for the supported VLESS+REALITY+TCP path, and a focused dashboard
-proxy apply review flow. Direct core stats collectors and xray remain pending.
+formats for the supported VLESS+REALITY+TCP path, a focused dashboard proxy
+apply review flow, and the first loopback HTTP/V2Ray-stats usage collector
+foundation in the node-agent. True sing-box/xray API transports and xray
+rendering remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
@@ -375,15 +377,18 @@ applied.
   the server owns monotonic diffing, eligibility filtering, quota status, and
   audit.
 
-**Next collector slice:**
-- Reads the core's local stats API (`ProxyNodeProfile.StatsAPI`, default
-  `127.0.0.1:9090` Clash API for sing-box, or xray's gRPC stats in v2), every N
-  seconds.
-- Maps core-reported per-user counters to `userID` and POSTs a
-  `ProxyUsageSnapshot` to `/api/agent/proxy-usage`.
-- Purely local read; no inbound exposure. If the stats API is unreachable, it
-  should report an explicit health/error signal rather than silently suppressing
-  accounting.
+**Collector progress and next slice:**
+- Iter-049 adds `lattice-agent -proxy-usage-url` /
+  `LATTICE_PROXY_USAGE_URL`: a loopback-only HTTP JSON source that accepts
+  direct `ProxyUsageSnapshot`, `{"snapshot": ...}`, or V2Ray-style
+  `{"stat":[{"name":"user>>>alice>>>traffic>>>uplink","value":123}]}` output.
+- The URL source is mutually exclusive with `-proxy-usage-file`, rejects remote
+  hosts and URL userinfo, supports a dedicated local bearer secret (prefer
+  `-proxy-usage-secret-file` for persistent services), caps responses at 1 MiB,
+  and still posts the same `ProxyUsageSnapshot` to `/api/agent/proxy-usage`.
+- Next true-core slice: pin the supported sing-box/xray API transport (likely
+  V2Ray stats gRPC for per-user counters), write an ADR if a gRPC dependency is
+  required, and reuse the iter-049 V2Ray stats parser.
 
 ### Health
 A `tcp` `Monitor` on each inbound `host:port` (created automatically when a profile is applied, or by the operator) reuses the existing monitor/alert pipeline for "core down" detection — no new health code path.
@@ -444,7 +449,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 - **Exit bar:** operator creates an inbound + user + profile, plans `gmami-jp1`, approves, the agent applies, sing-box serves vless/reality, the user's `/sub` link imports into a client and connects. `-race` + gofmt green, adversarial security review of the new surface passed, audit events present.
 
 ### v2 — *direct collectors, more protocols, enforcement, xray*
-- Direct sing-box stats collector and xray stats collector behind the already-landed `ProxyUsageSnapshot` contract; quota/expiry **notify** alerts.
+- True sing-box/xray API transports behind the already-landed `ProxyUsageSnapshot` contract; quota/expiry **notify** alerts. Iter-049 landed the stdlib-only loopback HTTP/V2Ray-stats collector foundation, but direct gRPC transport remains future work.
 - More protocols: vmess, trojan, shadowsocks, hysteria2; cert-path TLS inbounds; ws/grpc transports.
 - Additional subscription depth: UA sniffing, import-helper UX, cache keyed by
   token + fleet config hash, and formats for new protocols as they land.
@@ -516,7 +521,7 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 
 6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 
-7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Next: add a direct sing-box collector behind the same `ProxyUsageSnapshot` contract, then quota/expiry `notify` hooks. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
+7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Iter-049 added the stdlib-only loopback HTTP JSON source (`-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL`) plus V2Ray-style stats parsing behind the same `ProxyUsageSnapshot` contract. Next: pin and implement true sing-box/xray API transports, then quota/expiry `notify` hooks. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
 
 8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046; focused pending `proxycore/apply-config` review/queue-apply landed in iter-048. Remaining dashboard work: import helpers that surface `format=plain|base64|sing-box|clash-meta`, direct collector health/error display, and visual polish.
 

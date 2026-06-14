@@ -150,8 +150,9 @@ Recommended next proxy slices:
 
 1. Focused dashboard proxy apply UI landed in iter-048; pending
    `proxycore/apply-config` approvals now live in the Proxy Core panel.
-2. Direct sing-box stats collector in the node-agent, behind the existing
-   `ProxyUsageSnapshot` contract.
+2. Loopback HTTP/V2Ray-stats collector foundation landed in iter-049 behind the
+   existing `ProxyUsageSnapshot` contract. True sing-box/xray API transport
+   remains pending.
 3. Usage threshold/expiry notifications through `internal/notify`.
 4. Subscription format import helpers and optional User-Agent sniffing.
 5. xray renderer and `xray test -c` apply path behind the same model.
