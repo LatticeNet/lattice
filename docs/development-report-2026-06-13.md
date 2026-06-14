@@ -94,6 +94,10 @@ The current pushed baseline includes:
   deterministic v4/v6 named sets, approval metadata binds host/set pairs, and
   the apply/refresh scripts update those sets through
   `lattice-agent --update-nft-domain-set`.
+- nftpolicy cron refresh fallback (iter-032, 2026-06-14): domain-backed
+  `nftpolicy` applies still prefer systemd timers, but now write
+  `/etc/cron.d/lattice-nftpolicy-domain-refresh` on non-systemd Linux hosts with
+  cron.d support. Later no-domain applies remove both scheduler paths.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -171,10 +175,10 @@ MVP), iter-023 (policy graph SVG), iter-024 (Network Guard rollback apply +
 ingress guard composition), and iter-025 (required plan hashes for high-risk
 apply approvals). The next work should now be:
 
-1. **Design 05 - refresh portability + visualization polish.**
-   Continue from iter-031: add non-systemd domain refresh scheduling, bulk geo
-   import, map latency/renewal overlays, and compiler-vs-graph parity tests now
-   that ingress and egress domain remotes have committed render paths.
+1. **Design 05 - visualization polish.**
+   Continue from iter-032: add bulk geo import, map latency/renewal overlays,
+   and compiler-vs-graph parity tests now that ingress and egress domain remotes
+   have committed render paths.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

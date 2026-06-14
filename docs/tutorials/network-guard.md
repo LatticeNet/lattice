@@ -57,14 +57,13 @@ instead. The server `PublicURL` may be an IPv4 literal, IPv6 literal, or an
 HTTPS hostname: IPv4 renders a direct control-plane allow; HTTPS hostnames render
 `lattice_control4` and `lattice_control6`, which the node apply task fills
 through `lattice-agent --update-nft-domain-set` before selfcheck. IPv6 literal
-control-plane URLs render a direct `ip6 daddr` allow. On systemd hosts,
-domain-backed applies also install `lattice-nftpolicy-domain-refresh.timer` to
-refresh those sets every minute. Operator-authored IPv6 CIDR/node remotes render
-as explicit `ip6` nft statements. Operator-authored egress domain remotes render
-as deterministic `lattice_dom_<hash>4/6` nft sets and the same refresh timer
-keeps those sets current. Ingress domain sources remain unsupported by design:
-use a node reference, literal IP/CIDR, or `any`. Non-systemd scheduling remains
-a later design slice.
+control-plane URLs render a direct `ip6 daddr` allow. Domain-backed applies also
+install periodic refresh every minute: systemd timer first, or `/etc/cron.d`
+fallback when systemd is unavailable. Operator-authored IPv6 CIDR/node remotes
+render as explicit `ip6` nft statements. Operator-authored egress domain remotes
+render as deterministic `lattice_dom_<hash>4/6` nft sets and the same refresh
+path keeps those sets current. Ingress domain sources remain unsupported by
+design: use a node reference, literal IP/CIDR, or `any`.
 
 Recommended host firewall layers:
 

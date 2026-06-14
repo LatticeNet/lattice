@@ -13,7 +13,8 @@
 > iter-028; IPv6 control-plane parity (`lattice_control6` + IPv6 literal
 > `public_url`) landed in iter-029; operator-authored IPv6 CIDR/node remotes
 > landed in iter-030; egress domain-valued operator remotes landed in iter-031.
-> Remaining: non-systemd scheduling, bulk geo import, and map overlays.
+> A cron.d refresh fallback for non-systemd nodes landed in iter-032. Remaining:
+> bulk geo import and map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -76,7 +77,8 @@ The first committed apply path is intentionally narrower than the full design:
   refreshed every minute. Operator-authored IPv6 CIDR/node remotes compile to
   reviewed `ip6` statements as of iter-030. Egress domain-valued operator
   remotes compile to node-filled v4/v6 nft named sets as of iter-031. Ingress
-  domain sources and non-systemd scheduling are still later/non-goal slices.
+  domain sources remain intentionally unsupported. Iter-032 adds a cron.d
+  fallback when systemd is unavailable.
 - The node apply task validates with `nft -c`, snapshots rollback state, arms a
   60s watchdog, applies the nft batch, then runs
   `lattice-agent --selfcheck-controlplane -server <public-url>`. The task shell
@@ -529,10 +531,10 @@ Smallest end-to-end slice that delivers the operator's exact ask.
    timer to keep the set fresh after apply; iter-029 adds `lattice_control6`
    and IPv6 literal control-plane support; iter-030 adds operator-authored IPv6
    CIDR/node remotes; iter-031 adds egress policy remotes that intentionally
-   reference domains by compiling them to node-filled named sets. Remaining:
-   non-systemd scheduling. DNS is not treated as authentication: HTTPS
-   verification and Lattice credentials still decide whether the endpoint is
-   trusted.
+   reference domains by compiling them to node-filled named sets; iter-032 adds
+   cron.d fallback scheduling for non-systemd Linux hosts. DNS is not treated
+   as authentication: HTTPS verification and Lattice credentials still decide
+   whether the endpoint is trusted.
 2. **Node IP churn.** Node refs resolve at compile time; if a peer's IP changes after apply, the rule
    is stale until re-planned. *Decision:* surface "policy stale — peer IP changed" in the graph/list
    (the server already detects IP changes for DDNS) and let the operator re-plan; do **not** auto-apply
@@ -633,7 +635,8 @@ IPv4/no-domain applies disable/remove those artifacts so stale refreshers do not
 survive a topology change. Continue with IPv6 control-plane parity,
 domain-valued operator remotes, non-systemd scheduling, and map overlays.
 Control-plane IPv6 parity was delivered in iter-029; egress domain-valued
-operator remotes were delivered in iter-031.
+operator remotes were delivered in iter-031; cron.d refresh fallback was
+delivered in iter-032.
 
 **Progress note (2026-06-14 / iter-029):** control-plane IPv6 parity is landed.
 Domain-backed plans now render both `lattice_control4` and `lattice_control6`;
@@ -643,7 +646,7 @@ without shell DNS parsing; IPv6 literal `public_url` values render direct
 domain-valued operator remotes, operator-authored IPv6 policy remotes,
 non-systemd scheduling, and map overlays. The operator-authored IPv6 policy
 remote residual was delivered in iter-030; egress domain-valued operator remotes
-were delivered in iter-031.
+were delivered in iter-031; cron.d refresh fallback was delivered in iter-032.
 
 **Progress note (2026-06-14 / iter-030):** operator-authored IPv6 CIDR/node
 remotes are landed for the current reviewed policy path. `NetPolicy` CIDR
@@ -651,7 +654,7 @@ normalization now accepts IPv4 and IPv6; egress compilation emits `ip daddr` and
 `ip6 daddr` statements; ingress composition folds IPv6 sources into
 `lattice_guard` as `ip6 saddr` statements. The next slice was domain-valued
 operator egress remotes, then non-systemd scheduling, bulk geo import, and map
-overlays.
+overlays. Non-systemd cron.d fallback scheduling was delivered in iter-032.
 
 **Progress note (2026-06-14 / iter-031):** egress domain-valued operator
 remotes are landed. `NetEndpoint` now supports `kind:"domain"` with a normalized
@@ -660,9 +663,19 @@ sets and references those sets from `ip`/`ip6` nft statements; hidden approval
 metadata carries the host/set bindings so the node apply script and systemd
 timer refresh all operator domain sets through
 `lattice-agent --update-nft-domain-set`. Ingress domain sources remain
-intentionally unsupported. Continue with non-systemd scheduling, bulk geo
-import, map latency/renewal overlays, and later graph annotations for
-domain-backed set names.
+intentionally unsupported. Continue with bulk geo import, map latency/renewal
+overlays, and later graph annotations for domain-backed set names. Cron.d
+refresh fallback was delivered in iter-032.
+
+**Progress note (2026-06-14 / iter-032):** non-systemd refresh fallback is
+landed for domain-backed `nftpolicy` applies. Systemd remains preferred, but on
+Linux hosts with `/etc/cron.d` the apply script now writes
+`/etc/cron.d/lattice-nftpolicy-domain-refresh` to run the existing
+root-owned `/etc/lattice/nftpolicy-domain-refresh.sh` every minute. If neither
+systemd nor `/etc/cron.d` exists, the script logs an explicit warning instead
+of claiming periodic refresh. Continue with bulk geo import, map
+latency/renewal overlays, and later graph annotations for domain-backed set
+names.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this
@@ -723,6 +736,6 @@ domain-backed set names.
     `styles.css`, inside `script-src 'self'` / `style-src 'self'`.
 18. Verify (add a dashboard render smoke check), review, commit per slice.
 
-**Phase Later** — non-systemd domain refresh scheduling, boot-persistence unit,
-bulk geo import, optional CF map-pin DNS (ADR if default-on), latency/renewal
-overlay, bbolt cutover — each its own iter with the same gate.
+**Phase Later** — boot-persistence unit, bulk geo import, optional CF map-pin
+DNS (ADR if default-on), latency/renewal overlay, bbolt cutover — each its own
+iter with the same gate.

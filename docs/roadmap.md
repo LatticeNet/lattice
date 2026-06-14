@@ -35,8 +35,8 @@
 > into the single input chain in iter-024. Control-plane domain-backed nft sets
 > now have IPv4/IPv6 refresh, and operator IPv6 policy remotes compile through
 > the reviewed policy path. Egress domain-valued operator remotes now compile
-> through node-filled nft named sets. Non-systemd refresh scheduling, bulk geo
-> import, and map overlays remain pending.
+> through node-filled nft named sets. Domain refresh now has systemd and cron.d
+> scheduler paths. Bulk geo import and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -106,7 +106,8 @@
   Iter-030 adds operator-authored IPv6 CIDR/node remotes for egress and ingress
   composition. Iter-031 adds egress domain-valued operator remotes backed by
   node-filled v4/v6 nft named sets and the existing periodic refresh path.
-  Non-systemd scheduling, bulk geo import, and map overlays remain pending.
+  Iter-032 adds a cron.d fallback when systemd is unavailable. Bulk geo import
+  and map overlays remain pending.
   *(Partially built.)*
 
 ## Service Plugins / Providers

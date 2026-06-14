@@ -58,7 +58,9 @@ The current nft flow has two committed apply paths:
   HTTPS-domain control-plane URLs and operator-authored egress domain remotes
   compile to empty v4/v6 nft named sets; the node apply script fills and
   periodically refreshes those sets through `lattice-agent
-  --update-nft-domain-set` before the selfcheck.
+  --update-nft-domain-set` before the selfcheck. Periodic refresh is installed
+  through systemd when available, with `/etc/cron.d` as the non-systemd Linux
+  fallback.
 
 Ingress NetPolicy rules are not emitted as a second input hook. They are folded
 into Network Guard's `lattice_guard` render so input filtering has one coherent

@@ -68,6 +68,11 @@
 > approval metadata binds host/set pairs, and the node apply/refresh script
 > updates them through `lattice-agent --update-nft-domain-set`. Ingress domain
 > sources remain intentionally unsupported.
+>
+> 2026-06-14 cron-refresh update: iter-032 adds `/etc/cron.d` fallback
+> scheduling for domain-backed `nftpolicy` refresh scripts on non-systemd Linux
+> hosts. Systemd remains preferred when available; later no-domain applies
+> remove both timer and cron artifacts.
 
 ---
 
