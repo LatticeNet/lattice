@@ -33,8 +33,9 @@
 > policy-graph SVG landed in iter-023; Network Guard now commits
 > `lattice_guard` with rollback/selfcheck and composes enabled ingress policy
 > into the single input chain in iter-024. Control-plane domain-backed nft sets
-> now have IPv4/IPv6 refresh; domain-valued operator remotes, operator policy
-> IPv6, bulk geo import, and map overlays remain pending.
+> now have IPv4/IPv6 refresh, and operator IPv6 policy remotes compile through
+> the reviewed policy path. Domain-valued operator remotes, bulk geo import, and
+> map overlays remain pending.
 
 
 ## V1 Hardening
@@ -101,8 +102,9 @@
   control-plane set periodically and removes stale timer artifacts when a later
   approved apply no longer uses a hostname. Iter-029 adds `lattice_control6`
   plus IPv6 literal `public_url` support for control-plane reachability.
-  Domain-valued operator remotes, operator-authored IPv6 policy remotes,
-  non-systemd scheduling, bulk geo import, and map overlays remain pending.
+  Iter-030 adds operator-authored IPv6 CIDR/node remotes for egress and ingress
+  composition. Domain-valued operator remotes, non-systemd scheduling, bulk geo
+  import, and map overlays remain pending.
   *(Partially built.)*
 
 ## Service Plugins / Providers

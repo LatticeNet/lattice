@@ -57,6 +57,10 @@
 > agent domain-set helper to refresh IPv4 and IPv6 sets from one resolver result,
 > and accepts IPv6 literal `public_url` values for `nftpolicy` control-plane
 > selfcheck.
+>
+> 2026-06-14 operator-IPv6 update: iter-030 allows reviewed IPv6 CIDR/node
+> `NetPolicy` remotes and compiles them to explicit `ip6 daddr` / `ip6 saddr`
+> nft statements. Domain-valued operator remotes remain a later slice.
 
 ---
 

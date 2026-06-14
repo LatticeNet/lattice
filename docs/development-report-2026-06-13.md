@@ -85,6 +85,9 @@ The current pushed baseline includes:
   `nftpolicy` plans now render `lattice_control4` and `lattice_control6`; the
   agent domain-set helper updates both from one Go resolver result; IPv6 literal
   `public_url` values render direct `ip6 daddr` allows.
+- Operator IPv6 NetPolicy remotes (iter-030, 2026-06-14): `NetPolicy` CIDR and
+  node remotes now compile IPv6 values into explicit `ip6 daddr` / `ip6 saddr`
+  nft statements for egress and Network Guard ingress composition.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -163,10 +166,9 @@ ingress guard composition), and iter-025 (required plan hashes for high-risk
 apply approvals). The next work should now be:
 
 1. **Design 05 - domain-set composition + visualization polish.**
-   Continue from iter-029: add domain-valued operator remotes and
-   operator-authored IPv6 policy remotes, then add bulk geo import and map
-   latency/renewal overlays. Also add compiler-vs-graph parity tests now that
-   ingress has a committed render path.
+   Continue from iter-030: add domain-valued operator remotes, then add bulk
+   geo import and map latency/renewal overlays. Also add compiler-vs-graph
+   parity tests now that ingress has a committed render path.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

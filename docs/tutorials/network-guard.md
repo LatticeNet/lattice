@@ -59,9 +59,9 @@ HTTPS hostname: IPv4 renders a direct control-plane allow; HTTPS hostnames rende
 through `lattice-agent --update-nft-domain-set` before selfcheck. IPv6 literal
 control-plane URLs render a direct `ip6 daddr` allow. On systemd hosts,
 domain-backed applies also install `lattice-nftpolicy-domain-refresh.timer` to
-refresh those sets every minute. Domain-valued policy remotes,
-operator-authored IPv6 policy remotes, and non-systemd scheduling remain later
-design slices so trust semantics stay explicit.
+refresh those sets every minute. Operator-authored IPv6 CIDR/node remotes render
+as explicit `ip6` nft statements. Domain-valued policy remotes and non-systemd
+scheduling remain later design slices so trust semantics stay explicit.
 
 Recommended host firewall layers:
 
