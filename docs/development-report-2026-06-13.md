@@ -72,7 +72,8 @@ The current pushed baseline includes:
   IPv4 URLs still render direct nft allows; HTTPS hostname URLs render
   `lattice_control4`, and the node-side apply task resolves/fills that set
   before the existing control-plane selfcheck. Periodic refresh,
-  control-plane IPv6, and domain-valued policy remotes remain future slices.
+  control-plane IPv6, and egress domain-valued policy remotes later landed in
+  iter-028/029/031.
 - Agent-native domain-set updater (iter-027, 2026-06-14): the apply-time
   `lattice_control4` update now runs through
   `lattice-agent --update-nft-domain-set` with Go resolver/filtering and direct
@@ -88,6 +89,11 @@ The current pushed baseline includes:
 - Operator IPv6 NetPolicy remotes (iter-030, 2026-06-14): `NetPolicy` CIDR and
   node remotes now compile IPv6 values into explicit `ip6 daddr` / `ip6 saddr`
   nft statements for egress and Network Guard ingress composition.
+- Operator domain NetPolicy remotes (iter-031, 2026-06-14): egress
+  `NetPolicy` rules can now use `remote.kind:"domain"`. The compiler renders
+  deterministic v4/v6 named sets, approval metadata binds host/set pairs, and
+  the apply/refresh scripts update those sets through
+  `lattice-agent --update-nft-domain-set`.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -165,10 +171,10 @@ MVP), iter-023 (policy graph SVG), iter-024 (Network Guard rollback apply +
 ingress guard composition), and iter-025 (required plan hashes for high-risk
 apply approvals). The next work should now be:
 
-1. **Design 05 - domain-set composition + visualization polish.**
-   Continue from iter-030: add domain-valued operator remotes, then add bulk
-   geo import and map latency/renewal overlays. Also add compiler-vs-graph
-   parity tests now that ingress has a committed render path.
+1. **Design 05 - refresh portability + visualization polish.**
+   Continue from iter-031: add non-systemd domain refresh scheduling, bulk geo
+   import, map latency/renewal overlays, and compiler-vs-graph parity tests now
+   that ingress and egress domain remotes have committed render paths.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

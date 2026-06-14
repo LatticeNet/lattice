@@ -42,8 +42,9 @@
 > 2026-06-14 domain-set update: iter-026 removed the IPv4-literal-only
 > `public_url` constraint for `nftpolicy` control-plane selfcheck. HTTPS
 > hostnames now render a `lattice_control4` named set and the apply task
-> resolves/fills it before selfcheck. Periodic refresh, IPv6, and
-> domain-valued policy remotes remain future work.
+> resolves/fills it before selfcheck. Periodic refresh landed in iter-028,
+> IPv6 parity landed in iter-029, and egress domain-valued policy remotes landed
+> in iter-031.
 >
 > 2026-06-14 agent-updater update: iter-027 moved the `lattice_control4`
 > apply-time mutation into `lattice-agent --update-nft-domain-set`, replacing
@@ -60,7 +61,13 @@
 >
 > 2026-06-14 operator-IPv6 update: iter-030 allows reviewed IPv6 CIDR/node
 > `NetPolicy` remotes and compiles them to explicit `ip6 daddr` / `ip6 saddr`
-> nft statements. Domain-valued operator remotes remain a later slice.
+> nft statements.
+>
+> 2026-06-14 operator-domain update: iter-031 allows reviewed egress domain
+> `NetPolicy` remotes. The compiler renders deterministic v4/v6 nft named sets,
+> approval metadata binds host/set pairs, and the node apply/refresh script
+> updates them through `lattice-agent --update-nft-domain-set`. Ingress domain
+> sources remain intentionally unsupported.
 
 ---
 

@@ -34,8 +34,9 @@
 > `lattice_guard` with rollback/selfcheck and composes enabled ingress policy
 > into the single input chain in iter-024. Control-plane domain-backed nft sets
 > now have IPv4/IPv6 refresh, and operator IPv6 policy remotes compile through
-> the reviewed policy path. Domain-valued operator remotes, bulk geo import, and
-> map overlays remain pending.
+> the reviewed policy path. Egress domain-valued operator remotes now compile
+> through node-filled nft named sets. Non-systemd refresh scheduling, bulk geo
+> import, and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -103,8 +104,9 @@
   approved apply no longer uses a hostname. Iter-029 adds `lattice_control6`
   plus IPv6 literal `public_url` support for control-plane reachability.
   Iter-030 adds operator-authored IPv6 CIDR/node remotes for egress and ingress
-  composition. Domain-valued operator remotes, non-systemd scheduling, bulk geo
-  import, and map overlays remain pending.
+  composition. Iter-031 adds egress domain-valued operator remotes backed by
+  node-filled v4/v6 nft named sets and the existing periodic refresh path.
+  Non-systemd scheduling, bulk geo import, and map overlays remain pending.
   *(Partially built.)*
 
 ## Service Plugins / Providers

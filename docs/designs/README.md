@@ -20,8 +20,9 @@ of shell DNS parsing; iter-028 installs a systemd timer for periodic refresh of
 that control-plane set; iter-029 adds IPv6 control-plane parity with
 `lattice_control6` plus IPv6 literal `public_url` support; iter-030 adds
 operator-authored IPv6 CIDR/node remotes for egress and ingress composition.
-Remaining Design 05 work is domain remotes, non-systemd scheduling, bulk geo
-import, and map overlays. Designs 01/02/03 remain
+Iter-031 adds domain-valued operator remotes for the egress compiler/apply path
+using node-filled nft named sets. Remaining Design 05 work is non-systemd
+scheduling, bulk geo import, and map overlays. Designs 01/02/03 remain
 design-ready but unbuilt. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 `development-workflow.md`: plan → design → build → verify → review → commit).
@@ -34,7 +35,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; **pure-Go CoreDNS** (digest-pinned) via plan→approve→apply; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
-| 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; egress-only nft compiler + `/api/netpolicy/plan` + **60s agent dead-man rollback** apply path landed iter-021; `NodeGeo` CRUD + inline-SVG fleet map landed iter-022; policy graph SVG landed iter-023; Network Guard rollback apply + ingress guard composition landed iter-024; control-plane HTTPS-domain named set landed iter-026; agent-native domain-set updater landed iter-027; systemd periodic refresh landed iter-028; IPv6 control-plane parity landed iter-029; operator IPv6 remotes landed iter-030; domain remotes remain pending |
+| 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; egress-only nft compiler + `/api/netpolicy/plan` + **60s agent dead-man rollback** apply path landed iter-021; `NodeGeo` CRUD + inline-SVG fleet map landed iter-022; policy graph SVG landed iter-023; Network Guard rollback apply + ingress guard composition landed iter-024; control-plane HTTPS-domain named set landed iter-026; agent-native domain-set updater landed iter-027; systemd periodic refresh landed iter-028; IPv6 control-plane parity landed iter-029; operator IPv6 remotes landed iter-030; egress domain remotes landed iter-031 |
 
 ## Shared architecture (all five honor)
 
@@ -53,13 +54,13 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 
 ## Recommended build order (rationale)
 
-1. **05 network ACL domain remotes + map polish** — continue from iter-030:
+1. **05 network ACL map polish + refresh portability** — continue from iter-031:
    ingress composition is now folded into `lattice_guard`, and control-plane
    HTTPS-domain `public_url` now uses agent-filled `lattice_control4` /
    `lattice_control6` sets with systemd periodic refresh. Operator-authored
-   IPv6 CIDR/node remotes now compile through the same reviewed path; next add
-   domain-valued operator remotes, then
-   add bulk geo import and map latency/renewal overlays.
+   IPv6 CIDR/node remotes and egress domain-valued remotes now compile through
+   the same reviewed path. Next add non-systemd refresh scheduling, bulk geo
+   import, and map latency/renewal overlays.
 2. **02 Self-host DNS** — builds on the same nft work + existing ddns; keep DNS
    port opening folded into the single firewall render.
 3. **01 Proxy cores & subscriptions** — the flagship and largest; sequence after

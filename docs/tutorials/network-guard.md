@@ -60,8 +60,11 @@ through `lattice-agent --update-nft-domain-set` before selfcheck. IPv6 literal
 control-plane URLs render a direct `ip6 daddr` allow. On systemd hosts,
 domain-backed applies also install `lattice-nftpolicy-domain-refresh.timer` to
 refresh those sets every minute. Operator-authored IPv6 CIDR/node remotes render
-as explicit `ip6` nft statements. Domain-valued policy remotes and non-systemd
-scheduling remain later design slices so trust semantics stay explicit.
+as explicit `ip6` nft statements. Operator-authored egress domain remotes render
+as deterministic `lattice_dom_<hash>4/6` nft sets and the same refresh timer
+keeps those sets current. Ingress domain sources remain unsupported by design:
+use a node reference, literal IP/CIDR, or `any`. Non-systemd scheduling remains
+a later design slice.
 
 Recommended host firewall layers:
 
