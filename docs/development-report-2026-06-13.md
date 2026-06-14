@@ -77,6 +77,10 @@ The current pushed baseline includes:
   `lattice_control4` update now runs through
   `lattice-agent --update-nft-domain-set` with Go resolver/filtering and direct
   `nft` argv calls, replacing the shell `getent|awk` path.
+- Periodic domain-set refresh (iter-028, 2026-06-14): domain-backed
+  `nftpolicy` applies now install `/etc/lattice/nftpolicy-domain-refresh.sh`
+  plus `lattice-nftpolicy-domain-refresh.service` / `.timer` on systemd hosts.
+  IPv4/no-domain applies remove stale refresh artifacts.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.

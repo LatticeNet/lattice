@@ -56,9 +56,11 @@ ingress enforcement is composed via Network Guard's `lattice_guard` plan
 instead. The server `PublicURL` may be an IPv4 literal or an HTTPS hostname:
 IPv4 renders a direct control-plane allow; HTTPS hostnames render
 `lattice_control4`, which the node apply task fills through
-`lattice-agent --update-nft-domain-set` before selfcheck. This is not yet a
-periodic DDNS updater. IPv6, domain-valued policy remotes, and durable DNS
-refresh remain later design slices so trust semantics stay explicit.
+`lattice-agent --update-nft-domain-set` before selfcheck. On systemd hosts,
+domain-backed applies also install `lattice-nftpolicy-domain-refresh.timer` to
+refresh that set every minute. IPv6, domain-valued policy remotes, and
+non-systemd scheduling remain later design slices so trust semantics stay
+explicit.
 
 Recommended host firewall layers:
 

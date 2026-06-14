@@ -71,7 +71,8 @@ failure, and nft argv construction.
   not contain `getent`, `awk`, or the old `CONTROL4=` shell pipeline.
 - Updated `lattice-node-agent/README.md` and the Design 05/roadmap/product
   documents to reflect that the apply-time updater is now agent-native while
-  periodic refresh remains future work.
+  periodic refresh remained a follow-up. Iter-028 adds the systemd timer-backed
+  refresh path.
 
 ## Review Outcome
 
@@ -90,8 +91,9 @@ failure, and nft argv construction.
 
 ## Residuals
 
-- The set is still updated only during approved apply. DNS churn after apply
-  needs iter-028 periodic refresh or re-plan/re-apply.
+- Iter-028 adds systemd timer-based refresh for the control-plane set. Nodes
+  without systemd still need a later scheduler or re-plan/re-apply after DNS
+  churn.
 - IPv6 still needs a sibling `lattice_control6` path.
 - `nft` itself must be installed and available on the task PATH.
 - Domain-valued operator policy remotes remain unsupported.

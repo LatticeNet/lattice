@@ -48,6 +48,10 @@
 > 2026-06-14 agent-updater update: iter-027 moved the `lattice_control4`
 > apply-time mutation into `lattice-agent --update-nft-domain-set`, replacing
 > shell DNS parsing with Go resolution/filtering plus direct `nft` argv calls.
+>
+> 2026-06-14 periodic-refresh update: iter-028 installs a systemd timer for
+> domain-backed `nftpolicy` control-plane set refresh and removes stale timer
+> artifacts when a later approved apply no longer uses a hostname.
 
 ---
 

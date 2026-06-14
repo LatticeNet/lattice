@@ -96,8 +96,11 @@
   node-filled `lattice_control4` control-plane set instead of requiring an IPv4
   literal. Iter-027 moves the apply-time set mutation into
   `lattice-agent --update-nft-domain-set` so DNS answers no longer flow through
-  shell parsing. Periodic domain/DDNS refresh, domain-valued operator remotes,
-  IPv6, bulk geo import, and map overlays remain pending. *(Partially built.)*
+  shell parsing. Iter-028 installs a systemd timer to refresh the
+  control-plane set periodically and removes stale timer artifacts when a later
+  approved apply no longer uses a hostname. Domain-valued operator remotes,
+  IPv6, non-systemd scheduling, bulk geo import, and map overlays remain
+  pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 

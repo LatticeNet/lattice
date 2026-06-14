@@ -99,8 +99,9 @@ HTTP domain public URLs still fail.
 
 ## Residuals
 
-- No periodic refresh/updater yet. A hostname whose A record changes after a
-  successful apply remains stale until the operator re-plans/re-applies.
+- Iter-028 adds systemd timer-based refresh for the control-plane set. Nodes
+  without systemd still need a later scheduler or re-plan/re-apply after DNS
+  churn.
 - IPv6 is still unsupported for `nftpolicy` control-plane and operator remotes.
 - Domain-valued operator policy remotes are still intentionally unsupported.
 - Iter-027 removed the `getent ahostsv4` host dependency by moving

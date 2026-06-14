@@ -9,8 +9,9 @@
 > ingress composition into the single `lattice_guard` input chain landed in
 > iter-024; control-plane HTTPS-domain named set landed in iter-026; the
 > agent-native nft domain-set updater replaced the shell DNS pipeline in
-> iter-027. Remaining: periodic domain/DDNS refresh, domain-valued operator
-> remotes, IPv6, bulk geo import, and map overlays.
+> iter-027; systemd periodic refresh for that control-plane set landed in
+> iter-028. Remaining: domain-valued operator remotes, IPv6, non-systemd
+> scheduling, bulk geo import, and map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -65,9 +66,10 @@ The first committed apply path is intentionally narrower than the full design:
   an HTTPS hostname. HTTPS hostnames render an empty `lattice_control4` named
   set in the plan; the node-side apply script calls
   `lattice-agent --update-nft-domain-set` to resolve/filter/fill that set, then
-  runs the same control-plane selfcheck.
-  Domain-valued operator remotes and periodic DDNS refresh are still later
-  slices.
+  runs the same control-plane selfcheck. On systemd hosts the same approved
+  apply installs `lattice-nftpolicy-domain-refresh.timer` so DNS churn is
+  refreshed every minute. Domain-valued operator remotes, IPv6, and non-systemd
+  scheduling are still later slices.
 - The node apply task validates with `nft -c`, snapshots rollback state, arms a
   60s watchdog, applies the nft batch, then runs
   `lattice-agent --selfcheck-controlplane -server <public-url>`. The task shell
@@ -510,10 +512,11 @@ Smallest end-to-end slice that delivers the operator's exact ask.
    advertised address). Iter-026 removed the IPv4-literal-only selfcheck
    constraint for HTTPS hostnames by filling `lattice_control4` from DNS at
    apply time; iter-027 moved that mutation into an agent-native helper so DNS
-   answers no longer flow through shell pipelines. Remaining: periodic refresh
-   after apply, IPv6, and policy remotes that intentionally reference domains.
-   DNS is not treated as authentication: HTTPS verification and Lattice
-   credentials still decide whether the endpoint is trusted.
+   answers no longer flow through shell pipelines; iter-028 installs a systemd
+   timer to keep the set fresh after apply. Remaining: IPv6, non-systemd
+   scheduling, and policy remotes that intentionally reference domains. DNS is
+   not treated as authentication: HTTPS verification and Lattice credentials
+   still decide whether the endpoint is trusted.
 2. **Node IP churn.** Node refs resolve at compile time; if a peer's IP changes after apply, the rule
    is stale until re-planned. *Decision:* surface "policy stale — peer IP changed" in the graph/list
    (the server already detects IP changes for DDNS) and let the operator re-plan; do **not** auto-apply
@@ -592,15 +595,25 @@ an HTTPS hostname `public_url` for the control plane. The compiled egress plan
 uses `lattice_control4` instead of placing the hostname in nft syntax, and the
 queued apply task resolves/fills that set on the node before control-plane
 selfcheck. This solves the immediate domain-fronted self-lockout case. Continue
-with a durable updater/periodic refresh, IPv6, domain-valued operator remotes,
-and map overlays.
+with an agent-native updater, durable periodic refresh, IPv6, domain-valued
+operator remotes, and map overlays. The updater and systemd periodic refresh
+were delivered in iter-027 and iter-028.
 
 **Progress note (2026-06-14 / iter-027):** apply-time domain-set mutation now
 runs through `lattice-agent --update-nft-domain-set` instead of shell
 `getent|awk`. The helper resolves with Go, keeps IPv4 only, sorts/deduplicates
 answers, validates nft identifiers, and updates the existing set via direct
 `nft` argv calls. Continue with durable periodic refresh, IPv6, domain-valued
-operator remotes, and map overlays.
+operator remotes, and map overlays. The systemd periodic refresh was delivered
+in iter-028.
+
+**Progress note (2026-06-14 / iter-028):** approved domain-backed `nftpolicy`
+applies now install `/etc/lattice/nftpolicy-domain-refresh.sh` plus
+`lattice-nftpolicy-domain-refresh.service` / `.timer` on systemd hosts. The
+timer reuses the iter-027 agent helper every 60 seconds. Later approved
+IPv4/no-domain applies disable/remove those artifacts so stale refreshers do not
+survive a topology change. Continue with IPv6, domain-valued operator remotes,
+non-systemd scheduling, and map overlays.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this
