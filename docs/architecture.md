@@ -290,6 +290,30 @@ Service apply status (`last_applied_at` / `last_error`) is separate from
 hostname publication status (`last_published_at` / `last_publish_error`) so
 operators can tell whether CoreDNS/nft failed or Cloudflare publication failed.
 
+## Proxy Cores and Subscriptions
+
+Proxy-core orchestration is a built-in core provider, not a third-party plugin.
+It owns bearer credentials, subscription tokens, and reviewed host mutations, so
+it uses the same server-owned trust boundary as DNS, DDNS, nft, WireGuard, and
+Cloudflare Tunnel.
+
+The current implementation is the iter-039 persistence foundation:
+
+- `ProxyInbound` models a central sing-box/xray inbound template. REALITY
+  private keys are encrypted at rest and redacted from proto/read views.
+- `ProxyUser` models a subscriber identity, quota/expiry state, and
+  subscription bearer token. UUID, password, and subscription token are
+  encrypted at rest; list/read views expose only `has_*` booleans.
+- `ProxyNodeProfile` binds inbounds to a node for later render/apply.
+- `ProxyUsageSnapshot` stores the last per-node accounting snapshot for later
+  monotonic rollup.
+
+Renderer, HTTP CRUD APIs, dashboard UI, agent apply scripts, stats reporting,
+and `/sub/{token}` are intentionally pending. The future subscription route
+must not persist raw subscription tokens as map keys; add an opaque SHA-256
+token index or a constant-time scan with explicit rate limits before exposing
+that public endpoint.
+
 ## Storage
 
 The bootstrap build uses a JSON state file plus an append-only hash-chained
@@ -304,7 +328,8 @@ rollback export, and record-level APIs for nodes, KV, audit, static objects,
 Worker scripts, plugin lifecycle records, approvals, tasks, task results,
 monitors, monitor results, tunnels, users, tokens, sessions, TOTP challenges,
 DDNS profiles, notification channels, OIDC providers, OIDC identities, and OIDC
-auth states. Session IDs, TOTP challenge IDs, and OIDC auth-state keys use
+auth states, plus proxy inbounds/users/node profiles/usage snapshots. Session
+IDs, TOTP challenge IDs, and OIDC auth-state keys use
 opaque SHA-256 storage keys when encryption is enabled. Server startup still
 uses the JSON store by default. Runtime cutover is blocked on backup/restore
 drills, audit WAL anchoring, and an explicit operator opt-in.

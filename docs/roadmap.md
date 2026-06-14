@@ -41,8 +41,10 @@
 > CoreDNS/nft plan generation, rollback-protected apply, and status
 > reconciliation, Cloudflare publication, automatic publication on node IP
 > changes, separate service-apply vs hostname-publish status fields, and
-> optional pinned CoreDNS executable install with SHA-256 verification. Bulk geo
-> import and map overlays remain pending.
+> optional pinned CoreDNS executable install with SHA-256 verification. Proxy
+> core/subscription work has started: iter-039 landed the SDK model/proto/store
+> foundation with encrypted proxy credentials. Bulk geo import and map overlays
+> remain pending.
 
 
 ## V1 Hardening
@@ -122,7 +124,14 @@
 > (CORE provider, not a third-party plugin) and [`designs/design-02-self-host-dns.md`](./designs/design-02-self-host-dns.md).
 
 - **Proxy-core orchestration + subscriptions** — sing-box config renderer + reload
-  (v1), xray (v2), fleet-wide tokenized subscriptions, node-agnostic users. *(Designed.)*
+  (v1), xray (v2), fleet-wide tokenized subscriptions, node-agnostic users.
+  Iter-039 delivered the foundation: `ProxyInbound`, `ProxyUser`,
+  `ProxyNodeProfile`, and `ProxyUsageSnapshot` SDK models, redacted proto views,
+  JSON-store/bbolt collection parity, and AES-GCM at-rest encryption for Reality
+  private keys, UUID/password credentials, and subscription tokens. Next slices:
+  sing-box `vless+reality+tcp` renderer, scoped CRUD API, reviewed
+  `proxycore` plan/apply, then `/sub/{token}` with an explicit opaque-token
+  lookup design. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

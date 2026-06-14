@@ -1,6 +1,6 @@
 # Design 01 — Proxy-Core Orchestration & Subscription Management
 
-> Status: proposed · Author: framework design pass · Date: 2026-06-13
+> Status: foundation in progress · Author: framework design pass · Date: 2026-06-13 · Updated: 2026-06-14
 > Scope: lattice-server (core providers) + lattice-node-agent (executor) + lattice-sdk (model) + lattice-dashboard (later phase)
 > Constraints honored: pure Go, zero CGo, tiny dep surface, security-first, fail-closed, plan→approve→apply for node changes.
 
@@ -59,6 +59,12 @@ The new server code lives in **`internal/proxycore/`** (rendering, models helper
 ## 3. Data model
 
 All structs go in `lattice-sdk/model/model.go` (shared wire model). New `State` map collections go in `internal/store/store.go`. Secret-at-rest fields are listed in §3.4 and **must** be added to `internal/store/crypto.go` + `stateHasEnvelope`.
+
+**Landed in iter-039:** the shared SDK structs/constants, secret-free proto
+view contracts, JSON-store collections/CRUD, record-level bbolt buckets/CRUD,
+and at-rest encryption for `RealityPrivateKey`, `UUID`, `Password`, and
+`SubToken`. Renderer, HTTP handlers, dashboard UI, agent apply scripts, stats
+reporting, and public subscriptions remain pending.
 
 ### 3.1 Inbounds (central, node-agnostic template)
 
@@ -209,7 +215,13 @@ Plus CRUD methods mirroring the DDNS/Monitor pattern: `UpsertProxyInbound`, `Pro
 - `ProxyInbound.RealityPrivateKey`
 - `ProxyUser.UUID`, `ProxyUser.Password`, `ProxyUser.SubToken`
 
-Rationale: UUID/password/sub-token are reversible bearer credentials (leak = account takeover / free transit / subscription theft), exactly the encrypted class already documented in crypto.go (DDNS token, OIDC secret, notify config). List/GET APIs **must** strip these (return only `has_uuid: true`, masked, or the derived link) like the DDNS/notify list APIs already do. Subscription tokens are additionally stored as an **opaque SHA-256 lookup key** when encryption is enabled (same trick as session/TOTP IDs in crypto.go) so the served URL token is never the stored map key.
+Rationale: UUID/password/sub-token are reversible bearer credentials (leak = account takeover / free transit / subscription theft), exactly the encrypted class already documented in crypto.go (DDNS token, OIDC secret, notify config). List/GET APIs **must** strip these (return only `has_uuid: true`, masked, or the derived link) like the DDNS/notify list APIs already do.
+
+Iter-039 encrypts `SubToken` at rest but does **not** introduce the public
+subscription lookup index yet because `/sub/{token}` is not built. The
+subscription endpoint slice must add either an opaque SHA-256 token index or a
+constant-time full scan with tight rate limiting; it must never make the raw
+subscription token a persisted map key.
 
 ---
 
@@ -306,7 +318,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 
 **Fail-closed.** Bad config never goes live (`sing-box check` + atomic swap). Plan-time structural validation rejects malformed inbounds. A user past `ExpiresAt` or over `TrafficLimitBytes` is **omitted from subscription output immediately** (server-authoritative, no node round-trip); v2 additionally drops them from the rendered config on the next apply. Unknown protocol/transport/security enums are rejected, not silently passed through.
 
-**Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. Sub-tokens are stored under opaque SHA-256 keys. Rotation (`/rotate`) bumps the credential and **invalidates old subscription URLs** (and old links) at once. The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
+**Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. The future `/sub/{token}` route must not persist raw sub-tokens as lookup keys; add the explicit opaque index or constant-time scan design in that slice. Rotation (`/rotate`) bumps the credential and **invalidates old subscription URLs** (and old links) at once. The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
 
 **Blast radius / compromised node.** A node only ever holds: its own rendered config (its inbounds + the subset of users provisioned to it) and its own node token. It does **not** hold the central user DB, other nodes' configs, subscription tokens, or reality private keys for inbounds it doesn't run. A compromised node can: serve/sniff transit for *its own* users (inherent to being an exit), lie about usage (mitigation: monotonic diffing + sanity caps + the server treats usage as advisory for accounting, authoritative gating stays server-side on expiry/quota-estimate), and attempt to return a bad task result (bounded by existing output caps). It **cannot** mint users, read other nodes' secrets, or pivot to the control plane (it only dials out; no inbound from server).
 
@@ -382,7 +394,7 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 
 2. **SDK model** — `lattice-sdk/model/model.go`: add the consts + `ProxyInbound`, `ProxyUser`, `ProxyNodeProfile`, `ProxyUsageSnapshot`. Update `proto_contract_test.go`. `go test ./...` (sdk). *Commit: `feat(sdk): proxy-core model (inbounds, users, node profiles, usage)`.*
 
-3. **Store** — `internal/store/store.go`: add the four `State` collections + `emptyState()` init + CRUD methods (mirror DDNS/Monitor). `internal/store/crypto.go`: encrypt `ProxyInbound.RealityPrivateKey`, `ProxyUser.UUID/Password/SubToken`; add opaque SHA-256 storage key for sub-tokens; extend `stateHasEnvelope`. Tests: round-trip encrypt/decrypt, lost-key guard, sub-token opaque-key collision guard. *Commit: `feat(store): persist + encrypt proxy collections`.*
+3. **Store** — `internal/store/store.go`: add the four `State` collections + `emptyState()` init + CRUD methods (mirror DDNS/Monitor). `internal/store/crypto.go`: encrypt `ProxyInbound.RealityPrivateKey`, `ProxyUser.UUID/Password/SubToken`; extend `stateHasEnvelope`. Tests: round-trip encrypt/decrypt, lost-key guard, bbolt import/export, and record-level proxy collections. **Landed in iter-039.** The opaque subscription-token lookup key is deferred to the `/sub/{token}` endpoint slice because no public subscription lookup exists yet.
 
 4. **Renderer** — new `internal/proxycore/`:
    - `singbox.go`: `RenderConfig(profile, inbounds, users) (map[string]any, error)` → JSON; MVP path vless+reality+tcp; structural validation.

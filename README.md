@@ -27,6 +27,12 @@ separately.
 - nftables plan generation with explicit approval before apply, including an
   applied `lattice_guard` Network Guard path and an egress-only NetPolicy path,
   both with agent-side rollback/selfcheck where the server public URL is known.
+- Self-host DNS deployment intent, CoreDNS/nft planning, rollback-protected
+  apply, Cloudflare hostname publication, separate service/publish status, and
+  optional pinned CoreDNS executable install.
+- Proxy-core/subscription foundation: shared models, redacted proto views,
+  JSON/bbolt persistence, and encrypted Reality/user/subscription credentials
+  for future sing-box/xray orchestration.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
