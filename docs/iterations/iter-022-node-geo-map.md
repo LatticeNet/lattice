@@ -117,8 +117,8 @@ tokens see only allowed nodes, and bad geo input cannot be stored.
 
 - Ingress ACL composition is still pending and must be folded into the single
   `lattice_guard` input render; do not add a second default-drop input table.
-- Domain/DDNS-backed nft named sets, IPv6 policy, and policy-graph SVG remain
-  Design 05 work.
+- Domain/DDNS-backed nft named sets and IPv6 policy remain Design 05 work.
+- Policy-graph SVG was still pending at iter-022 close and landed in iter-023.
 - Bulk import from the operator ASN/latency report is still needed for faster
   geo seeding.
 - Map overlays remain future work: latency edges, ASN labels, renewal/cost

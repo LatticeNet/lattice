@@ -52,6 +52,11 @@ The current pushed baseline includes:
   `node:admin` plus per-node allowlists; `/api/nodes` exposes `geo`; dashboard
   `Fleet Map` renders dependency-free inline-SVG pins and provides an edit/clear
   form. Geo is display-only and never feeds authorization or nft compilation.
+- Design 05 graph visualization slice (iter-023): dashboard Network Policy now
+  renders the server-derived reachability graph as dependency-free inline SVG
+  with allow/deny edges, online/offline nodes, tooltips, external rule summary,
+  and the existing textual fallback. The client still performs no policy
+  evaluation.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -124,14 +129,14 @@ Remaining before runtime cutover:
 Development resumed with iter-017 (`HostFacts` inventory MVP), iter-018
 (`MachineProfile` cost/renewal MVP), iter-019 (shared nft input persistence),
 iter-020 (`NetPolicy` state + graph foundation), iter-021 (egress-only
-NetPolicy nft apply with rollback/selfcheck), and iter-022 (`NodeGeo` + Fleet
-Map MVP). The next work should now be:
+NetPolicy nft apply with rollback/selfcheck), iter-022 (`NodeGeo` + Fleet Map
+MVP), and iter-023 (policy graph SVG). The next work should now be:
 
 1. **Design 05 - ingress/domain-set composition + visualization polish.**
-   Continue from iter-022: fold ingress policy into the single `lattice_guard`
+   Continue from iter-023: fold ingress policy into the single `lattice_guard`
    input render, add a safe DNS/DDNS-backed nft named-set updater for domain
-   public URLs, add IPv6 policy, then add policy-graph SVG, bulk geo import, and
-   map latency/renewal overlays.
+   public URLs, add IPv6 policy, then add bulk geo import and map
+   latency/renewal overlays.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

@@ -21,8 +21,13 @@
 > ingress, domain-backed nft sets, IPv6, and the geo-map remained later work.
 >
 > 2026-06-13 map update: iter-022 shipped operator-owned `NodeGeo` CRUD and the
-> dashboard Fleet Map. Remaining Design 05 work is ingress, domain-backed nft
-> sets, IPv6, policy-graph SVG, bulk geo import, and map overlays.
+> dashboard Fleet Map. At iter-022 close, remaining Design 05 work was ingress,
+> domain-backed nft sets, IPv6, policy-graph SVG, bulk geo import, and map
+> overlays.
+>
+> 2026-06-14 graph update: iter-023 shipped the dashboard policy-graph SVG.
+> Remaining Design 05 work is ingress, domain-backed nft sets, IPv6, bulk geo
+> import, and map overlays.
 
 ---
 

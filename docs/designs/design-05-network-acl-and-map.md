@@ -4,9 +4,9 @@
 > iter-019; `NetPolicy` state/API/graph/dashboard foundation landed in
 > iter-020; egress-only nft compile/plan/apply with 60s dead-man rollback and
 > unauthenticated agent control-plane selfcheck landed in iter-021; operator
-> `NodeGeo` CRUD + dashboard inline-SVG fleet map landed in iter-022. Remaining:
-> ingress composition, domain/DDNS-backed nft sets, IPv6, policy-graph SVG,
-> bulk geo import, and map overlays.
+> `NodeGeo` CRUD + dashboard inline-SVG fleet map landed in iter-022; dashboard
+> policy graph SVG landed in iter-023. Remaining: ingress composition,
+> domain/DDNS-backed nft sets, IPv6, bulk geo import, and map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -76,6 +76,9 @@ The first committed apply path is intentionally narrower than the full design:
   outline, equirectangular pin placement, online/offline pin state, tooltip
   labels, node list, and edit/clear form. It does not call external map/geo-IP
   services, and all interpolated node/geo strings are escaped.
+- The dashboard Network Policy panel renders the server-derived graph as a
+  dependency-free inline SVG with allow/deny edges, online/offline nodes,
+  tooltips, and the existing textual detail fallback.
 
 ---
 
@@ -445,13 +448,12 @@ Smallest end-to-end slice that delivers the operator's exact ask.
 
 ### v2 — visualization + ingress + map
 - `GET /api/netpolicy/graph` and the basic dashboard policy list are landed in
-  iter-020. The first geo-map MVP is landed in iter-022. Next visualization work
-  should upgrade the policy list into an inline-SVG node-link graph and add map
-  overlays.
+  iter-020. The first geo-map MVP is landed in iter-022, and the dashboard
+  policy graph SVG is landed in iter-023. Next visualization work should add
+  map overlays and tests that compare graph edges with emitted nft when ingress
+  compilation lands.
 - Ingress (`input` chain) rules; `protocol==any`.
 - Bulk seed importer from the operator's ASN/latency report.
-- Dashboard **policy graph SVG**: `<line>`/`<circle>` rendering from server graph
-  JSON so visualization and server-derived policy stay aligned.
 - Map overlays: latency, ASN labels, renewal badges, and optional DNS names.
 - **Exit bar:** operator sees the reachability graph and the global map, both driven by real fleet data,
   matching the compiled policy; ingress rules apply via the same flow.
@@ -532,8 +534,14 @@ of step 6, the route subset of step 7, the egress compiler/plan/apply/selfcheck
 work from steps 8-10, apply-result consumption, and a basic dashboard policy
 panel from step 17 are complete. Step 16's operator `NodeGeo` CRUD and step 17's
 first inline-SVG fleet map are also complete. Do not reimplement those. Continue
-with ingress composition, domain/DDNS-backed nft sets, IPv6, policy-graph SVG,
-bulk geo import, and map overlays.
+with ingress composition, domain/DDNS-backed nft sets, IPv6, bulk geo import,
+and map overlays.
+
+**Progress note (2026-06-14 / iter-023):** the dashboard policy graph SVG is
+complete. It renders the existing server-derived `/api/netpolicy/graph` response
+only; the client still does not evaluate policy semantics. Continue with
+ingress/domain sets/IPv6, then add compiler-vs-graph parity tests for ingress
+and map overlays.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this
@@ -587,9 +595,9 @@ bulk geo import, and map overlays.
 16. `handleNodesGeo` (`GET/POST /api/nodes/geo`) landed in iter-022. Next:
     bulk seed importer from the ASN/latency report.
 17. **Dashboard** (`lattice-dashboard/assets/`): basic `netpolicy.js` payload
-    helpers and a policy/graph-list panel landed in iter-020. Next UI work:
-    upgrade graph rendering to inline SVG (`<line>`/`<circle>` from graph JSON)
-    and extend the landed `geomap.js` MVP with policy edges/latency overlays.
+    helpers and a policy/graph-list panel landed in iter-020. Inline SVG graph
+    rendering landed in iter-023. Next UI work: extend the landed `geomap.js`
+    MVP with policy edges/latency overlays.
     **No inline `<script>`, no inline styles** — SVG stays class-based from
     `styles.css`, inside `script-src 'self'` / `style-src 'self'`.
 18. Verify (add a dashboard render smoke check), review, commit per slice.

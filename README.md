@@ -23,7 +23,7 @@ separately.
 - Machine inventory profiles for vendor/region/cost/renewal tracking, encrypted
   console/detail links, and renewal reminders.
 - Session login, CSRF checks, TOTP 2FA, OIDC/SSO, PBKDF2 password/token hashing, PAT scopes, server allowlists, and tamper-evident audit WAL.
-- Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, saved network policy intent/graph, egress-only NetPolicy apply planning, Fleet Map, approvals, and audit views.
+- Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, saved network policy intent/SVG graph, egress-only NetPolicy apply planning, Fleet Map, approvals, and audit views.
 - nftables plan generation with explicit approval before apply, including an
   egress-only NetPolicy path with agent-side rollback/selfcheck.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
