@@ -1,9 +1,24 @@
 # Design 02 — One-Click Self-Hosted DNS Deployment
 
-> Status: **proposed**; shared `NFTInputs` prerequisite landed in iter-019 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
+> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
 > Companion to: `architecture.md` (DDNS, Cloudflare Tunnel, WireGuard, Storage, Safety Model), `PRODUCT-VISION.md` (pillars P1 Trust / P4 Durability), `development-workflow.md` (Plan→Execute→Review→Iterate).
 
 This document specifies a **CORE server-owned provider** (in the same class as `internal/ddns`, `internal/cftunnel`, `internal/wireguard`, `internal/network`) that lets an operator deploy a private DNS resolver/authoritative server onto a chosen node with a single approval, pair it with per-node nftables access rules, and publish a Cloudflare subdomain (e.g. `gmami-jp1.dns.roobli.org`) that DDNS keeps pointed at that node's public IP. It reuses the existing `plan → approve → apply` machinery verbatim; it adds no new external Go dependency and no CGo.
+
+---
+
+## 0. Implementation status
+
+**Landed in iter-033:** shared `model.DNSDeployment` / `DNSZone` /
+`DNSRecord`, redacted proto `DNSDeploymentView`, encrypted
+`DNSDeployment.CFAPIToken`, JSON and experimental bbolt persistence, scoped
+CRUD API at `/api/dns/deployments`, single-zone dashboard panel, and validation
+for engine/exposure/ports/hostnames/upstreams/static records.
+
+**Still pending:** `internal/selfdns` CoreDNS renderer, `/api/dns/plan`,
+`/api/dns/publish`, agent apply script, DDNS IP-change publication, and DNS
+port composition into the single `lattice_guard` nft render. Until those land,
+a DNS deployment is durable control-plane intent, not an applied resolver.
 
 ---
 
@@ -173,7 +188,10 @@ Reused, **not** re-implemented:
 Request/response shapes:
 - **Create** validates eagerly by calling the renderer (like `handleTunnels` calls `cftunnel.GenerateConfig`): bad zone suffix, bad upstream, port out of range, or unknown engine → `400` before persistence.
 - **Plan** response is a `model.Approval` whose `Plan` is the **human-reviewable bundle**: the rendered engine config, the nft rule fragment, and a one-line summary of the CF hostname action. The reviewer hashes exactly this text for `plan_sha256`.
-- **dnsView** = the deployment minus `CFAPIToken`, plus a derived `resolved_hostname` and `firewall_summary` for the UI.
+- **dnsView** = the deployment minus `CFAPIToken`, plus non-secret status,
+  node, listener, zone, hostname, DDNS reference, and `has_credential` fields.
+  UI-only firewall summaries should be derived client-side or added through a
+  future explicit proto/API field, not smuggled into the read view.
 
 `handleDNSPlan` skeleton (mirrors `handleTunnelPlan` + folds nft):
 
