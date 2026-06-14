@@ -15,8 +15,9 @@ turns Network Guard into a rollback-protected apply path and folds enabled
 ingress policy into the single `lattice_guard` input render.
 Iter-026 removes the IPv4-literal-only constraint for control-plane
 `public_url` by using a node-filled `lattice_control4` named set for HTTPS
-hostnames. Remaining Design 05 work is periodic domain/DDNS refresh, domain
-remotes, IPv6, bulk geo import, and map overlays. Designs 01/02/03 remain
+hostnames; iter-027 moves that set update into an agent-native helper instead
+of shell DNS parsing. Remaining Design 05 work is periodic domain/DDNS refresh,
+domain remotes, IPv6, bulk geo import, and map overlays. Designs 01/02/03 remain
 design-ready but unbuilt. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 `development-workflow.md`: plan → design → build → verify → review → commit).
@@ -29,7 +30,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; **pure-Go CoreDNS** (digest-pinned) via plan→approve→apply; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
-| 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; egress-only nft compiler + `/api/netpolicy/plan` + **60s agent dead-man rollback** apply path landed iter-021; `NodeGeo` CRUD + inline-SVG fleet map landed iter-022; policy graph SVG landed iter-023; Network Guard rollback apply + ingress guard composition landed iter-024; control-plane HTTPS-domain named set landed iter-026; periodic domain refresh/domain remotes/IPv6 remain pending |
+| 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; egress-only nft compiler + `/api/netpolicy/plan` + **60s agent dead-man rollback** apply path landed iter-021; `NodeGeo` CRUD + inline-SVG fleet map landed iter-022; policy graph SVG landed iter-023; Network Guard rollback apply + ingress guard composition landed iter-024; control-plane HTTPS-domain named set landed iter-026; agent-native domain-set updater landed iter-027; periodic domain refresh/domain remotes/IPv6 remain pending |
 
 ## Shared architecture (all five honor)
 
@@ -48,11 +49,11 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 
 ## Recommended build order (rationale)
 
-1. **05 network ACL domain refresh + map polish** — continue from iter-026:
+1. **05 network ACL domain refresh + map polish** — continue from iter-027:
    ingress composition is now folded into `lattice_guard`, and control-plane
-   HTTPS-domain `public_url` now uses a node-filled `lattice_control4` set; next
-   add a durable refresh/updater for DNS churn, add domain-valued operator
-   remotes and IPv6, then
+   HTTPS-domain `public_url` now uses an agent-filled `lattice_control4` set;
+   next add a durable periodic refresh/updater for DNS churn, add domain-valued
+   operator remotes and IPv6, then
    add bulk geo import and map latency/renewal overlays.
 2. **02 Self-host DNS** — builds on the same nft work + existing ddns; keep DNS
    port opening folded into the single firewall render.

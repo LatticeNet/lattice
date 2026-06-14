@@ -7,9 +7,10 @@
 > `NodeGeo` CRUD + dashboard inline-SVG fleet map landed in iter-022; dashboard
 > policy graph SVG landed in iter-023; Network Guard rollback apply plus
 > ingress composition into the single `lattice_guard` input chain landed in
-> iter-024; control-plane HTTPS-domain named set landed in iter-026. Remaining:
-> periodic domain/DDNS refresh, domain-valued operator remotes, IPv6, bulk geo
-> import, and map overlays.
+> iter-024; control-plane HTTPS-domain named set landed in iter-026; the
+> agent-native nft domain-set updater replaced the shell DNS pipeline in
+> iter-027. Remaining: periodic domain/DDNS refresh, domain-valued operator
+> remotes, IPv6, bulk geo import, and map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -62,8 +63,9 @@ The first committed apply path is intentionally narrower than the full design:
 - The compiler injects control-plane and DNS egress allows before operator
   rules. `LATTICE_PUBLIC_URL` / `-public-url` can be either an IPv4 literal or
   an HTTPS hostname. HTTPS hostnames render an empty `lattice_control4` named
-  set in the plan; the node-side apply script resolves the hostname through the
-  system resolver, fills that set, then runs the same control-plane selfcheck.
+  set in the plan; the node-side apply script calls
+  `lattice-agent --update-nft-domain-set` to resolve/filter/fill that set, then
+  runs the same control-plane selfcheck.
   Domain-valued operator remotes and periodic DDNS refresh are still later
   slices.
 - The node apply task validates with `nft -c`, snapshots rollback state, arms a
@@ -363,8 +365,9 @@ Current output is split by hook ownership:
   before operator egress rules. Static IPv4 `public_url` values render a direct
   `ip daddr <addr>` allow. HTTPS hostname `public_url` values render
   `set lattice_control4 { type ipv4_addr; flags interval; }` and reference
-  `ip daddr @lattice_control4`; the apply script fills the set before
-  selfcheck. IPv6 and operator-authored domain remotes remain later slices.
+  `ip daddr @lattice_control4`; the apply script delegates set mutation to the
+  agent-native domain-set updater before selfcheck. IPv6 and operator-authored
+  domain remotes remain later slices.
 - **Ingress:** `CompileIngressInputRules` converts enabled ingress `NetPolicy`
   rules into typed `network.NFTInputRule` values. `GenerateNFTPlan` folds those
   into the single `table inet lattice_guard` input chain rendered by Network
@@ -506,10 +509,11 @@ Smallest end-to-end slice that delivers the operator's exact ask.
    at compile time — it is (the agent is configured with the server URL; the server knows its own
    advertised address). Iter-026 removed the IPv4-literal-only selfcheck
    constraint for HTTPS hostnames by filling `lattice_control4` from DNS at
-   apply time. Remaining: periodic refresh after apply, IPv6, and policy remotes
-   that intentionally reference domains. DNS is not treated as authentication:
-   HTTPS verification and Lattice credentials still decide whether the endpoint
-   is trusted.
+   apply time; iter-027 moved that mutation into an agent-native helper so DNS
+   answers no longer flow through shell pipelines. Remaining: periodic refresh
+   after apply, IPv6, and policy remotes that intentionally reference domains.
+   DNS is not treated as authentication: HTTPS verification and Lattice
+   credentials still decide whether the endpoint is trusted.
 2. **Node IP churn.** Node refs resolve at compile time; if a peer's IP changes after apply, the rule
    is stale until re-planned. *Decision:* surface "policy stale — peer IP changed" in the graph/list
    (the server already detects IP changes for DDNS) and let the operator re-plan; do **not** auto-apply
@@ -590,6 +594,13 @@ queued apply task resolves/fills that set on the node before control-plane
 selfcheck. This solves the immediate domain-fronted self-lockout case. Continue
 with a durable updater/periodic refresh, IPv6, domain-valued operator remotes,
 and map overlays.
+
+**Progress note (2026-06-14 / iter-027):** apply-time domain-set mutation now
+runs through `lattice-agent --update-nft-domain-set` instead of shell
+`getent|awk`. The helper resolves with Go, keeps IPv4 only, sorts/deduplicates
+answers, validates nft identifiers, and updates the existing set via direct
+`nft` argv calls. Continue with durable periodic refresh, IPv6, domain-valued
+operator remotes, and map overlays.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this

@@ -44,6 +44,10 @@
 > hostnames now render a `lattice_control4` named set and the apply task
 > resolves/fills it before selfcheck. Periodic refresh, IPv6, and
 > domain-valued policy remotes remain future work.
+>
+> 2026-06-14 agent-updater update: iter-027 moved the `lattice_control4`
+> apply-time mutation into `lattice-agent --update-nft-domain-set`, replacing
+> shell DNS parsing with Go resolution/filtering plus direct `nft` argv calls.
 
 ---
 

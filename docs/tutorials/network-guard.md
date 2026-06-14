@@ -55,10 +55,10 @@ Current limitations: `POST /api/netpolicy/plan` remains **egress-only** and
 ingress enforcement is composed via Network Guard's `lattice_guard` plan
 instead. The server `PublicURL` may be an IPv4 literal or an HTTPS hostname:
 IPv4 renders a direct control-plane allow; HTTPS hostnames render
-`lattice_control4`, which the node apply task resolves and fills before
-selfcheck. This is not yet a periodic DDNS updater. IPv6, domain-valued policy
-remotes, and durable DNS refresh remain later design slices so trust semantics
-stay explicit.
+`lattice_control4`, which the node apply task fills through
+`lattice-agent --update-nft-domain-set` before selfcheck. This is not yet a
+periodic DDNS updater. IPv6, domain-valued policy remotes, and durable DNS
+refresh remain later design slices so trust semantics stay explicit.
 
 Recommended host firewall layers:
 

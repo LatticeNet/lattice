@@ -94,8 +94,10 @@
   second input hook. Iter-026 adds the first domain-backed nft set: HTTPS
   hostname `public_url` values for `nftpolicy` apply render a
   node-filled `lattice_control4` control-plane set instead of requiring an IPv4
-  literal. Periodic domain/DDNS refresh, domain-valued operator remotes, IPv6,
-  bulk geo import, and map overlays remain pending. *(Partially built.)*
+  literal. Iter-027 moves the apply-time set mutation into
+  `lattice-agent --update-nft-domain-set` so DNS answers no longer flow through
+  shell parsing. Periodic domain/DDNS refresh, domain-valued operator remotes,
+  IPv6, bulk geo import, and map overlays remain pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 

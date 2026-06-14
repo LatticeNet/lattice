@@ -69,10 +69,11 @@ HTTP domain public URLs still fail.
   old direct nft allow, while HTTPS hostnames are accepted after conservative
   ASCII DNS-name normalization. HTTP hostnames and non-loopback HTTP IPv4 values
   still fail closed.
-- Extended `nftPolicyApplyScript` to resolve the hostname on the node with the
-  system resolver (`getent ahostsv4`), fill `inet lattice_policy
-  lattice_control4`, and then run the existing control-plane selfcheck. Any
-  failure triggers the existing ERR trap + rollback path.
+- Extended `nftPolicyApplyScript` to resolve the hostname on the node, fill
+  `inet lattice_policy lattice_control4`, and then run the existing
+  control-plane selfcheck. Iter-027 moved this update from a shell
+  `getent|awk` pipeline into an agent-native helper; any failure still triggers
+  the existing ERR trap + rollback path.
 - During review, found and fixed a plan/apply TOCTOU: a server `public_url`
   changed between plan and approve could have generated a script that did not
   match the reviewed plan. `nftpolicy` approvals now bind the normalized
@@ -102,5 +103,5 @@ HTTP domain public URLs still fail.
   successful apply remains stale until the operator re-plans/re-applies.
 - IPv6 is still unsupported for `nftpolicy` control-plane and operator remotes.
 - Domain-valued operator policy remotes are still intentionally unsupported.
-- `getent ahostsv4` is Linux-oriented; nodes without `getent` fail closed and
-  roll back. A future agent-native resolver would remove that host dependency.
+- Iter-027 removed the `getent ahostsv4` host dependency by moving
+  hostname-to-nft-set mutation into `lattice-agent --update-nft-domain-set`.

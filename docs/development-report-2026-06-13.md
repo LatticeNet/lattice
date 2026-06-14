@@ -73,6 +73,10 @@ The current pushed baseline includes:
   `lattice_control4`, and the node-side apply task resolves/fills that set
   before the existing control-plane selfcheck. Periodic refresh, IPv6, and
   domain-valued policy remotes remain future slices.
+- Agent-native domain-set updater (iter-027, 2026-06-14): the apply-time
+  `lattice_control4` update now runs through
+  `lattice-agent --update-nft-domain-set` with Go resolver/filtering and direct
+  `nft` argv calls, replacing the shell `getent|awk` path.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
