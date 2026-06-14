@@ -148,11 +148,10 @@ The key invariant to preserve in future edits:
 
 Recommended next proxy slices:
 
-1. Focused dashboard proxy apply UI so operators do not have to use the generic
-   approvals panel for proxycore diffs.
+1. Focused dashboard proxy apply UI landed in iter-048; pending
+   `proxycore/apply-config` approvals now live in the Proxy Core panel.
 2. Direct sing-box stats collector in the node-agent, behind the existing
    `ProxyUsageSnapshot` contract.
 3. Usage threshold/expiry notifications through `internal/notify`.
 4. Subscription format import helpers and optional User-Agent sniffing.
 5. xray renderer and `xray test -c` apply path behind the same model.
-

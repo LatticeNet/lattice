@@ -124,9 +124,9 @@ node --check assets/proxy.js
 
 ## Residual Risks / Next
 
-- Dashboard plan creation queues the existing approval object, but the operator
-  still completes apply through the existing Approvals panel. A later UI pass
-  should add a focused proxy plan diff/approve flow.
+- Focused proxy plan review/queue-apply landed in iter-048. It still uses the
+  existing plan-hash-bound approval API, but operators no longer need to leave
+  the Proxy Core panel for pending `proxycore/apply-config` approvals.
 - Subscription output no longer stops at MVP plain/base64 VLESS+REALITY:
   baseline usage reporting landed in iter-046, and Clash/Mihomo plus sing-box
   client formats landed in iter-047. Direct sing-box/xray collectors, xray

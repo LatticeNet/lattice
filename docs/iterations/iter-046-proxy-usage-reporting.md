@@ -77,8 +77,8 @@ rules first, then leaves the direct core-specific collectors for later.
   v2ray-style format negotiation). **sing-box JSON and Clash/Mihomo YAML were
   resolved in iter-047 for VLESS+REALITY+TCP; v2ray-style negotiation remains
   future work.**
-- A focused proxy plan/apply dashboard; approvals still use the shared
-  Approvals panel.
+- A focused proxy plan/apply dashboard. **Resolved in iter-048:** pending
+  `proxycore/apply-config` reviews now render in the Proxy Core panel.
 
 ## Security Decisions
 
@@ -182,6 +182,5 @@ Manual security/code review focused on the new trust boundary:
 3. Add subscription import helpers and optional User-Agent/v2ray-style format
    negotiation. The first richer formats landed in iter-047 using a fixed-shape
    dependency-free YAML emitter.
-4. Add a focused proxy plan/apply dashboard so proxy operators do not have to
-   context-switch into the generic Approvals panel.
+4. Focused proxy plan/apply dashboard landed in iter-048.
 5. Add xray renderer and xray usage collector behind the same core abstraction.

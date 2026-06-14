@@ -300,8 +300,9 @@ Cloudflare Tunnel.
 The current implementation includes the iter-039 persistence foundation, the
 iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
 reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
-public subscription slice, plus the iter-045 dashboard/token-workflow slice and
-the iter-046 usage-reporting baseline and iter-047 subscription-format slice:
+public subscription slice, plus the iter-045 dashboard/token-workflow slice, the
+iter-046 usage-reporting baseline, the iter-047 subscription-format slice, and
+the iter-048 focused dashboard apply-review slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -345,10 +346,12 @@ the iter-046 usage-reporting baseline and iter-047 subscription-format slice:
   SHA-256 hashes only, and returns the new subscription URL/path once for
   operator delivery. It uses `LATTICE_PUBLIC_URL` when configured and otherwise
   returns a relative `/sub/{token}` path instead of reflecting request `Host`.
-- `lattice-dashboard` now has a `Proxy Core` panel for inbounds, users, and
-  node profiles. It can create/edit/delete those records, request proxy plan
-  approvals, and rotate/copy a user's subscription URL without receiving raw
-  token material during ordinary refresh.
+- `lattice-dashboard` now has a `Proxy Core` panel for inbounds, users, node
+  profiles, and pending proxy apply reviews. It can create/edit/delete those
+  records, request proxy plan approvals, queue pending `proxycore/apply-config`
+  approvals through the existing plan-hash-bound approve API, and rotate/copy a
+  user's subscription URL without receiving raw token material during ordinary
+  refresh.
 - `POST /api/agent/proxy-usage` lets an authenticated node report a
   `ProxyUsageSnapshot`. The server forces the node id from the authenticated
   request, filters counters to users eligible for that node profile, rejects
@@ -363,8 +366,8 @@ the iter-046 usage-reporting baseline and iter-047 subscription-format slice:
   stable collector contract for sidecars and future direct sing-box/xray
   collectors; direct core API polling remains a later slice.
 
-Direct sing-box/xray stats collectors, a focused proxy plan/apply UI, usage
-notifications, subscription import helpers, and xray rendering remain pending.
+Direct sing-box/xray stats collectors, usage notifications, subscription import
+helpers, and xray rendering remain pending.
 The subscription route deliberately does not persist raw subscription tokens as
 map keys; keep that property if a future SHA-256 token index replaces the MVP
 full scan.

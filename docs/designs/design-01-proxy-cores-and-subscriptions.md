@@ -69,11 +69,11 @@ and at-rest encryption for `RealityPrivateKey`, `UUID`, `Password`, and
 `vless`+TCP+REALITY. It emits a canonical secret-bearing config artifact with a
 SHA-256 and fail-closed structural validation, omits disabled/expired/over-quota
 users, rejects unsupported transport/protocol combinations, and is covered by
-table-driven tests. Iter-041 through iter-047 have since landed HTTP CRUD,
+table-driven tests. Iter-041 through iter-048 have since landed HTTP CRUD,
 reviewed plan/apply, public subscriptions, the first dashboard workflow,
-baseline usage reporting, and sing-box JSON plus Clash/Mihomo YAML subscription
-formats for the supported VLESS+REALITY+TCP path. Direct core stats collectors
-and xray remain pending.
+baseline usage reporting, sing-box JSON plus Clash/Mihomo YAML subscription
+formats for the supported VLESS+REALITY+TCP path, and a focused dashboard
+proxy apply review flow. Direct core stats collectors and xray remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
@@ -437,6 +437,9 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 - Agent: nothing new beyond running the apply task (it already can). `sing-box check` in the script.
 - Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header. **Landed in iter-044.** sing-box client JSON and Clash/Mihomo YAML for VLESS+REALITY+TCP landed in iter-047. Usage reflects `ProxyUser.UsedBytes`; baseline node reporting through `/api/agent/proxy-usage` landed in iter-046.
 - Usage: agent `-proxy-usage-file` bridge, server monotonic diffing, `/api/proxy/usage`, and dashboard usage/last-seen display. **Landed in iter-046.**
+- Dashboard apply: focused `Proxy Core -> Apply Review` landed in iter-048. It
+  displays pending `proxycore/apply-config` approvals in the proxy panel and
+  still queues through the existing plan-hash-bound approve API.
 - DDNS: document that the node needs a DDNS profile; warn in plan if missing.
 - **Exit bar:** operator creates an inbound + user + profile, plans `gmami-jp1`, approves, the agent applies, sing-box serves vless/reality, the user's `/sub` link imports into a client and connects. `-race` + gofmt green, adversarial security review of the new surface passed, audit events present.
 
@@ -515,7 +518,7 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 
 7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Next: add a direct sing-box collector behind the same `ProxyUsageSnapshot` contract, then quota/expiry `notify` hooks. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
 
-8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046. Remaining dashboard work: focused proxy plan diff/approve UI (currently uses the existing Approvals panel), import helpers that surface `format=plain|base64|sing-box|clash-meta`, direct collector health/error display, and visual polish.
+8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046; focused pending `proxycore/apply-config` review/queue-apply landed in iter-048. Remaining dashboard work: import helpers that surface `format=plain|base64|sing-box|clash-meta`, direct collector health/error display, and visual polish.
 
 9. **Verify** — `GOWORK=… go test -race ./...` across server/agent/sdk; gofmt; dashboard smoke; a manual end-to-end on one node (plan→approve→apply→connect→import sub). Record evidence in the iteration doc.
 

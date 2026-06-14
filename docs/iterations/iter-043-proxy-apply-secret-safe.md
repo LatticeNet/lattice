@@ -128,8 +128,9 @@ Known environment notes:
 
 ## Residual Risks / Next Work
 
-1. There is no dashboard proxy apply UI yet; the API is ready, but operators
-   still need the generic approval UI or API calls.
+1. The focused dashboard proxy apply UI landed in iter-048; operators can now
+   review pending `proxycore/apply-config` plans and queue apply from the Proxy
+   Core panel.
 2. No automatic drift reconciler exists. If shared inbounds/users change after
    a node was applied, the profile's `AppliedSHA256` will diverge from the next
    rendered config; a later slice should surface and optionally queue re-apply.

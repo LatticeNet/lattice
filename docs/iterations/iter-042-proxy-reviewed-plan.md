@@ -97,5 +97,6 @@ code is 0.
 1. ✅ Completed in iter-043: encrypted `Task.Script` at rest for JSON and bbolt.
 2. ✅ Completed in iter-043: real `proxycore` apply script with `sing-box check`,
    atomic swap, reload/restart activation, and task-result status reconciliation.
-3. Next: add dashboard proxy plan/apply UI.
-4. Next: add `/sub/{token}` after opaque token lookup and rate limiting are designed.
+3. ✅ Completed in iter-048: focused dashboard proxy apply review/queue UI.
+4. ✅ Completed in iter-044: `/sub/{token}` after opaque token lookup and rate
+   limiting were designed.
