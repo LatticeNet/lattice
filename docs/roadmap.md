@@ -47,8 +47,10 @@
 > fail-closed sing-box `vless`+TCP+REALITY config renderer. Iter-041 landed
 > scoped proxy inbounds/users/profiles CRUD with secret-free JSON views.
 > Iter-042 landed the redacted reviewed proxy plan endpoint and real-config SHA
-> binding, with queue apply still fail-closed. Bulk geo import and map overlays
-> remain pending.
+> binding. Iter-043 enabled secret-safe reviewed queue/apply. Iter-044 landed
+> the public plain/base64 `/sub/{token}` subscription MVP with hashed-token
+> audit and duplicate-token fail-closed behavior. Bulk geo import and map
+> overlays remain pending.
 
 
 ## V1 Hardening
@@ -141,9 +143,13 @@
   that binds the real rendered config hash and rejects stale approvals.
   Iter-043 encrypted persisted task scripts and enabled `proxycore`
   queue/apply with `sing-box check`, atomic config swap, reload/restart
-  activation, and task-result status reconciliation. Next slices:
-  `/sub/{token}` with an explicit opaque-token lookup design, dashboard proxy
-  UI, then usage reporting. *(Partially built.)*
+  activation, and task-result status reconciliation. Iter-044 delivered the
+  public `/sub/{token}` MVP: plain/base64 VLESS+REALITY links across applied
+  sing-box node profiles, `Subscription-Userinfo`, dedicated public rate
+  limiting, constant-time token scan, raw-token-free audit metadata, and
+  fail-closed duplicate-token handling. Next slices: dashboard proxy UI, token
+  rotation, usage reporting, richer subscription formats, then xray. *(Partially
+  built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

@@ -237,11 +237,12 @@ Plus CRUD methods mirroring the DDNS/Monitor pattern: `UpsertProxyInbound`, `Pro
 
 Rationale: UUID/password/sub-token are reversible bearer credentials (leak = account takeover / free transit / subscription theft), exactly the encrypted class already documented in crypto.go (DDNS token, OIDC secret, notify config). List/GET APIs **must** strip these (return only `has_uuid: true`, masked, or the derived link) like the DDNS/notify list APIs already do.
 
-Iter-039 encrypts `SubToken` at rest but does **not** introduce the public
-subscription lookup index yet because `/sub/{token}` is not built. The
-subscription endpoint slice must add either an opaque SHA-256 token index or a
-constant-time full scan with tight rate limiting; it must never make the raw
-subscription token a persisted map key.
+Iter-039 encrypts `SubToken` at rest. Iter-044 deliberately chose a
+constant-time full scan over decrypted `ProxyUser.SubToken` for the first public
+`/sub/{token}` endpoint instead of a persisted token index, so raw subscription
+tokens are not map keys and no new secret-bearing lookup field is introduced.
+The admin upsert path now rejects duplicate `sub_token` values; if legacy dirty
+state ever contains duplicates, the public endpoint fails closed with `404`.
 
 ---
 
@@ -273,14 +274,14 @@ collection `GET`/`POST` plus explicit `POST .../delete`.
 |---|---|---|---|
 | POST | `/api/network/approvals/approve` | `network:apply` on node | Existing handler; for `proxycore`, approval requires `plan_sha256`, re-renders the current desired config, rejects stale SHA, and `queue_apply:true` creates the validated sing-box apply task |
 | GET | `/api/proxy/usage` | `proxy:read` | → per-user/per-node usage rollup for the dashboard |
-| **GET** | `/sub/{token}` | **public (token-auth)** | → subscription body (format negotiated, see §6); rate-limited via existing `internal/ratelimit`; never requires a session |
+| **GET** | `/sub/{token}` | **public (token-auth)** | → subscription body (format negotiated, see §6); iter-044 supports `format=base64` default and `format=plain`; rate-limited via a dedicated `internal/ratelimit` bucket; never requires a session |
 
 Agent-facing (bearer node-token auth, like existing `/api/agent/*`):
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/api/agent/proxy-usage` | node token | agent reports `ProxyUsageSnapshot` |
 
-The plan endpoint is the only new "dangerous" surface; it produces a diffable plan and **never** mutates the node. Approve/apply is the unchanged shared path. The `/sub/{token}` endpoint is the one public, unauthenticated-by-session route — it is guarded by an unguessable per-user token, constant-time compared, rate-limited, and emits an audit/usage event on hit.
+The plan endpoint is the only new "dangerous" surface; it produces a diffable plan and **never** mutates the node. Approve/apply is the unchanged shared path. The `/sub/{token}` endpoint is the one public, unauthenticated-by-session route — it is guarded by an unguessable per-user token, constant-time scanned, rate-limited before credential lookup, and emits `proxy.subscription.fetch` audit events without raw token material.
 
 **Implementation note after iter-041:** the bootstrap JSON API uses the existing
 project convention (`POST .../delete`) rather than path-param `DELETE` routes:
@@ -377,7 +378,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 
 **Fail-closed.** Bad config never goes live (`sing-box check` + atomic swap). Plan-time structural validation rejects malformed inbounds. A user past `ExpiresAt` or over `TrafficLimitBytes` is **omitted from subscription output immediately** (server-authoritative, no node round-trip); v2 additionally drops them from the rendered config on the next apply. Unknown protocol/transport/security enums are rejected, not silently passed through.
 
-**Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. The future `/sub/{token}` route must not persist raw sub-tokens as lookup keys; add the explicit opaque index or constant-time scan design in that slice. Rotation (`/rotate`) bumps the credential and **invalidates old subscription URLs** (and old links) at once. The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
+**Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. The iter-044 `/sub/{token}` route uses a constant-time full scan and hashed-token audit metadata; it does not persist raw sub-tokens as lookup keys. Rotation (`/rotate`) is still pending; once added it should bump the credential and **invalidate old subscription URLs** (and old links) at once. The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
 
 **Blast radius / compromised node.** A node only ever holds: its own rendered config (its inbounds + the subset of users provisioned to it) and its own node token. It does **not** hold the central user DB, other nodes' configs, subscription tokens, or reality private keys for inbounds it doesn't run. A compromised node can: serve/sniff transit for *its own* users (inherent to being an exit), lie about usage (mitigation: monotonic diffing + sanity caps + the server treats usage as advisory for accounting, authoritative gating stays server-side on expiry/quota-estimate), and attempt to return a bad task result (bounded by existing output caps). It **cannot** mint users, read other nodes' secrets, or pivot to the control plane (it only dials out; no inbound from server).
 
@@ -392,7 +393,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 - One protocol path end-to-end: **vless + reality + tcp** (the operator's most-wanted, no cert needed).
 - Server: inbounds/users/profiles CRUD; `internal/proxycore` renderer (sing-box JSON) for vless/reality; `POST /api/proxy/nodes/{id}/plan` → `Approval{Plugin:"proxycore"}`; approve→apply queues the sing-box validation/atomic-swap task after config-SHA revalidation.
 - Agent: nothing new beyond running the apply task (it already can). `sing-box check` in the script.
-- Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header (expiry only; usage shows 0).
+- Subscription: `/sub/{token}` serving **plain + base64** of vless links, with `Subscription-Userinfo` header. **Landed in iter-044.** Usage currently reflects `ProxyUser.UsedBytes` when present; live usage reporting remains v2.
 - DDNS: document that the node needs a DDNS profile; warn in plan if missing.
 - **Exit bar:** operator creates an inbound + user + profile, plans `gmami-jp1`, approves, the agent applies, sing-box serves vless/reality, the user's `/sub` link imports into a client and connects. `-race` + gofmt green, adversarial security review of the new surface passed, audit events present.
 
@@ -457,12 +458,11 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 
 4. **Renderer** — new `internal/proxycore/`:
    - `singbox.go`: `RenderSingBoxConfigJSON(profile, inbounds, users, opts) (SingBoxArtifact, error)` → canonical JSON + SHA-256 + target path + warnings; MVP path vless+reality+tcp; structural validation. **Landed in iter-040.**
-   - `links.go`: `UserLinks(user, profile, inbounds) []string` (vless first); `Subscription(user, format) ([]byte, http.Header)`.
+   - `links.go`: `VLESSRealityLinks(user, profiles, inbounds, opts)`, `PlainSubscription`, `Base64Subscription`, and `SubscriptionUserinfo`. **Landed in iter-044** for applied sing-box profiles only; skipped/unapplied profiles return warnings and no links rather than exposing stale nodes.
    - `reality.go`: X25519 keypair gen (pure Go `crypto/ecdh`), short-ID gen.
-   - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 currently covers renderer shape/validation/hash/leak checks; optional `sing-box check` integration remains pending.
-   *Next commit shape: `feat(proxycore): vless/reality links + subscription encoders`.*
+   - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 covers renderer shape/validation/hash/leak checks; iter-044 covers VLESS link shape, plain/base64 bodies, inactive users, unsafe host/public-key rejection, and secret leak checks. Optional `sing-box check` integration remains pending.
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043. Remaining handler work: `/sub/{token}` (public, rate-limited, constant-time token compare) and `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Next commit shape: `feat(server): proxy subscriptions with opaque-token lookup`.*
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044. Remaining handler work: `/api/proxy/usage`, token rotation, and richer subscription formats. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
 
 6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 

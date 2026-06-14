@@ -36,7 +36,9 @@ separately.
   CRUD/read APIs that return secret-free views, a redacted reviewed plan
   endpoint that binds the real rendered config hash, and secret-safe reviewed
   queue/apply with encrypted task scripts, `sing-box check`, atomic config swap,
-  and task-result status reconciliation.
+  task-result status reconciliation, and a public plain/base64 `/sub/{token}`
+  MVP with `Subscription-Userinfo`, dedicated rate limiting, hashed-token audit,
+  and duplicate-token fail-closed handling.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.

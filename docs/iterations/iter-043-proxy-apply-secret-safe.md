@@ -133,7 +133,9 @@ Known environment notes:
 2. No automatic drift reconciler exists. If shared inbounds/users change after
    a node was applied, the profile's `AppliedSHA256` will diverge from the next
    rendered config; a later slice should surface and optionally queue re-apply.
-3. `/sub/{token}` is still pending. It must add an opaque token lookup or
-   constant-time scan with rate limiting before exposing subscription URLs.
+3. `/sub/{token}` is still pending as of this iteration. It must add an opaque
+   token lookup or constant-time scan with rate limiting before exposing
+   subscription URLs. **Resolved in iter-044** with a constant-time full scan,
+   dedicated public limiter, and raw-token-free audit metadata.
 4. Usage accounting is still pending. Add `/api/agent/proxy-usage`, monotonic
    diffs, quota/expiry alerts, and dashboard rollups after the subscription MVP.

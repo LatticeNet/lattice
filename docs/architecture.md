@@ -299,7 +299,8 @@ Cloudflare Tunnel.
 
 The current implementation includes the iter-039 persistence foundation, the
 iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
-reviewed-plan slice, and the iter-043 secret-safe apply slice:
+reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
+public subscription slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -329,11 +330,17 @@ reviewed-plan slice, and the iter-043 secret-safe apply slice:
   both JSON and bbolt stores. The agent script runs `sing-box check -c`, swaps
   the config atomically, reloads/restarts `sing-box`, and task results reconcile
   `ProxyNodeProfile.AppliedSHA256`, `LastApplyAt`, and `LastError`.
+- `GET /sub/{token}` is the first public subscription endpoint. It supports
+  `format=base64` by default and `format=plain`, emits `Subscription-Userinfo`,
+  rate-limits before credential lookup, scans subscription tokens in constant
+  time, rejects duplicate stored tokens fail-closed, and records
+  `proxy.subscription.fetch` audit events using a token SHA-256 hash rather
+  than raw token material.
 
-Dashboard proxy UI, stats reporting, and `/sub/{token}` are intentionally
-pending. The future subscription route must not persist raw subscription tokens
-as map keys; add an opaque SHA-256 token index or a constant-time scan with
-explicit rate limits before exposing that public endpoint.
+Dashboard proxy UI, stats reporting, token rotation, richer subscription
+formats, and xray rendering remain pending. The subscription route deliberately
+does not persist raw subscription tokens as map keys; keep that property if a
+future SHA-256 token index replaces the MVP full scan.
 
 ## Storage
 
