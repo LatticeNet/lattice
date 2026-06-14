@@ -153,7 +153,8 @@ to `NetPolicy`.
   explicit DNS/DDNS-to-nft named-set updater with TTL/timeout semantics and clear
   fail-closed behavior.
 - IPv6 policy is not compiled yet.
-- The geo-map is still pending.
+- The geo-map was still pending at iter-021 close; operator `NodeGeo` CRUD and
+  the first Fleet Map MVP landed in iter-022.
 - Full `go test ./internal/server` remains blocked in this sandbox by existing
   OIDC `httptest.NewServer` port binding (`operation not permitted`), so this
   iteration used targeted server tests plus package-level tests/vet.

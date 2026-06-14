@@ -28,8 +28,10 @@
 > shared per-node nft input persistence landed in iter-019. Design 05's
 > `NetPolicy` state/API/reachability graph/dashboard foundation landed in
 > iter-020; egress-only nft compiler/plan/apply with dead-man rollback and
-> agent control-plane selfcheck landed in iter-021. Ingress, domain-backed nft
-> sets, IPv6, and the geo-map remain pending.
+> agent control-plane selfcheck landed in iter-021; operator `NodeGeo` CRUD and
+> the dependency-free dashboard Fleet Map landed in iter-022. Ingress,
+> domain-backed nft sets, IPv6, policy-graph SVG, bulk geo import, and map
+> overlays remain pending.
 
 
 ## V1 Hardening
@@ -78,8 +80,9 @@
   validation/store/API/graph/dashboard state delivered in iter-020. Egress-only
   nft compiler, `/api/netpolicy/plan`, agent selfcheck/rollback apply, task
   result status tracking, and dashboard `Plan Apply` entry landed in iter-021.
-  Ingress composition, domain/DDNS-backed nft sets, IPv6, and the geo-map remain
-  pending. *(Partially built.)*
+  Operator `NodeGeo` CRUD and the zero-dependency inline-SVG Fleet Map landed in
+  iter-022. Ingress composition, domain/DDNS-backed nft sets, IPv6, policy-graph
+  SVG, bulk geo import, and map overlays remain pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 

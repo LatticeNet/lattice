@@ -17,8 +17,12 @@
 > 2026-06-13 network-policy update: Design 05 now has an egress-only committed
 > nft apply path (iter-021): `/api/netpolicy/plan`, plan-hash approvals,
 > agent-side `nft -c` + 60s rollback watchdog, unauthenticated `/api/health`
-> selfcheck, and result-backed applied/failed status. Ingress, domain-backed nft
-> sets, IPv6, and the geo-map remain later work.
+> selfcheck, and result-backed applied/failed status. At iter-021 close,
+> ingress, domain-backed nft sets, IPv6, and the geo-map remained later work.
+>
+> 2026-06-13 map update: iter-022 shipped operator-owned `NodeGeo` CRUD and the
+> dashboard Fleet Map. Remaining Design 05 work is ingress, domain-backed nft
+> sets, IPv6, policy-graph SVG, bulk geo import, and map overlays.
 
 ---
 

@@ -47,6 +47,11 @@ The current pushed baseline includes:
   dead-man rollback watchdog, and unauthenticated `/api/health` selfcheck, then
   recorded back to `NetPolicy.LastAppliedAt` / `LastError`. This MVP is
   **egress-only** and requires an IPv4-literal server `PublicURL`.
+- Design 05 map slice (iter-022): operator-owned `NodeGeo` can be updated,
+  listed, and cleared through `GET/POST /api/nodes/geo` with `node:read` /
+  `node:admin` plus per-node allowlists; `/api/nodes` exposes `geo`; dashboard
+  `Fleet Map` renders dependency-free inline-SVG pins and provides an edit/clear
+  form. Geo is display-only and never feeds authorization or nft compilation.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
@@ -118,13 +123,15 @@ Remaining before runtime cutover:
 
 Development resumed with iter-017 (`HostFacts` inventory MVP), iter-018
 (`MachineProfile` cost/renewal MVP), iter-019 (shared nft input persistence),
-iter-020 (`NetPolicy` state + graph foundation), and iter-021 (egress-only
-NetPolicy nft apply with rollback/selfcheck). The next work should now be:
+iter-020 (`NetPolicy` state + graph foundation), iter-021 (egress-only
+NetPolicy nft apply with rollback/selfcheck), and iter-022 (`NodeGeo` + Fleet
+Map MVP). The next work should now be:
 
-1. **Design 05 - ingress/domain-set composition + geo-map.** Continue from
-   iter-021: fold ingress policy into the single `lattice_guard` input render,
-   add a safe DNS/DDNS-backed nft named-set updater for domain public URLs, add
-   IPv6 policy, then add the global geo-map.
+1. **Design 05 - ingress/domain-set composition + visualization polish.**
+   Continue from iter-022: fold ingress policy into the single `lattice_guard`
+   input render, add a safe DNS/DDNS-backed nft named-set updater for domain
+   public URLs, add IPv6 policy, then add policy-graph SVG, bulk geo import, and
+   map latency/renewal overlays.
 2. **Design 02 - Self-host DNS.** Add `DNSDeployment`, CoreDNS rendering,
    Cloudflare publish via existing DDNS provider, and composition of DNS ports
    into the stored `NFTInputs`.

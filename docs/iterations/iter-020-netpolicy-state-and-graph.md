@@ -81,7 +81,8 @@ firewall state changes occur in this iteration.
   pieces.
 - Upgrade the dashboard graph from list form to inline SVG once compiler parity
   tests exist, so visualization and enforcement cannot drift.
-- Add operator-managed `NodeGeo` CRUD and the zero-dep geo-map panel.
+- Add operator-managed `NodeGeo` CRUD and the zero-dep geo-map panel. (Closed
+  by iter-022.)
 - Revisit IPv6 only after IPv4 policy apply is tested end to end.
 
 ## Implementation Notes
