@@ -302,8 +302,9 @@ iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
 reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
 public subscription slice, plus the iter-045 dashboard/token-workflow slice, the
 iter-046 usage-reporting baseline, the iter-047 subscription-format slice, the
-iter-048 focused dashboard apply-review slice, and the iter-049 loopback
-HTTP/V2Ray-stats collector foundation:
+iter-048 focused dashboard apply-review slice, the iter-049 loopback
+HTTP/V2Ray-stats collector foundation, and the iter-050 proxy notification
+slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -362,6 +363,13 @@ HTTP/V2Ray-stats collector foundation:
   usage views for the dashboard. The first report is baseline-only; later
   reports advance `ProxyUser.UsedBytes` monotonically, treat `core_uptime_sec`
   decreases as resets, and never subtract usage on counter rollback.
+- Quota/expiry notifications are server-owned. `ProxyUser` carries
+  server-managed notification cursors for quota and expiry; clients cannot set
+  them. The server emits audited `proxy.user.notify` events through
+  `internal/notify` when usage crosses 80%/100% of `traffic_limit_bytes`, or
+  when `expires_at` reaches 7d/1d/expired thresholds. The existing hourly
+  reminder scheduler also evaluates proxy users, so expiry alerts do not depend
+  on a fresh node usage report.
 - `lattice-node-agent` supports `-proxy-usage-file` /
   `LATTICE_PROXY_USAGE_FILE` as a bounded JSON snapshot bridge and
   `-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL` as a loopback-only HTTP JSON
@@ -370,8 +378,8 @@ HTTP/V2Ray-stats collector foundation:
   hosts and URL userinfo, caps response bodies, and posts the same normalized
   snapshot to `/api/agent/proxy-usage`.
 
-True sing-box/xray API transports (for example direct V2Ray stats gRPC), usage
-notifications, subscription import helpers, and xray rendering remain pending.
+True sing-box/xray API transports (for example direct V2Ray stats gRPC),
+subscription import helpers, and xray rendering remain pending.
 The subscription route deliberately does not persist raw subscription tokens as
 map keys; keep that property if a future SHA-256 token index replaces the MVP
 full scan.

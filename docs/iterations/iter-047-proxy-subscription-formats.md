@@ -153,6 +153,7 @@ Recommended next proxy slices:
 2. Loopback HTTP/V2Ray-stats collector foundation landed in iter-049 behind the
    existing `ProxyUsageSnapshot` contract. True sing-box/xray API transport
    remains pending.
-3. Usage threshold/expiry notifications through `internal/notify`.
+3. Usage threshold/expiry notifications landed in iter-050 through
+   `internal/notify`.
 4. Subscription format import helpers and optional User-Agent sniffing.
 5. xray renderer and `xray test -c` apply path behind the same model.

@@ -142,7 +142,8 @@ Focused tests cover:
 2. Surface collector health/error state in server/dashboard. The current slice
    logs local collector errors on the agent and relies on `last_seen_at` /
    snapshot freshness in the dashboard.
-3. Add quota/expiry/usage notifications through `internal/notify`.
+3. Quota/expiry/usage notifications landed in iter-050 through
+   `internal/notify`.
 4. Add subscription import-helper UX for `plain`, `base64`, `sing-box`, and
    `clash-meta`.
 5. Add xray renderer and `xray test -c` apply path behind the same model.

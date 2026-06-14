@@ -73,8 +73,8 @@ rules first, then leaves the direct core-specific collectors for later.
   iter-049:** the agent now has a loopback HTTP/V2Ray-stats collector
   foundation; true sing-box/xray API transport remains pending.
 - Direct xray stats collection.
-- Usage anomaly alerts, quota notification hooks, and scheduled over-quota
-  enforcement.
+- Usage anomaly alerts and scheduled over-quota enforcement. Quota/expiry
+  notification hooks landed later in iter-050.
 - Richer subscription output formats (`sing-box` client JSON, Clash YAML,
   v2ray-style format negotiation). **sing-box JSON and Clash/Mihomo YAML were
   resolved in iter-047 for VLESS+REALITY+TCP; v2ray-style negotiation remains
@@ -183,7 +183,8 @@ Manual security/code review focused on the new trust boundary:
 1. Iter-049 added a loopback HTTP/V2Ray-stats usage collector foundation behind
    the same `ProxyUsageSnapshot` contract. Add true sing-box/xray API transport
    after pinning the supported API/version behavior.
-2. Add usage anomaly/over-quota notification hooks through `internal/notify`.
+2. Quota/expiry notification hooks landed in iter-050 through `internal/notify`;
+   usage anomaly detection and scheduled over-quota enforcement remain pending.
 3. Add subscription import helpers and optional User-Agent/v2ray-style format
    negotiation. The first richer formats landed in iter-047 using a fixed-shape
    dependency-free YAML emitter.

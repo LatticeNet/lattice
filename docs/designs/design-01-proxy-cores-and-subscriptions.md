@@ -73,9 +73,9 @@ table-driven tests. Iter-041 through iter-048 have since landed HTTP CRUD,
 reviewed plan/apply, public subscriptions, the first dashboard workflow,
 baseline usage reporting, sing-box JSON plus Clash/Mihomo YAML subscription
 formats for the supported VLESS+REALITY+TCP path, a focused dashboard proxy
-apply review flow, and the first loopback HTTP/V2Ray-stats usage collector
-foundation in the node-agent. True sing-box/xray API transports and xray
-rendering remain pending.
+apply review flow, the first loopback HTTP/V2Ray-stats usage collector
+foundation in the node-agent, and server-owned quota/expiry notifications.
+True sing-box/xray API transports and xray rendering remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
@@ -390,6 +390,16 @@ applied.
   V2Ray stats gRPC for per-user counters), write an ADR if a gRPC dependency is
   required, and reuse the iter-049 V2Ray stats parser.
 
+**Notifications (landed in iter-050):**
+- The server emits quota alerts at 80% and 100% of `traffic_limit_bytes`, based
+  on the server's monotonic rollup, not raw node counters.
+- The server emits expiry alerts at 7d, 1d, and expired thresholds. The existing
+  hourly reminder scheduler scans proxy users as a backstop, so expiry alerts do
+  not require a fresh usage report.
+- `ProxyUser` stores server-managed quota/expiry notification cursors. Client
+  JSON that tries to set those cursors is rejected, and each notification
+  produces a `proxy.user.notify` audit record.
+
 ### Health
 A `tcp` `Monitor` on each inbound `host:port` (created automatically when a profile is applied, or by the operator) reuses the existing monitor/alert pipeline for "core down" detection — no new health code path.
 
@@ -449,7 +459,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 - **Exit bar:** operator creates an inbound + user + profile, plans `gmami-jp1`, approves, the agent applies, sing-box serves vless/reality, the user's `/sub` link imports into a client and connects. `-race` + gofmt green, adversarial security review of the new surface passed, audit events present.
 
 ### v2 — *direct collectors, more protocols, enforcement, xray*
-- True sing-box/xray API transports behind the already-landed `ProxyUsageSnapshot` contract; quota/expiry **notify** alerts. Iter-049 landed the stdlib-only loopback HTTP/V2Ray-stats collector foundation, but direct gRPC transport remains future work.
+- True sing-box/xray API transports behind the already-landed `ProxyUsageSnapshot` contract. Iter-049 landed the stdlib-only loopback HTTP/V2Ray-stats collector foundation and iter-050 landed quota/expiry notify alerts, but direct gRPC transport remains future work.
 - More protocols: vmess, trojan, shadowsocks, hysteria2; cert-path TLS inbounds; ws/grpc transports.
 - Additional subscription depth: UA sniffing, import-helper UX, cache keyed by
   token + fleet config hash, and formats for new protocols as they land.
@@ -517,11 +527,11 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
    - `reality.go`: X25519 keypair gen (pure Go `crypto/ecdh`), short-ID gen.
    - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 covers renderer shape/validation/hash/leak checks; iter-044 covers VLESS link shape, plain/base64 bodies, inactive users, unsafe host/public-key rejection, and secret leak checks; iter-047 covers sing-box JSON, Clash/Mihomo YAML, content types, safe `fingerprint` persistence, unsafe fingerprint rejection, and no secret leaks in added formats. Optional `sing-box check` integration remains pending.
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045; `/api/agent/proxy-usage` and `/api/proxy/usage` with monotonic rollup landed in iter-046; `format=sing-box`, `format=clash`, and `format=clash-meta` landed in iter-047. Remaining handler work: direct core collector health/error surfaces, usage notifications, and xray-specific routes only if the common model is insufficient. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045; `/api/agent/proxy-usage` and `/api/proxy/usage` with monotonic rollup landed in iter-046; `format=sing-box`, `format=clash`, and `format=clash-meta` landed in iter-047; quota/expiry notification cursors, notify emission, and audit landed in iter-050. Remaining handler work: direct core collector health/error surfaces and xray-specific routes only if the common model is insufficient. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
 
 6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 
-7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Iter-049 added the stdlib-only loopback HTTP JSON source (`-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL`) plus V2Ray-style stats parsing behind the same `ProxyUsageSnapshot` contract. Next: pin and implement true sing-box/xray API transports, then quota/expiry `notify` hooks. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
+7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Iter-049 added the stdlib-only loopback HTTP JSON source (`-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL`) plus V2Ray-style stats parsing behind the same `ProxyUsageSnapshot` contract. Iter-050 added server-side quota/expiry notifications. Next: pin and implement true sing-box/xray API transports. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
 
 8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046; focused pending `proxycore/apply-config` review/queue-apply landed in iter-048. Remaining dashboard work: import helpers that surface `format=plain|base64|sing-box|clash-meta`, direct collector health/error display, and visual polish.
 

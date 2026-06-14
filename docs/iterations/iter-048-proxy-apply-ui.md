@@ -121,7 +121,8 @@ environment limitation, not an application assertion.
 1. The node-agent loopback HTTP/V2Ray-stats collector foundation landed in
    iter-049 behind the existing `ProxyUsageSnapshot` contract. True sing-box/xray
    API transport remains future work.
-2. Add quota/expiry/usage-threshold notifications through `internal/notify`.
+2. Quota/expiry/usage-threshold notifications landed in iter-050 through
+   `internal/notify`.
 3. Add import-helper UX for public subscription formats (`plain`, `base64`,
    `sing-box`, `clash-meta`) and only later consider safe User-Agent
    negotiation.

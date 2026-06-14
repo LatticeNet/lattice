@@ -141,4 +141,6 @@ Known environment notes:
 4. Usage accounting was still pending at this point. **Baseline resolved in
    iter-046** with `/api/agent/proxy-usage`, monotonic diffs,
    `/api/proxy/usage`, an agent file bridge, and dashboard rollups. Direct core
-   collectors and quota/expiry alerts remain future work.
+   collectors remained future work here. Baseline usage landed in iter-046,
+   loopback HTTP/V2Ray-stats collection landed in iter-049, and quota/expiry
+   alerts landed in iter-050.

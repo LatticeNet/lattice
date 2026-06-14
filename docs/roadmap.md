@@ -62,6 +62,8 @@
 > Iter-049 landed the node-agent loopback HTTP/V2Ray-stats proxy usage
 > collector foundation with no new Go dependencies; true sing-box/xray API
 > transport remains pending.
+> Iter-050 landed server-owned proxy quota/expiry notifications through the
+> existing `internal/notify` channel fan-out.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -170,9 +172,10 @@
   dependency-free. Iter-048 delivered a focused dashboard proxy apply review
   flow over the existing plan-hash-bound approval API. Iter-049 delivered a
   stdlib-only node-agent loopback HTTP/V2Ray-stats collector foundation behind
-  the existing `ProxyUsageSnapshot` contract. Next slices: true sing-box/xray
-  API transport, usage notifications, subscription import helpers, then xray
-  rendering.
+  the existing `ProxyUsageSnapshot` contract. Iter-050 delivered persistent,
+  server-owned quota/expiry notifications (80%, 100%, 7d, 1d, expired) through
+  the existing notification channels. Next slices: true sing-box/xray API
+  transport, subscription import helpers, then xray rendering.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
