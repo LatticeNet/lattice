@@ -139,9 +139,8 @@ Focused tests cover:
 1. Add a true sing-box/xray API transport after pinning the supported API:
    likely V2Ray stats gRPC for per-user counters. This probably needs an ADR
    if it introduces `grpc-go`.
-2. Surface collector health/error state in server/dashboard. The current slice
-   logs local collector errors on the agent and relies on `last_seen_at` /
-   snapshot freshness in the dashboard.
+2. Collector health/error state landed in iter-052. The agent now reports local
+   collector failures to the server without mutating the accounting baseline.
 3. Quota/expiry/usage notifications landed in iter-050 through
    `internal/notify`.
 4. Subscription import-helper UX for `plain`, `base64`, `sing-box`, and

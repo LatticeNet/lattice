@@ -304,7 +304,8 @@ public subscription slice, plus the iter-045 dashboard/token-workflow slice, the
 iter-046 usage-reporting baseline, the iter-047 subscription-format slice, the
 iter-048 focused dashboard apply-review slice, the iter-049 loopback
 HTTP/V2Ray-stats collector foundation, the iter-050 proxy notification slice,
-and the iter-051 subscription import-helper slice:
+the iter-051 subscription import-helper slice, and the iter-052 collector-health
+slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -380,9 +381,15 @@ and the iter-051 subscription import-helper slice:
   or V2Ray-style `user>>>...>>>traffic>>>uplink/downlink` stats, rejects remote
   hosts and URL userinfo, caps response bodies, and posts the same normalized
   snapshot to `/api/agent/proxy-usage`.
+- Proxy usage collector health is surfaced through the same authenticated agent
+  route. Successful reports set `collector_status=ok`; local file/HTTP
+  collector failures post health-only `collector_status=error` snapshots. The
+  server stores bounded health metadata on `ProxyNodeProfile`, exposes it in
+  profile views, and deliberately does not create or overwrite an accounting
+  baseline for health-only error reports.
 
 True sing-box/xray API transports (for example direct V2Ray stats gRPC),
-collector health/error surfacing, and xray rendering remain pending.
+xray rendering, and live over-quota/expiry reconcile enforcement remain pending.
 The subscription route deliberately does not persist raw subscription tokens as
 map keys; keep that property if a future SHA-256 token index replaces the MVP
 full scan.

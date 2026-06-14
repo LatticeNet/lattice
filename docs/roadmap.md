@@ -66,6 +66,8 @@
 > existing `internal/notify` channel fan-out.
 > Iter-051 landed dashboard subscription import helpers for base64/plain/
 > sing-box/Clash.Meta, shown only after explicit token rotation.
+> Iter-052 landed proxy collector health/error surfacing from agent through
+> server profile state to the dashboard.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -178,8 +180,10 @@
   server-owned quota/expiry notifications (80%, 100%, 7d, 1d, expired) through
   the existing notification channels. Iter-051 delivered copy-ready dashboard
   import helpers for the already-supported subscription formats without adding
-  a token reveal API. Next slices: true sing-box/xray API transport, collector
-  health/error surfacing, then xray rendering.
+  a token reveal API. Iter-052 delivered agent-reported collector
+  health/error state on proxy profiles without letting error reports mutate the
+  accounting baseline. Next slices: true sing-box/xray API transport, then xray
+  rendering.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered

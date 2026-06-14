@@ -91,7 +91,7 @@ Focused tests cover:
 
 1. Add true sing-box/xray API transport after pinning the stats API and writing
    an ADR if `grpc-go` is introduced.
-2. Surface collector health/error state in server/dashboard.
+2. Collector health/error state landed in iter-052.
 3. Add xray renderer and `xray test -c` apply path.
 4. Add an auto-reconcile/apply policy so over-quota/expired users can be
    removed from live node configs without a manual re-apply.
