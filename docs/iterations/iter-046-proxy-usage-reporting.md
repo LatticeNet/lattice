@@ -185,8 +185,8 @@ Manual security/code review focused on the new trust boundary:
    after pinning the supported API/version behavior.
 2. Quota/expiry notification hooks landed in iter-050 through `internal/notify`;
    usage anomaly detection and scheduled over-quota enforcement remain pending.
-3. Add subscription import helpers and optional User-Agent/v2ray-style format
-   negotiation. The first richer formats landed in iter-047 using a fixed-shape
-   dependency-free YAML emitter.
+3. Dashboard subscription import helpers for the richer formats landed in
+   iter-051. Optional User-Agent/v2ray-style negotiation remains a later public
+   UX decision.
 4. Focused proxy plan/apply dashboard landed in iter-048.
 5. Add xray renderer and xray usage collector behind the same core abstraction.

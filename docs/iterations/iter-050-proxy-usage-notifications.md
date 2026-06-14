@@ -91,13 +91,11 @@ Focused tests cover:
 
 1. Add true sing-box/xray API transport after pinning the stats API and writing
    an ADR if `grpc-go` is introduced.
-2. Add dashboard import-helper UX for `plain`, `base64`, `sing-box`, and
-   `clash-meta`.
-3. Surface collector health/error state in server/dashboard.
-4. Add xray renderer and `xray test -c` apply path.
-5. Add an auto-reconcile/apply policy so over-quota/expired users can be
+2. Surface collector health/error state in server/dashboard.
+3. Add xray renderer and `xray test -c` apply path.
+4. Add an auto-reconcile/apply policy so over-quota/expired users can be
    removed from live node configs without a manual re-apply.
-6. Add notification delivery status if alerts need retry/ack semantics. This
+5. Add notification delivery status if alerts need retry/ack semantics. This
    slice persists threshold cursors before asynchronous channel fan-out, which
    prevents repeated alert storms across restarts but does not replay a
    threshold if an enabled notification channel is temporarily failing.

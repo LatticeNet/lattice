@@ -48,7 +48,8 @@ Clash/Mihomo YAML subscription formats for the supported VLESS+REALITY+TCP
 path; iter-048 adds the focused dashboard proxy apply review flow; iter-049
 adds the node-agent loopback HTTP/V2Ray-stats proxy usage collector foundation;
 iter-050 adds server-owned proxy quota/expiry notifications through
-`internal/notify`.
+`internal/notify`; iter-051 adds dashboard subscription import helpers for
+base64/plain/sing-box/Clash.Meta without adding a token reveal API.
 Remaining Design 05 work is bulk geo import and map overlays. Design 03 remains
 design-ready but unbuilt. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
@@ -58,7 +59,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 
 | # | Design | What it delivers | Core decision |
 |---|--------|------------------|---------------|
-| 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box (v1) / xray (v2) management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; SDK model/proto/store/encryption foundation landed iter-039; sing-box `vless+reality+tcp` renderer landed iter-040; scoped CRUD/read views landed iter-041; redacted reviewed plan endpoint landed iter-042; secret-safe queue/apply landed iter-043; plain/base64 `/sub/{token}` landed iter-044; dashboard CRUD + explicit subscription URL rotation/copy landed iter-045; usage reporting baseline landed iter-046; sing-box JSON + Clash/Mihomo YAML subscriptions landed iter-047; focused proxy apply UI landed iter-048; loopback HTTP/V2Ray-stats collector foundation landed iter-049; quota/expiry notifications landed iter-050; next is true sing-box/xray API transport, subscription import helpers, and xray rendering; node-agnostic `ProxyUser` -> one subscription spans the fleet (remnawave model); secrets encrypted at rest |
+| 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box (v1) / xray (v2) management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; SDK model/proto/store/encryption foundation landed iter-039; sing-box `vless+reality+tcp` renderer landed iter-040; scoped CRUD/read views landed iter-041; redacted reviewed plan endpoint landed iter-042; secret-safe queue/apply landed iter-043; plain/base64 `/sub/{token}` landed iter-044; dashboard CRUD + explicit subscription URL rotation/copy landed iter-045; usage reporting baseline landed iter-046; sing-box JSON + Clash/Mihomo YAML subscriptions landed iter-047; focused proxy apply UI landed iter-048; loopback HTTP/V2Ray-stats collector foundation landed iter-049; quota/expiry notifications landed iter-050; subscription import helpers landed iter-051; next is true sing-box/xray API transport and xray rendering; node-agnostic `ProxyUser` -> one subscription spans the fleet (remnawave model); secrets encrypted at rest |
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; `DNSDeployment` model/API/dashboard foundation landed iter-033; CoreDNS render + `/api/dns/plan` landed iter-034; rollback-protected apply/status landed iter-035; Cloudflare publish landed iter-036; apply/publish status split landed iter-037; pinned CoreDNS install landed iter-038; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
@@ -101,8 +102,9 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
    iter-047 added sing-box JSON and Clash/Mihomo YAML subscription output;
    iter-048 added focused proxy apply review in the dashboard; iter-049 added a
    loopback HTTP/V2Ray-stats collector foundation in the node-agent; iter-050
-   added server-owned quota/expiry notifications. Next ship the true
-   sing-box/xray API transport, subscription import helpers, and xray rendering.
+   added server-owned quota/expiry notifications; iter-051 added copy-ready
+   subscription import helpers in the dashboard. Next ship the true
+   sing-box/xray API transport and xray rendering.
 4. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real
    store backend is wired, or ship the bounded standalone store as an interim.
 5. **Design 04 v2 polish** — audited reveal endpoint, per-currency rollups,

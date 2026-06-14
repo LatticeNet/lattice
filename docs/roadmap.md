@@ -64,6 +64,8 @@
 > transport remains pending.
 > Iter-050 landed server-owned proxy quota/expiry notifications through the
 > existing `internal/notify` channel fan-out.
+> Iter-051 landed dashboard subscription import helpers for base64/plain/
+> sing-box/Clash.Meta, shown only after explicit token rotation.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -174,8 +176,10 @@
   stdlib-only node-agent loopback HTTP/V2Ray-stats collector foundation behind
   the existing `ProxyUsageSnapshot` contract. Iter-050 delivered persistent,
   server-owned quota/expiry notifications (80%, 100%, 7d, 1d, expired) through
-  the existing notification channels. Next slices: true sing-box/xray API
-  transport, subscription import helpers, then xray rendering.
+  the existing notification channels. Iter-051 delivered copy-ready dashboard
+  import helpers for the already-supported subscription formats without adding
+  a token reveal API. Next slices: true sing-box/xray API transport, collector
+  health/error surfacing, then xray rendering.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered

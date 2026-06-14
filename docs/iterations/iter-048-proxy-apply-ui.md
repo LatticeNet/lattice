@@ -123,9 +123,9 @@ environment limitation, not an application assertion.
    API transport remains future work.
 2. Quota/expiry/usage-threshold notifications landed in iter-050 through
    `internal/notify`.
-3. Add import-helper UX for public subscription formats (`plain`, `base64`,
-   `sing-box`, `clash-meta`) and only later consider safe User-Agent
-   negotiation.
+3. Import-helper UX for public subscription formats (`plain`, `base64`,
+   `sing-box`, `clash-meta`) landed in iter-051. Only later consider safe
+   User-Agent negotiation.
 4. Add the xray renderer and `xray test -c` apply path behind the same
    server-owned model.
 5. Run real browser smoke in a normal local environment where binding

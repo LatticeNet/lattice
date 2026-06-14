@@ -74,8 +74,9 @@ reviewed plan/apply, public subscriptions, the first dashboard workflow,
 baseline usage reporting, sing-box JSON plus Clash/Mihomo YAML subscription
 formats for the supported VLESS+REALITY+TCP path, a focused dashboard proxy
 apply review flow, the first loopback HTTP/V2Ray-stats usage collector
-foundation in the node-agent, and server-owned quota/expiry notifications.
-True sing-box/xray API transports and xray rendering remain pending.
+foundation in the node-agent, server-owned quota/expiry notifications, and
+dashboard subscription import helpers. True sing-box/xray API transports,
+collector health/error surfacing, and xray rendering remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
@@ -461,8 +462,9 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 ### v2 — *direct collectors, more protocols, enforcement, xray*
 - True sing-box/xray API transports behind the already-landed `ProxyUsageSnapshot` contract. Iter-049 landed the stdlib-only loopback HTTP/V2Ray-stats collector foundation and iter-050 landed quota/expiry notify alerts, but direct gRPC transport remains future work.
 - More protocols: vmess, trojan, shadowsocks, hysteria2; cert-path TLS inbounds; ws/grpc transports.
-- Additional subscription depth: UA sniffing, import-helper UX, cache keyed by
-  token + fleet config hash, and formats for new protocols as they land.
+- Additional subscription depth: UA sniffing, cache keyed by token + fleet
+  config hash, and formats for new protocols as they land. Basic dashboard
+  import helpers for base64/plain/sing-box/Clash.Meta landed in iter-051.
 - Enforcement: expired/over-quota users dropped from rendered config on next apply (and a scheduled re-apply, or an agent-side disable hook).
 - **xray** second renderer behind the same `Core` abstraction + `xray test -c`.
 - **Exit bar:** usage visible in dashboard, alerts fire, over-quota users lose access on next reconcile, both cores supported, all formats import cleanly in their target clients.
@@ -533,7 +535,7 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 
 7. **Agent usage** — `lattice-node-agent/internal/proxyusage` + `cmd/lattice-agent/main.go` file bridge landed in iter-046 (`-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE`). Iter-049 added the stdlib-only loopback HTTP JSON source (`-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL`) plus V2Ray-style stats parsing behind the same `ProxyUsageSnapshot` contract. Iter-050 added server-side quota/expiry notifications. Next: pin and implement true sing-box/xray API transports. Keep server-side monotonic diffing authoritative; collectors only provide cumulative counters.
 
-8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046; focused pending `proxycore/apply-config` review/queue-apply landed in iter-048. Remaining dashboard work: import helpers that surface `format=plain|base64|sing-box|clash-meta`, direct collector health/error display, and visual polish.
+8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045; usage/last-seen/profile snapshot display landed in iter-046; focused pending `proxycore/apply-config` review/queue-apply landed in iter-048; copy-ready import helpers for `format=plain|base64|sing-box|clash-meta` landed in iter-051 and deliberately remain post-rotation-only instead of adding a token reveal API. Remaining dashboard work: direct collector health/error display and visual polish.
 
 9. **Verify** — `GOWORK=… go test -race ./...` across server/agent/sdk; gofmt; dashboard smoke; a manual end-to-end on one node (plan→approve→apply→connect→import sub). Record evidence in the iteration doc.
 

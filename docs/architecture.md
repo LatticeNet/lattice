@@ -303,8 +303,8 @@ reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
 public subscription slice, plus the iter-045 dashboard/token-workflow slice, the
 iter-046 usage-reporting baseline, the iter-047 subscription-format slice, the
 iter-048 focused dashboard apply-review slice, the iter-049 loopback
-HTTP/V2Ray-stats collector foundation, and the iter-050 proxy notification
-slice:
+HTTP/V2Ray-stats collector foundation, the iter-050 proxy notification slice,
+and the iter-051 subscription import-helper slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -353,7 +353,10 @@ slice:
   records, request proxy plan approvals, queue pending `proxycore/apply-config`
   approvals through the existing plan-hash-bound approve API, and rotate/copy a
   user's subscription URL without receiving raw token material during ordinary
-  refresh.
+  refresh. After an explicit token rotation, it derives copy-ready base64,
+  plain, sing-box JSON, and Clash.Meta/Mihomo import URLs by changing only the
+  public `format` query parameter. It does not add an existing-token reveal API
+  or auto-open bearer links.
 - `POST /api/agent/proxy-usage` lets an authenticated node report a
   `ProxyUsageSnapshot`. The server forces the node id from the authenticated
   request, filters counters to users eligible for that node profile, rejects
@@ -379,7 +382,7 @@ slice:
   snapshot to `/api/agent/proxy-usage`.
 
 True sing-box/xray API transports (for example direct V2Ray stats gRPC),
-subscription import helpers, and xray rendering remain pending.
+collector health/error surfacing, and xray rendering remain pending.
 The subscription route deliberately does not persist raw subscription tokens as
 map keys; keep that property if a future SHA-256 token index replaces the MVP
 full scan.

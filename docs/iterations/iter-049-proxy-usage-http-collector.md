@@ -144,6 +144,6 @@ Focused tests cover:
    snapshot freshness in the dashboard.
 3. Quota/expiry/usage notifications landed in iter-050 through
    `internal/notify`.
-4. Add subscription import-helper UX for `plain`, `base64`, `sing-box`, and
-   `clash-meta`.
+4. Subscription import-helper UX for `plain`, `base64`, `sing-box`, and
+   `clash-meta` landed in iter-051.
 5. Add xray renderer and `xray test -c` apply path behind the same model.
