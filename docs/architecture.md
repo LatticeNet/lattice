@@ -298,7 +298,8 @@ it uses the same server-owned trust boundary as DNS, DDNS, nft, WireGuard, and
 Cloudflare Tunnel.
 
 The current implementation includes the iter-039 persistence foundation, the
-iter-040 first renderer slice, and the iter-041 CRUD/read-view slice:
+iter-040 first renderer slice, the iter-041 CRUD/read-view slice, and the
+iter-042 reviewed-plan slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -318,12 +319,19 @@ iter-040 first renderer slice, and the iter-041 CRUD/read-view slice:
   are node-allowlist filtered. Views expose `has_reality_private_key`,
   `has_uuid`, `has_password`, and `has_sub_token` booleans instead of secret
   fields.
+- `POST /api/proxy/nodes/{node_id}/plan` creates a pending `proxycore`
+  approval whose plan text is a redacted sing-box config. The stored action
+  binds the SHA-256 of the real rendered config, and approval re-renders the
+  current config to reject stale plans.
 
-Plan/apply APIs, dashboard UI, agent apply scripts, stats reporting, and
-`/sub/{token}` are intentionally pending. The future subscription route
-must not persist raw subscription tokens as map keys; add an opaque SHA-256
-token index or a constant-time scan with explicit rate limits before exposing
-that public endpoint.
+Real queue/apply, dashboard UI, agent apply scripts, stats reporting, and
+`/sub/{token}` are intentionally pending. `queue_apply:true` for `proxycore`
+currently fails closed because the real queued artifact would contain subscriber
+credentials and REALITY private keys; before enabling apply, protect that
+secret-bearing task/artifact at rest. The future subscription route must not
+persist raw subscription tokens as map keys; add an opaque SHA-256 token index
+or a constant-time scan with explicit rate limits before exposing that public
+endpoint.
 
 ## Storage
 

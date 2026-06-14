@@ -45,8 +45,10 @@
 > core/subscription work has started: iter-039 landed the SDK model/proto/store
 > foundation with encrypted proxy credentials, and iter-040 landed the first
 > fail-closed sing-box `vless`+TCP+REALITY config renderer. Iter-041 landed
-> scoped proxy inbounds/users/profiles CRUD with secret-free JSON views. Bulk
-> geo import and map overlays remain pending.
+> scoped proxy inbounds/users/profiles CRUD with secret-free JSON views.
+> Iter-042 landed the redacted reviewed proxy plan endpoint and real-config SHA
+> binding, with queue apply still fail-closed. Bulk geo import and map overlays
+> remain pending.
 
 
 ## V1 Hardening
@@ -134,9 +136,11 @@
   delivered the first server-side sing-box `vless`+TCP+REALITY renderer with
   typed JSON generation, canonical config SHA-256, user eligibility filtering,
   and fail-closed validation. Iter-041 delivered scoped inbounds/users/profiles
-  CRUD with secret-free JSON views and node-allowlist-filtered profiles. Next
-  slices: reviewed `proxycore` plan/apply, then `/sub/{token}` with an explicit
-  opaque-token lookup design. *(Partially built.)*
+  CRUD with secret-free JSON views and node-allowlist-filtered profiles.
+  Iter-042 delivered a redacted reviewed `/api/proxy/nodes/{id}/plan` endpoint
+  that binds the real rendered config hash and rejects stale approvals. Next
+  slices: secret-safe `proxycore` queue/apply, then `/sub/{token}` with an
+  explicit opaque-token lookup design. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

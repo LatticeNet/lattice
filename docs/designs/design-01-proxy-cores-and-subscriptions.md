@@ -79,6 +79,13 @@ are node-allowlist filtered, and views expose only `has_*` booleans for
 credential material. Plan/apply, dashboard UI, usage reporting, and public
 subscriptions remain pending.
 
+**Landed in iter-042:** `POST /api/proxy/nodes/{node_id}/plan` creates a
+pending `Plugin:"proxycore"` approval from the current profile/inbounds/users.
+The review plan contains a redacted sing-box config, while the stored approval
+action binds the SHA-256 of the real rendered config. Approval re-renders and
+rejects stale plans. `queue_apply:true` deliberately fails closed until the
+apply slice lands.
+
 ### 3.1 Inbounds (central, node-agnostic template)
 
 ```go
@@ -258,13 +265,13 @@ collection `GET`/`POST` plus explicit `POST .../delete`.
 | GET | `/api/proxy/profiles` | `proxy:read` + node allowlist | → `{profiles: []ProxyNodeProfileView}` filtered to visible nodes |
 | POST | `/api/proxy/profiles` | `proxy:admin` + node allowlist | full node profile upsert → view |
 | POST | `/api/proxy/profiles/delete` | `proxy:admin` + node allowlist | `{node_id}` → `{ok:true}` |
+| POST | `/api/proxy/nodes/{node_id}/plan` | `network:plan` on node + unrestricted `proxy:read` | `{}` → `ApprovalView`; plan text redacts secrets and action binds real config SHA |
 
 ### Pending deployment/subscription routes
 
 | Method | Path | Scope | Request → Response |
 |---|---|---|---|
-| POST | `/api/proxy/nodes/{node_id}/plan` | `network:plan` | `{plan_sha256?}` → `{approval_id, plan, sha256}` (renders config, creates `Approval{Plugin:"proxycore"}`) |
-| — | `/api/network/approve` | `network:apply` | **existing handler**; `{approval_id, queue_apply, plan_sha256}` queues the apply task |
+| — | `/api/network/approve` | `network:apply` | Existing handler; for `proxycore`, approval without queue is allowed after plan-hash/current-config checks, but `queue_apply:true` is rejected until the apply slice lands |
 | GET | `/api/proxy/usage` | `proxy:read` | → per-user/per-node usage rollup for the dashboard |
 | **GET** | `/sub/{token}` | **public (token-auth)** | → subscription body (format negotiated, see §6); rate-limited via existing `internal/ratelimit`; never requires a session |
 
@@ -282,6 +289,13 @@ project convention (`POST .../delete`) rather than path-param `DELETE` routes:
 it accepts only `sing-box` + `vless` + TCP + REALITY until more renderers are
 implemented. It preserves write-only secrets on update but does **not** generate
 REALITY keypairs yet; key generation remains in the planned `reality.go` slice.
+
+**Implementation note after iter-042:** the first plan endpoint is secret-free
+for reviewers. It does **not** put the real rendered config into
+`Approval.Plan`; it stores only a redacted review plan and the real config hash.
+Before implementing apply, decide how the secret-bearing queued artifact is
+protected at rest. The current default is fail-closed: `queue_apply:true` for
+`proxycore` returns conflict and creates no task.
 
 ---
 
@@ -432,9 +446,9 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
    - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 currently covers renderer shape/validation/hash/leak checks; optional `sing-box check` integration remains pending.
    *Next commit shape: `feat(proxycore): vless/reality links + subscription encoders`.*
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets). **CRUD/read views landed in iter-041.** Remaining handler work: `/api/proxy/nodes/{id}/plan` (creates `Approval{Plugin:"proxycore"}`), `/sub/{token}` (public, rate-limited, constant-time token compare), `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Next commit shape: `feat(server): reviewed proxycore plan endpoint`.*
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042. Remaining handler work: real `proxycore` queue/apply, `/sub/{token}` (public, rate-limited, constant-time token compare), `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Next commit shape: `feat(server): proxycore apply task with secret-safe artifact handling`.*
 
-6. **Approve→apply wiring** — `internal/server/server.go`: add `case "proxycore"` to `applyScriptFor` (heredoc config + `sing-box check` + atomic swap + reload). No new agent interpreter. Test the rendered script shape. *Commit: `feat(server): proxycore apply task in plan→approve→apply`.*
+6. **Approve→apply wiring** — `internal/server/server.go`: replace the current fail-closed `case "proxycore"` with real apply once the secret-bearing task/artifact storage boundary is decided. The script should heredoc the real config, run `sing-box check -c`, atomically swap, reload/restart, and reconcile status. No new agent interpreter. Test the rendered script shape and at-rest behavior. *Commit: `feat(server): proxycore apply task in plan→approve→apply`.*
 
 7. **Agent usage (v2 slice, can defer)** — `lattice-node-agent/internal/proxycore/usage.go` + a poll goroutine in `cmd/lattice-agent/main.go`; server `/api/agent/proxy-usage` handler + monotonic diff into `ProxyUser.UsedBytes`/`Status`; quota/expiry `notify` hooks. *Commit: `feat(agent,server): proxy usage reporting + quota/expiry alerts`.*
 
