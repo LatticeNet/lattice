@@ -69,15 +69,17 @@ and at-rest encryption for `RealityPrivateKey`, `UUID`, `Password`, and
 `vless`+TCP+REALITY. It emits a canonical secret-bearing config artifact with a
 SHA-256 and fail-closed structural validation, omits disabled/expired/over-quota
 users, rejects unsupported transport/protocol combinations, and is covered by
-table-driven tests. HTTP handlers, dashboard UI, agent apply scripts, stats
-reporting, and public subscriptions remain pending.
+table-driven tests. Iter-041 through iter-045 have since landed HTTP CRUD,
+reviewed plan/apply, public subscriptions, and the first dashboard workflow.
+Stats reporting, richer subscription formats, and xray remain pending.
 
 **Landed in iter-041:** scoped JSON CRUD/read APIs for central inbounds, central
 users, and per-node profiles. The JSON views mirror the proto view contract:
 global inbounds/users require unrestricted `proxy:read`/`proxy:admin`, profiles
 are node-allowlist filtered, and views expose only `has_*` booleans for
 credential material. Plan/apply, dashboard UI, usage reporting, and public
-subscriptions remain pending.
+subscriptions were intentionally deferred to later slices and have now started
+landing incrementally.
 
 **Landed in iter-042:** `POST /api/proxy/nodes/{node_id}/plan` creates a
 pending `Plugin:"proxycore"` approval from the current profile/inbounds/users.
@@ -262,6 +264,7 @@ collection `GET`/`POST` plus explicit `POST .../delete`.
 | POST | `/api/proxy/inbounds/delete` | `proxy:admin` + unrestricted server allowlist | `{id, force?}` → `{ok:true}`; rejects referenced inbounds unless `force` |
 | GET | `/api/proxy/users` | `proxy:read` + unrestricted server allowlist | → `{users: []ProxyUserView}` (no UUID/password/token) |
 | POST | `/api/proxy/users` | `proxy:admin` + unrestricted server allowlist | full `ProxyUser` upsert → `ProxyUserView`; UUID/sub-token are generated when absent and preserved on update |
+| POST | `/api/proxy/users/rotate-sub-token` | `proxy:admin` + unrestricted server allowlist | `{id}` → `{user, subscription_url, token_sha256}`; returns the raw URL/path only in this explicit response and invalidates the old token |
 | POST | `/api/proxy/users/delete` | `proxy:admin` + unrestricted server allowlist | `{id}` → `{ok:true}` |
 | GET | `/api/proxy/profiles` | `proxy:read` + node allowlist | → `{profiles: []ProxyNodeProfileView}` filtered to visible nodes |
 | POST | `/api/proxy/profiles` | `proxy:admin` + node allowlist | full node profile upsert → view |
@@ -378,11 +381,11 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 
 **Fail-closed.** Bad config never goes live (`sing-box check` + atomic swap). Plan-time structural validation rejects malformed inbounds. A user past `ExpiresAt` or over `TrafficLimitBytes` is **omitted from subscription output immediately** (server-authoritative, no node round-trip); v2 additionally drops them from the rendered config on the next apply. Unknown protocol/transport/security enums are rejected, not silently passed through.
 
-**Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. The iter-044 `/sub/{token}` route uses a constant-time full scan and hashed-token audit metadata; it does not persist raw sub-tokens as lookup keys. Rotation (`/rotate`) is still pending; once added it should bump the credential and **invalidate old subscription URLs** (and old links) at once. The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
+**Secret handling.** UUID/password/sub-token/reality-private-key are encrypted at rest (§3.4) and stripped from every list/GET. The iter-044 `/sub/{token}` route uses a constant-time full scan and hashed-token audit metadata; it does not persist raw sub-tokens as lookup keys. Iter-045 adds `POST /api/proxy/users/rotate-sub-token`: it bumps the credential, invalidates the old subscription URL immediately, and returns the new URL/path only in the explicit rotate response (`LATTICE_PUBLIC_URL` when configured, otherwise relative `/sub/{token}`). The one place secrets necessarily travel is the rendered node config — sent only to the owning node over the existing authenticated channel.
 
 **Blast radius / compromised node.** A node only ever holds: its own rendered config (its inbounds + the subset of users provisioned to it) and its own node token. It does **not** hold the central user DB, other nodes' configs, subscription tokens, or reality private keys for inbounds it doesn't run. A compromised node can: serve/sniff transit for *its own* users (inherent to being an exit), lie about usage (mitigation: monotonic diffing + sanity caps + the server treats usage as advisory for accounting, authoritative gating stays server-side on expiry/quota-estimate), and attempt to return a bad task result (bounded by existing output caps). It **cannot** mint users, read other nodes' secrets, or pivot to the control plane (it only dials out; no inbound from server).
 
-**Audit events** (hash-chained WAL, via `recordPrincipalAudit`): `proxy.inbound.{create,update,delete}`, `proxy.user.{create,update,rotate,delete}`, `proxy.profile.update`, `proxy.plan` (with node + plan sha256), `network.proxycore.approve` (shared approve handler), `proxy.apply.applied` / `proxy.apply.failed` (task-result reconciliation), `proxy.subscription.fetch` (token id hash + source IP, for abuse detection), `proxy.usage.report`. Expiry/quota/core-down notifications fan out via `internal/notify`.
+**Audit events** (hash-chained WAL, via `recordPrincipalAudit`): `proxy.inbound.{create,update,delete}`, `proxy.user.{create,update,delete}`, `proxy.user.rotate_sub_token`, `proxy.profile.update`, `proxy.plan` (with node + plan sha256), `network.proxycore.approve` (shared approve handler), `proxy.apply.applied` / `proxy.apply.failed` (task-result reconciliation), `proxy.subscription.fetch` (token id hash + source IP, for abuse detection), `proxy.usage.report`. Expiry/quota/core-down notifications fan out via `internal/notify`.
 
 ---
 
@@ -462,13 +465,13 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
    - `reality.go`: X25519 keypair gen (pure Go `crypto/ecdh`), short-ID gen.
    - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 covers renderer shape/validation/hash/leak checks; iter-044 covers VLESS link shape, plain/base64 bodies, inactive users, unsafe host/public-key rejection, and secret leak checks. Optional `sing-box check` integration remains pending.
 
-5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044. Remaining handler work: `/api/proxy/usage`, token rotation, and richer subscription formats. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
+5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets) landed in iter-041; redacted reviewed `/api/proxy/nodes/{id}/plan` landed in iter-042; secret-safe queue/apply landed in iter-043; public `/sub/{token}` with dedicated rate limiting, constant-time token scan, duplicate-token fail-closed behavior, no-store responses, `Subscription-Userinfo`, and secret-safe audit landed in iter-044; explicit audited subscription-token rotation landed in iter-045. Remaining handler work: `/api/proxy/usage` and richer subscription formats. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set.
 
 6. **Approve→apply wiring** — `internal/server/server.go`: the fail-closed `case "proxycore"` has been replaced by real apply. The script heredocs the real config, runs `sing-box check -c`, atomically swaps, reloads/restarts, and reconciles status from task results. No new agent interpreter. Tests cover rendered script shape, control-plane script redaction, task-script encryption at rest, and applied status. **Landed in iter-043.**
 
 7. **Agent usage (v2 slice, can defer)** — `lattice-node-agent/internal/proxycore/usage.go` + a poll goroutine in `cmd/lattice-agent/main.go`; server `/api/agent/proxy-usage` handler + monotonic diff into `ProxyUser.UsedBytes`/`Status`; quota/expiry `notify` hooks. *Commit: `feat(agent,server): proxy usage reporting + quota/expiry alerts`.*
 
-8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels, plan-diff/approve UI (reuse the existing approval UI), copy-subscription-URL, usage/expiry display. *Commit: `feat(dashboard): proxy management panels`.*
+8. **Dashboard (Phase D / incremental)** — zero-dep vanilla JS under strict CSP: inbounds/users/profiles panels and rotate/copy subscription URL workflow landed in iter-045. Remaining dashboard work: focused proxy plan diff/approve UI (currently uses the existing Approvals panel), usage/expiry display, richer import helpers, and visual polish.
 
 9. **Verify** — `GOWORK=… go test -race ./...` across server/agent/sdk; gofmt; dashboard smoke; a manual end-to-end on one node (plan→approve→apply→connect→import sub). Record evidence in the iteration doc.
 

@@ -49,8 +49,9 @@
 > Iter-042 landed the redacted reviewed proxy plan endpoint and real-config SHA
 > binding. Iter-043 enabled secret-safe reviewed queue/apply. Iter-044 landed
 > the public plain/base64 `/sub/{token}` subscription MVP with hashed-token
-> audit and duplicate-token fail-closed behavior. Bulk geo import and map
-> overlays remain pending.
+> audit and duplicate-token fail-closed behavior. Iter-045 landed the dashboard
+> proxy management panel plus explicit audited subscription URL rotation/copy.
+> Bulk geo import and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -147,9 +148,10 @@
   public `/sub/{token}` MVP: plain/base64 VLESS+REALITY links across applied
   sing-box node profiles, `Subscription-Userinfo`, dedicated public rate
   limiting, constant-time token scan, raw-token-free audit metadata, and
-  fail-closed duplicate-token handling. Next slices: dashboard proxy UI, token
-  rotation, usage reporting, richer subscription formats, then xray. *(Partially
-  built.)*
+  fail-closed duplicate-token handling. Iter-045 delivered dashboard proxy
+  inbounds/users/profiles management and explicit audited rotate/copy
+  subscription URL workflow. Next slices: usage reporting, richer subscription
+  formats, focused proxy apply UI, then xray. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered

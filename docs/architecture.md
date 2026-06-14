@@ -300,7 +300,7 @@ Cloudflare Tunnel.
 The current implementation includes the iter-039 persistence foundation, the
 iter-040 first renderer slice, the iter-041 CRUD/read-view slice, the iter-042
 reviewed-plan slice, the iter-043 secret-safe apply slice, and the iter-044
-public subscription slice:
+public subscription slice, plus the iter-045 dashboard/token-workflow slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -336,11 +336,20 @@ public subscription slice:
   time, rejects duplicate stored tokens fail-closed, and records
   `proxy.subscription.fetch` audit events using a token SHA-256 hash rather
   than raw token material.
+- `POST /api/proxy/users/rotate-sub-token` explicitly rotates a user's
+  subscription token, invalidates the old public URL, audits old/new token
+  SHA-256 hashes only, and returns the new subscription URL/path once for
+  operator delivery. It uses `LATTICE_PUBLIC_URL` when configured and otherwise
+  returns a relative `/sub/{token}` path instead of reflecting request `Host`.
+- `lattice-dashboard` now has a `Proxy Core` panel for inbounds, users, and
+  node profiles. It can create/edit/delete those records, request proxy plan
+  approvals, and rotate/copy a user's subscription URL without receiving raw
+  token material during ordinary refresh.
 
-Dashboard proxy UI, stats reporting, token rotation, richer subscription
-formats, and xray rendering remain pending. The subscription route deliberately
-does not persist raw subscription tokens as map keys; keep that property if a
-future SHA-256 token index replaces the MVP full scan.
+Stats reporting, richer subscription formats, a focused proxy plan/apply UI,
+and xray rendering remain pending. The subscription route deliberately does not
+persist raw subscription tokens as map keys; keep that property if a future
+SHA-256 token index replaces the MVP full scan.
 
 ## Storage
 

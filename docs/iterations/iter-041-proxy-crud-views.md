@@ -112,4 +112,6 @@ exit code is 0.
    persisted `Task.Script`.
 3. `applyScriptFor("proxycore")` now writes a candidate config, runs
    `sing-box check`, swaps atomically, reloads/restarts, and reconciles status.
-4. Next: add subscription link generation and dashboard proxy UI.
+4. Next at the time: add subscription link generation and dashboard proxy UI.
+   Subscription generation landed in iter-044; the first dashboard proxy panel
+   and rotate/copy subscription workflow landed in iter-045.

@@ -90,7 +90,9 @@ go build ./cmd/lattice-server
 - Unknown tokens do not reveal whether any user exists.
 - Audit events record successful and failed fetches without raw tokens.
 - Docs and roadmap identify dashboard proxy UI, drift detection, usage, and xray
-  as remaining work.
+  as remaining work. Dashboard proxy UI and subscription-token rotation were
+  resolved in iter-045; drift detection, usage, richer formats, and xray remain
+  future work.
 
 ## Execution Log
 
@@ -170,9 +172,12 @@ new surface.
 ## Residual Risks / Next
 
 - Dashboard proxy UI is still missing, so operators must create/read proxy
-  inbounds/users/profiles via API for now.
+  inbounds/users/profiles via API for now. **Resolved in iter-045** with the
+  first dashboard Proxy Core panel.
 - No token rotation endpoint yet; add `/api/proxy/users/rotate-sub-token`
   before treating public subscription URLs as long-lived production secrets.
+  **Resolved in iter-045** with an explicit, audited rotate response that
+  returns the new URL once and invalidates the old token.
 - Usage reporting is not live; `Subscription-Userinfo` reflects stored
   `ProxyUser.UsedBytes`, but no agent proxy-usage reporter updates it yet.
 - No Clash YAML or sing-box client JSON output yet; plain/base64 VLESS links
