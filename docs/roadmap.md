@@ -37,9 +37,9 @@
 > the reviewed policy path. Egress domain-valued operator remotes now compile
 > through node-filled nft named sets. Domain refresh now has systemd and cron.d
 > scheduler paths. Self-host DNS now has a durable `DNSDeployment`
-> model/store/API/dashboard foundation with encrypted Cloudflare token storage;
-> CoreDNS render/plan/apply and Cloudflare publication remain pending. Bulk geo
-> import and map overlays remain pending.
+> model/store/API/dashboard foundation with encrypted Cloudflare token storage
+> plus review-only CoreDNS/nft plan generation; CoreDNS apply and Cloudflare
+> publication remain pending. Bulk geo import and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -124,9 +124,11 @@
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
   2026-06-13 so DNS can compose into the single nft table. Iter-033 delivered
   the `DNSDeployment` intent model, encrypted inline CF token storage, bbolt
-  bucket parity, scoped CRUD API, and dashboard panel. CoreDNS rendering,
-  `/api/dns/plan`, `/api/dns/publish`, agent apply, and nft/DDNS composition are
-  next. *(Partially built.)*
+  bucket parity, scoped CRUD API, and dashboard panel. Iter-034 delivered the
+  dependency-free CoreDNS renderer and review-only `/api/dns/plan`, including
+  the composed `lattice_guard` candidate. `/api/dns/publish`, agent apply,
+  rollback/status reconciliation, and DDNS publication are next. *(Partially
+  built.)*
 - Sub-Store-style subscription transform/aggregation (folded into design-01 v2+).
 - nginx domain + path static publishing.
 

@@ -1,6 +1,6 @@
 # Design 02 — One-Click Self-Hosted DNS Deployment
 
-> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
+> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + review-only `/api/dns/plan` landed in iter-034 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
 > Companion to: `architecture.md` (DDNS, Cloudflare Tunnel, WireGuard, Storage, Safety Model), `PRODUCT-VISION.md` (pillars P1 Trust / P4 Durability), `development-workflow.md` (Plan→Execute→Review→Iterate).
 
 This document specifies a **CORE server-owned provider** (in the same class as `internal/ddns`, `internal/cftunnel`, `internal/wireguard`, `internal/network`) that lets an operator deploy a private DNS resolver/authoritative server onto a chosen node with a single approval, pair it with per-node nftables access rules, and publish a Cloudflare subdomain (e.g. `gmami-jp1.dns.roobli.org`) that DDNS keeps pointed at that node's public IP. It reuses the existing `plan → approve → apply` machinery verbatim; it adds no new external Go dependency and no CGo.
@@ -15,10 +15,16 @@ This document specifies a **CORE server-owned provider** (in the same class as `
 CRUD API at `/api/dns/deployments`, single-zone dashboard panel, and validation
 for engine/exposure/ports/hostnames/upstreams/static records.
 
-**Still pending:** `internal/selfdns` CoreDNS renderer, `/api/dns/plan`,
-`/api/dns/publish`, agent apply script, DDNS IP-change publication, and DNS
-port composition into the single `lattice_guard` nft render. Until those land,
-a DNS deployment is durable control-plane intent, not an applied resolver.
+**Landed in iter-034:** dependency-free `internal/selfdns` renderer for
+CoreDNS Corefile/static zone files/block zones, DNS listener composition into
+the single `lattice_guard` candidate, `POST /api/dns/plan`, and dashboard
+`Plan review`. The plan is review-only: `selfdns` approvals are hash-bound, but
+`queue_apply` is deliberately rejected until the apply script exists.
+
+**Still pending:** `/api/dns/publish`, agent apply script, rollback/selfcheck,
+task-result status reconciliation, DDNS IP-change publication, and dashboard
+publish/apply controls. Until those land, a DNS deployment can be reviewed but
+is not an applied resolver.
 
 ---
 
@@ -26,7 +32,11 @@ a DNS deployment is durable control-plane intent, not an applied resolver.
 
 ### 1.1 What it does (v1)
 - An operator picks a node, picks a DNS engine (**CoreDNS** is the v1 default — single static pure-Go binary, no CGo, trivial config), sets a listen port and bind protocols (UDP/TCP/DoT later), and supplies the upstream/zone policy.
-- The server renders a complete DNS-engine config plus the agent install/run plan, records it as a **pending approval** for the bound node, and on approval+`queue_apply` dispatches a bounded apply task the agent pulls and executes (install binary if missing → write config → validate → reload).
+- The server renders a complete DNS-engine config plus the firewall candidate
+  and records it as a **pending approval** for the bound node. **Current
+  iter-034 state:** this is review-only; approval can be recorded, but
+  `queue_apply` is blocked until the bounded apply task lands (install binary if
+  missing → write config → validate → reload).
 - The server **auto-creates/maintains a Cloudflare DNS record** for the deployment's public hostname (e.g. `gmami-jp1.dns.roobli.org` → node A/AAAA) by **reusing the `internal/ddns` Cloudflare provider** and binding it to the node's IP-change trigger, so the hostname tracks the node forever with zero further clicks.
 - The server **renders the matching nftables open/restrict rule** for the DNS port and folds it into the node's existing `internal/network` nft plan, so opening the resolver is one coordinated, audited change — never a hand-edited firewall.
 - Status (installed/running/last-reload/last-error, resolved hostname, last published IP) is reported back and surfaced per node.
@@ -177,17 +187,28 @@ New handlers live in **`internal/server/server_dns.go`** (server.go is large; th
 | `GET` | `/api/dns/deployments` | `dns:admin` | → `[]dnsView` (node-allowlist filtered, token stripped) |
 | `POST` | `/api/dns/deployments` | `dns:admin` | `DNSDeployment` (create/update; validates engine+zones+port+hostname) → `dnsView` |
 | `POST` | `/api/dns/deployments/delete` | `dns:admin` | `{id}` → `{ok:true}` (also withdraws nft rule + optionally CF record on next plan) |
-| `POST` | `/api/dns/plan` | `dns:admin` | `{id}` → `model.Approval` (renders config+nft bundle, records pending approval) |
+| `POST` | `/api/dns/plan` | `dns:admin` + same-node `network:plan` | `{id}` → `model.Approval` (renders config+nft bundle, records pending approval; review-only as of iter-034) |
 | `POST` | `/api/dns/publish` | `dns:admin` | `{id}` → `{ok, ipv4, ipv6}` (synchronously push the CF record now, like `/api/ddns/run`) |
 
 Reused, **not** re-implemented:
-- **Approval/apply:** the operator approves through the existing `POST /api/network/approve` with `{approval_id, queue_apply:true, plan_sha256:<hash>}`. No new approve endpoint.
+- **Approval/apply:** the operator uses the existing
+  `POST /api/network/approve` with `{approval_id, plan_sha256:<hash>}`. As of
+  iter-034 the dashboard submits `queue_apply:false` for `selfdns`, and the
+  server rejects selfdns `queue_apply:true` until the apply slice lands. No new
+  approve endpoint.
 - **Agent task pull / result:** existing `GET /api/agent/tasks` + task-result path.
 - **CF record on IP change:** existing `maybeTriggerDDNS` (extended to also walk `DNSDeploymentsForNode`).
 
 Request/response shapes:
-- **Create** validates eagerly by calling the renderer (like `handleTunnels` calls `cftunnel.GenerateConfig`): bad zone suffix, bad upstream, port out of range, or unknown engine → `400` before persistence.
-- **Plan** response is a `model.Approval` whose `Plan` is the **human-reviewable bundle**: the rendered engine config, the nft rule fragment, and a one-line summary of the CF hostname action. The reviewer hashes exactly this text for `plan_sha256`.
+- **Create** validates persistent intent eagerly: bad zone suffix, bad upstream,
+  port out of range, missing credential for hostname publication, or unknown
+  engine → `400` before persistence.
+- **Plan** validates through the renderer and responds with a `model.Approval`
+  whose `Plan` is the **human-reviewable bundle**: the rendered engine config,
+  static zone files if any, the composed `lattice_guard` candidate, and a
+  one-line summary of the CF hostname action. The reviewer hashes exactly this
+  text for `plan_sha256`. As of iter-034 this is review-only; apply is blocked
+  until the dedicated apply slice lands.
 - **dnsView** = the deployment minus `CFAPIToken`, plus non-secret status,
   node, listener, zone, hostname, DDNS reference, and `has_credential` fields.
   UI-only firewall summaries should be derived client-side or added through a
@@ -324,7 +345,9 @@ Each phase ships as a tested, reviewed, committed slice (the §5 cadence in PROD
 **MVP (smallest shippable slice) — mesh-only forwarder + manual publish.**
 - `model.DNSDeployment` (+ const block, + `Node.CoreDNSVersion`) in the SDK; store collection + accessors; crypto wiring for `CFAPIToken`.
 - `internal/selfdns`: CoreDNS Corefile render for **forward** zones only; nft fold for **mesh** exposure (uses existing `WireGuardUDP/TCP`, no nft model change yet).
-- `server_dns.go`: list/create/delete/plan; reuse the existing approve+apply; `applyScriptFor` `case "selfdns"`.
+- `server_dns.go`: list/create/delete/plan; reuse the existing approval record
+  and plan-hash review flow. `applyScriptFor` has a fail-closed `selfdns` case
+  until the apply slice lands.
 - `POST /api/dns/publish` reusing `ddns.Apply` for a one-shot CF record set; **manual** publish only (no auto IP-change hook yet).
 - **Exit bar:** operator creates a CoreDNS forwarder on `gmami-jp1`, mesh-only, port 53/udp+tcp restricted to the WG CIDR, approves the plan (with the nft port opened in the same approval), the agent installs+runs CoreDNS, `gmami-jp1.dns.roobli.org` resolves to the node via a manual publish, all steps audited; `go test -race ./...` + gofmt green; adversarial review passed.
 
@@ -415,7 +438,7 @@ ruleset. Do not create a second nft table.
 3. Add `case "selfdns"` to `applyScriptFor` (delegates to `selfdns.ApplyScript`).
 4. Extend `maybeTriggerDDNS` to also publish `DNSDeploymentsForNode` (v2 continuous publish) — for MVP, wire `handleDNSPublish` to `ddns.NewProvider`+`ddns.Apply` for one-shot publish, recording `LastIPv4/6/LastAppliedAt/LastError` and an audit event.
 4. Stamp `dns_id` into the queued apply task (metadata/link) and reconcile status in the task-result handler (`running`/`failed`).
-5. **TDD (`server_dns_test.go`):** create validates+hides token; plan records a pending approval with the right `Plugin`; approve+`queue_apply` queues a task whose script contains the Corefile + nft commit; `plan_sha256` mismatch is rejected; publish calls the (mocked) CF provider and records the IP; node-allowlist denial for a wrong-node token.
+5. **TDD (`server_dns_test.go`):** create validates+hides token; plan records a pending approval with the right `Plugin`; plan text contains Corefile + nft candidate and no secret material; `queue_apply` is rejected until apply exists; `plan_sha256` mismatch is rejected; publish calls the (mocked) CF provider and records the IP once that endpoint lands; node-allowlist denial for a wrong-node token.
 
 **Step 7 — Agent fact (optional, `lattice-node-agent`).** Report `coredns_version` in the hello payload when the binary exists. No other agent change (apply runs through the existing privileged-apply task path).
 
