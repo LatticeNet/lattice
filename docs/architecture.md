@@ -304,8 +304,8 @@ public subscription slice, plus the iter-045 dashboard/token-workflow slice, the
 iter-046 usage-reporting baseline, the iter-047 subscription-format slice, the
 iter-048 focused dashboard apply-review slice, the iter-049 loopback
 HTTP/V2Ray-stats collector foundation, the iter-050 proxy notification slice,
-the iter-051 subscription import-helper slice, and the iter-052 collector-health
-slice:
+the iter-051 subscription import-helper slice, the iter-052 collector-health
+slice, and the iter-053 xray renderer/apply slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -387,9 +387,16 @@ slice:
   server stores bounded health metadata on `ProxyNodeProfile`, exposes it in
   profile views, and deliberately does not create or overwrite an accounting
   baseline for health-only error reports.
+- Xray now shares the same typed proxy model for the VLESS+REALITY+TCP MVP.
+  The server renders dependency-free xray JSON, redacts `privateKey` and VLESS
+  client `id` in review plans, binds the real artifact SHA-256 to approval, and
+  queues an apply script that runs `xray test -c "$CANDIDATE"` before atomic
+  swap and service reload/restart. Profiles and inbounds must use the same
+  core, so a mixed sing-box/xray profile fails before plan/apply.
 
 True sing-box/xray API transports (for example direct V2Ray stats gRPC),
-xray rendering, and live over-quota/expiry reconcile enforcement remain pending.
+optional xray install/version pinning, and live over-quota/expiry reconcile
+enforcement remain pending.
 The subscription route deliberately does not persist raw subscription tokens as
 map keys; keep that property if a future SHA-256 token index replaces the MVP
 full scan.

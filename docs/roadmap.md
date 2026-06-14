@@ -68,6 +68,8 @@
 > sing-box/Clash.Meta, shown only after explicit token rotation.
 > Iter-052 landed proxy collector health/error surfacing from agent through
 > server profile state to the dashboard.
+> Iter-053 landed xray VLESS+REALITY+TCP rendering and reviewed `xray test -c`
+> apply, reusing the same subscription and approval model.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -147,8 +149,8 @@
 > Designed in [`designs/design-01-proxy-cores-and-subscriptions.md`](./designs/design-01-proxy-cores-and-subscriptions.md)
 > (CORE provider, not a third-party plugin) and [`designs/design-02-self-host-dns.md`](./designs/design-02-self-host-dns.md).
 
-- **Proxy-core orchestration + subscriptions** — sing-box config renderer + reload
-  (v1), xray (v2), fleet-wide tokenized subscriptions, node-agnostic users.
+- **Proxy-core orchestration + subscriptions** — sing-box and xray config
+  renderers + reload, fleet-wide tokenized subscriptions, node-agnostic users.
   Iter-039 delivered the foundation: `ProxyInbound`, `ProxyUser`,
   `ProxyNodeProfile`, and `ProxyUsageSnapshot` SDK models, redacted proto views,
   JSON-store/bbolt collection parity, and AES-GCM at-rest encryption for Reality
@@ -182,8 +184,10 @@
   import helpers for the already-supported subscription formats without adding
   a token reveal API. Iter-052 delivered agent-reported collector
   health/error state on proxy profiles without letting error reports mutate the
-  accounting baseline. Next slices: true sing-box/xray API transport, then xray
-  rendering.
+  accounting baseline. Iter-053 delivered xray VLESS+REALITY+TCP config
+  rendering, reviewed `xray test -c` apply, dashboard core selection, and xray
+  nodes in the same fleet-wide VLESS subscriptions. Next slice: true
+  sing-box/xray API transport for usage collection.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered

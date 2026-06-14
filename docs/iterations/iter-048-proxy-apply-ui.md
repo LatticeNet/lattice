@@ -41,7 +41,8 @@ existing reviewed approval API.
 - No direct sing-box or xray stats collector.
 - No usage notifications.
 - No import-helper UI for `format=plain|base64|sing-box|clash-meta`.
-- No xray renderer.
+- Xray rendering was out of scope for this UI slice. **Resolved in iter-053**
+  for the shared VLESS+REALITY+TCP shape.
 - No large dashboard redesign.
 
 ## Security Review

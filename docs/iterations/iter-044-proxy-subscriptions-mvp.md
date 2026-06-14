@@ -189,6 +189,8 @@ new surface.
   are the MVP only. **Resolved in iter-047** for the supported
   VLESS+REALITY+TCP shape with `format=sing-box`, `format=clash`, and
   `format=clash-meta`.
-- No xray renderer yet; keep `Core=xray` as v2 behind the same abstractions.
+- At the time of this slice, xray rendering was still out of scope.
+  **Resolved in iter-053** for the shared VLESS+REALITY+TCP shape, with xray
+  render/plan/apply and subscription inclusion for applied xray profiles.
 - Optional future optimization: stored SHA-256 subscription-token index keyed by
   token hash, with an ADR if it adds a new secret-at-rest class.
