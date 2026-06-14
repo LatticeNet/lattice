@@ -256,6 +256,40 @@ changes, the server applies every bound profile asynchronously with retries;
 the state file and never returned by the list API. All DDNS endpoints require the
 `ddns:admin` scope.
 
+## Self-host DNS
+
+`DNSDeployment` is server-owned intent for running CoreDNS on a chosen node. It
+is a built-in provider, not a third-party plugin, because it mutates host
+firewall state, owns Cloudflare publication credentials, and uses the high-risk
+approval path.
+
+Deployment follows the shared `plan -> approve -> apply` flow:
+
+- `POST /api/dns/plan` renders a secret-free CoreDNS Corefile, optional static
+  zone files, and a composed `lattice_guard` nft candidate. The DNS listener
+  ports are folded into the single Network Guard input table rather than a
+  second input hook.
+- Approving the reviewed plan with `queue_apply` writes exactly those reviewed
+  artifacts, validates with `nft -c`, snapshots rollback state, commits the
+  guard ruleset, installs/restarts `lattice-selfdns.service`, and verifies the
+  service is active.
+- Cloudflare publication is server-side. `POST /api/dns/publish` and the node
+  IP-change trigger reuse `internal/ddns` to publish the deployment hostname as
+  A/AAAA records. The Cloudflare token is encrypted at rest and never sent to
+  the node.
+
+CoreDNS itself is fail-closed. If the server is not configured with a pinned
+binary source, the node must already have `coredns` in `PATH`. If
+`LATTICE_COREDNS_BINARY_VERSION`, `LATTICE_COREDNS_BINARY_URL`, and
+`LATTICE_COREDNS_BINARY_SHA256` are set, the version, HTTPS URL, digest, and
+fixed install path (`/usr/local/bin/coredns`) are copied into the reviewed
+approval plan. The apply script verifies an existing binary by SHA-256 or
+downloads the reviewed URL and installs only after digest verification.
+
+Service apply status (`last_applied_at` / `last_error`) is separate from
+hostname publication status (`last_published_at` / `last_publish_error`) so
+operators can tell whether CoreDNS/nft failed or Cloudflare publication failed.
+
 ## Storage
 
 The bootstrap build uses a JSON state file plus an append-only hash-chained

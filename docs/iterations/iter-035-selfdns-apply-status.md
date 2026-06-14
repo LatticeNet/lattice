@@ -79,8 +79,8 @@ artifacts the operator reviewed and hash-bound.
 
 ## Residuals
 
-- Add CoreDNS binary provenance/install support or document supported packaging
-  per distro.
+- CoreDNS binary provenance/install support was completed in iter-038 with a
+  plan-bound HTTPS direct executable URL + SHA-256 mechanism.
 - Add `/api/dns/publish` through `internal/ddns`.
 - Add continuous Cloudflare publication on node IP changes.
 - Add dashboard publish/status controls after publish exists.

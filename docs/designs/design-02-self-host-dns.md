@@ -1,6 +1,6 @@
 # Design 02 — One-Click Self-Hosted DNS Deployment
 
-> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + `/api/dns/plan` landed in iter-034; rollback-protected apply + status reconciliation landed in iter-035; Cloudflare publish + IP-change publication landed in iter-036; apply/publish status split landed in iter-037 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
+> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + `/api/dns/plan` landed in iter-034; rollback-protected apply + status reconciliation landed in iter-035; Cloudflare publish + IP-change publication landed in iter-036; apply/publish status split landed in iter-037; pinned CoreDNS install landed in iter-038 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
 > Companion to: `architecture.md` (DDNS, Cloudflare Tunnel, WireGuard, Storage, Safety Model), `PRODUCT-VISION.md` (pillars P1 Trust / P4 Durability), `development-workflow.md` (Plan→Execute→Review→Iterate).
 
 This document specifies a **CORE server-owned provider** (in the same class as `internal/ddns`, `internal/cftunnel`, `internal/wireguard`, `internal/network`) that lets an operator deploy a private DNS resolver/authoritative server onto a chosen node with a single approval, pair it with per-node nftables access rules, and publish a Cloudflare subdomain (e.g. `gmami-jp1.dns.roobli.org`) that DDNS keeps pointed at that node's public IP. It reuses the existing `plan → approve → apply` machinery verbatim; it adds no new external Go dependency and no CGo.
@@ -34,8 +34,14 @@ node's public IP changes. Dashboard now exposes a `Publish` control.
 now separate: `LastAppliedAt` / `LastError` describe CoreDNS+nft apply, while
 `LastPublishedAt` / `LastPublishError` describe Cloudflare publication.
 
-**Still pending:** CoreDNS binary provenance/install support and a real
-Linux-node E2E.
+**Landed in iter-038:** the server can be started with an optional pinned
+CoreDNS executable source (`version`, HTTPS URL, SHA-256). DNS approval plans
+include that metadata and the apply script verifies `/usr/local/bin/coredns` or
+downloads the direct executable over HTTPS, checks the digest, and installs it
+before validating the Corefile. Without a configured source, the old fail-closed
+`command -v coredns` precondition remains.
+
+**Still pending:** a real Linux-node E2E.
 
 ---
 
@@ -279,7 +285,14 @@ case "selfdns":
 The agent does **only** what every other apply task already does — no new agent code path, no new endpoint, no inbound port. The DNS apply is a bounded `sh` task pulled from `GET /api/agent/tasks` and run through `internal/taskexec` (rlimits, process-group kill, interpreter allowlist — `sh` is already allowed; root-refusal applies as today, and binding port 53 legitimately needs privilege, see §7).
 
 **Apply-task contract** (what the server-rendered script guarantees):
-1. **Binary precondition:** iter-035 requires `coredns`, `nft`, and `systemctl` to already exist on the node and fails closed if any are missing. A future binary provenance/install slice may add pinned download + SHA-256 verification, but that is not implemented yet.
+1. **Binary precondition / pinned install:** if the server is started with
+   `LATTICE_COREDNS_BINARY_VERSION`, `LATTICE_COREDNS_BINARY_URL`, and
+   `LATTICE_COREDNS_BINARY_SHA256`, iter-038 embeds that direct executable URL
+   and digest in the reviewed plan. The apply script verifies an existing
+   `/usr/local/bin/coredns`, or downloads over HTTPS and installs only after
+   SHA-256 verification. If no pinned source is configured, apply fails closed
+   unless `coredns` already exists in `PATH`. `nft` and `systemctl` remain
+   required preconditions.
 2. **Plan-sourced writes:** parse Corefile, static zone files, and the merged `lattice_guard` candidate from the reviewed `approval.Plan`; write each artifact through `.new` candidates and move into place only after the complete candidate has been emitted.
 3. **Rollback-protected nft/service apply:** run `nft -c -f` first, save the current nft ruleset, commit with `nft -f`, install/restart `lattice-selfdns.service`, and require `systemctl is-active --quiet lattice-selfdns.service`. Any `ERR`, `INT`, `TERM`, or `HUP` restores the previous config directory and nft ruleset.
 4. **Bounded:** `TimeoutSec` 30s, `OutputLimit` 64 KiB, exactly like the nft/tunnel apply tasks.
@@ -343,8 +356,11 @@ must re-plan.
   as a binary/plugin sanity check, while actual service health is verified by
   `systemctl is-active`.
 - nft: `nft -c -f` (check) then `nft -f` (commit); the table is `inet lattice_guard` so a bad load can't silently coexist with the old one.
-- Engine binary: currently a precondition (`command -v coredns`); pinned
-  install/provenance remains a future slice.
+- Engine binary: plan-bound optional pinned direct executable install. If a
+  source is configured, the apply script verifies `/usr/local/bin/coredns` by
+  SHA-256 or downloads the reviewed HTTPS URL and installs it after digest
+  verification. If no source is configured, the script keeps the fail-closed
+  `command -v coredns` precondition.
 - Reload/restart: install `lattice-selfdns.service`, restart it, and require
   active status. Failure triggers the rollback trap.
 
@@ -413,7 +429,13 @@ Each phase ships as a tested, reviewed, committed slice (the §5 cadence in PROD
 
 ## 9. Risks & open questions
 
-- **Binary provenance.** v1 pins a CoreDNS version + SHA-256 and verifies before exec. Open: do we embed the digest in the server binary (simplest, requires a release bump to upgrade CoreDNS) or make it an operator-set field per deployment (flexible, more rope)? **Recommendation: server-embedded digest map keyed by version; operator picks a version from the allowed set.** Revisit if it becomes a maintenance drag.
+- **Binary provenance.** Iter-038 chose a conservative middle path: a
+  deployment-time server configuration supplies one pinned direct executable
+  URL + SHA-256, and that metadata is copied into the reviewed approval plan.
+  This avoids dashboard/API arbitrary downloads while still allowing operators
+  to stage a verified CoreDNS binary from an official release or internal
+  mirror. Future release automation may replace this with a server-embedded
+  allowlist keyed by version.
 - **nft single-table coupling.** The node's full ruleset is server-rendered into one `inet lattice_guard` table; the DNS port must be folded into the *same* render, not a second table, or the existing renderer would drop it. This means the DNS plan needs the node's *current* nft inputs. Open: where do those inputs live authoritatively today (are they persisted per node, or recomputed)? **Action: confirm the nft input source before building §6.1(b); if nft inputs aren't persisted per node, persist them (small store addition) so DNS and base firewall compose deterministically.** This is the single most important pre-build clarification.
 - **Port 53 + systemd-resolved.** Many distros run `systemd-resolved` on `127.0.0.53:53`, which can conflict. v1 binds the resolver to the **mesh IP**, sidestepping the loopback stub; document that public exposure on a resolved host needs the stub disabled. Surface a clear error from the apply script rather than a silent bind failure.
 - **CF record type vs proxy.** Records are grey-cloud (un-proxied) by design; confirm the operator's `dns.roobli.org` delegation expectations match (the apex stays Cloudflare-managed; only the per-node label is a grey-cloud A/AAAA).
@@ -469,9 +491,11 @@ Consistent with `development-workflow.md` (research/reuse → plan → TDD → r
 
 **Step 4 — Renderer package (`internal/selfdns/`).**
 1. `selfdns.go`: `GenerateConfig(model.DNSDeployment) (string, error)` (Corefile, forward zones for MVP) with the regex/parse validation gates from §6.1; `GenerateNFTFragment` / the helper that maps the DNS port into `network.NFTPlan` inputs for mesh exposure; `RenderApprovalPlan(dep, cfg, mergedNft) string`.
-2. `apply.go` / current `selfdns.go`: `ParseApprovalPlan(plan)` +
+2. `apply.go` / current `selfdns.go`: optional pinned CoreDNS binary source
+   validation + plan rendering; `ParseApprovalPlan(plan)` +
    `ApplyScriptFromPlan(plan)` (parse reviewed Corefile/zone/nft artifacts →
-   write candidates → `nft -c` then `nft -f` commit with rollback watchdog →
+   optionally install a SHA-256-verified CoreDNS direct executable → write
+   candidates → `nft -c` then `nft -f` commit with rollback watchdog →
    install/restart `lattice-selfdns.service` → verify active).
 3. **TDD first (`selfdns_test.go`):** golden Corefile for a forward zone; injection inputs (newline/brace/bad upstream/bad port/bad suffix) all rejected; mesh exposure maps to WG sets, never public; plan render is stable/deterministic.
 

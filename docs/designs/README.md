@@ -28,7 +28,8 @@ dashboard panel; iter-034 adds dependency-free CoreDNS rendering plus
 initial `/api/dns/plan`; iter-035 enables rollback-protected selfdns apply and
 DNSDeployment status reconciliation; iter-036 adds `/api/dns/publish` plus
 automatic Cloudflare publication on node IP changes; iter-037 splits service
-apply status from hostname publication status.
+apply status from hostname publication status; iter-038 adds optional pinned
+CoreDNS executable install with SHA-256 verification.
 Remaining Design 05 work is bulk geo import and map overlays. Designs 01/03
 remain design-ready but unbuilt. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
@@ -39,7 +40,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 | # | Design | What it delivers | Core decision |
 |---|--------|------------------|---------------|
 | 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box (v1) / xray (v2) management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; server-rendered config validated node-side (`sing-box check` + atomic swap); node-agnostic `ProxyUser` → one `/sub/{token}` spans the fleet (remnawave model); secrets encrypted at rest |
-| 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; `DNSDeployment` model/API/dashboard foundation landed iter-033; CoreDNS render + `/api/dns/plan` landed iter-034; rollback-protected apply/status landed iter-035; Cloudflare publish landed iter-036; apply/publish status split landed iter-037; reuses `internal/ddns` (CF) + shared `NFTInputs` |
+| 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; `DNSDeployment` model/API/dashboard foundation landed iter-033; CoreDNS render + `/api/dns/plan` landed iter-034; rollback-protected apply/status landed iter-035; Cloudflare publish landed iter-036; apply/publish status split landed iter-037; pinned CoreDNS install landed iter-038; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
 | 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; egress-only nft compiler + `/api/netpolicy/plan` + **60s agent dead-man rollback** apply path landed iter-021; `NodeGeo` CRUD + inline-SVG fleet map landed iter-022; policy graph SVG landed iter-023; Network Guard rollback apply + ingress guard composition landed iter-024; control-plane HTTPS-domain named set landed iter-026; agent-native domain-set updater landed iter-027; systemd periodic refresh landed iter-028; IPv6 control-plane parity landed iter-029; operator IPv6 remotes landed iter-030; egress domain remotes landed iter-031; cron.d refresh fallback landed iter-032 |
@@ -68,10 +69,10 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
    Operator-authored IPv6 CIDR/node remotes and egress domain-valued remotes now
    compile through the same reviewed path. Next add bulk geo import and map
    latency/renewal overlays.
-2. **02 Self-host DNS** — continue from iter-037. Next add CoreDNS binary
-   provenance/install support and a real Linux-node E2E. The status model now
-   separates service apply state from hostname publication state; future UI
-   polish should build on that split rather than overloading `last_error`.
+2. **02 Self-host DNS** — continue from iter-038. Next run a real Linux-node
+   E2E for CoreDNS + nft apply + Cloudflare publish. The status model now
+   separates service apply state from hostname publication state, and optional
+   pinned CoreDNS install is plan-bound by URL + SHA-256.
 3. **01 Proxy cores & subscriptions** — the flagship and largest; sequence after
    the smaller wins so the platform (store/agent/apply) is battle-tested. Ship
    MVP = vless+reality + expiry-only subs first.

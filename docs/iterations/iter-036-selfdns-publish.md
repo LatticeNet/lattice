@@ -77,7 +77,8 @@ the bound node's public IP changes.
 
 ## Residuals
 
-- Add CoreDNS binary provenance/install support or distro packaging guidance.
+- CoreDNS binary provenance/install support was completed in iter-038 with a
+  plan-bound HTTPS direct executable URL + SHA-256 mechanism.
 - Run a Linux-node E2E proving CoreDNS + nft apply + Cloudflare publish together.
 - Richer status grouping for "service running" vs "hostname published" was
   completed in iter-037 by adding separate publish status fields and dashboard

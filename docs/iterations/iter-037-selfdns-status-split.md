@@ -64,7 +64,7 @@ whether CoreDNS/nft failed or whether the A/AAAA record publish failed.
 
 ## Residuals
 
-- CoreDNS binary provenance/install support remains the next self-host DNS
-  implementation slice.
+- CoreDNS binary provenance/install support was completed in iter-038 with a
+  plan-bound HTTPS direct executable URL + SHA-256 mechanism.
 - A real Linux-node E2E still needs to prove CoreDNS + nft apply + Cloudflare
   publish together outside this sandbox.
