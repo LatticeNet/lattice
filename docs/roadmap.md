@@ -91,8 +91,11 @@
   iter-022. Dashboard policy-graph SVG landed in iter-023. Ingress rules now
   compose into the single `lattice_guard` Network Guard render in iter-024,
   so a deny can constrain broad public/WireGuard port allows without creating a
-  second input hook. Domain/DDNS-backed nft sets, IPv6, bulk geo import, and map
-  overlays remain pending. *(Partially built.)*
+  second input hook. Iter-026 adds the first domain-backed nft set: HTTPS
+  hostname `public_url` values for `nftpolicy` apply render a
+  node-filled `lattice_control4` control-plane set instead of requiring an IPv4
+  literal. Periodic domain/DDNS refresh, domain-valued operator remotes, IPv6,
+  bulk geo import, and map overlays remain pending. *(Partially built.)*
 
 ## Service Plugins / Providers
 

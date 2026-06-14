@@ -7,8 +7,9 @@
 > `NodeGeo` CRUD + dashboard inline-SVG fleet map landed in iter-022; dashboard
 > policy graph SVG landed in iter-023; Network Guard rollback apply plus
 > ingress composition into the single `lattice_guard` input chain landed in
-> iter-024. Remaining: domain/DDNS-backed nft sets, IPv6, bulk geo import, and
-> map overlays.
+> iter-024; control-plane HTTPS-domain named set landed in iter-026. Remaining:
+> periodic domain/DDNS refresh, domain-valued operator remotes, IPv6, bulk geo
+> import, and map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -58,9 +59,13 @@ The first committed apply path is intentionally narrower than the full design:
 
 - `POST /api/netpolicy/plan` compiles only **egress** rules into
   `table inet lattice_policy` with `output` hook default-drop.
-- The compiler injects control-plane IPv4 and DNS egress allows before operator
-  rules. `LATTICE_PUBLIC_URL` / `-public-url` must currently be an IPv4 literal;
-  domain/DDNS-backed allowlists need the later named-set updater design.
+- The compiler injects control-plane and DNS egress allows before operator
+  rules. `LATTICE_PUBLIC_URL` / `-public-url` can be either an IPv4 literal or
+  an HTTPS hostname. HTTPS hostnames render an empty `lattice_control4` named
+  set in the plan; the node-side apply script resolves the hostname through the
+  system resolver, fills that set, then runs the same control-plane selfcheck.
+  Domain-valued operator remotes and periodic DDNS refresh are still later
+  slices.
 - The node apply task validates with `nft -c`, snapshots rollback state, arms a
   60s watchdog, applies the nft batch, then runs
   `lattice-agent --selfcheck-controlplane -server <public-url>`. The task shell
@@ -354,9 +359,12 @@ current node IPs (public + mesh, mirroring how the server already knows
 Current output is split by hook ownership:
 
 - **Egress:** `POST /api/netpolicy/plan` renders `table inet lattice_policy`
-  with an `output` hook default-drop. It injects control-plane IPv4 + DNS allows
-  before operator egress rules. `LATTICE_PUBLIC_URL` / `-public-url` must still
-  be an IPv4 literal until the domain/DDNS named-set updater lands.
+  with an `output` hook default-drop. It injects control-plane + DNS allows
+  before operator egress rules. Static IPv4 `public_url` values render a direct
+  `ip daddr <addr>` allow. HTTPS hostname `public_url` values render
+  `set lattice_control4 { type ipv4_addr; flags interval; }` and reference
+  `ip daddr @lattice_control4`; the apply script fills the set before
+  selfcheck. IPv6 and operator-authored domain remotes remain later slices.
 - **Ingress:** `CompileIngressInputRules` converts enabled ingress `NetPolicy`
   rules into typed `network.NFTInputRule` values. `GenerateNFTPlan` folds those
   into the single `table inet lattice_guard` input chain rendered by Network
@@ -496,9 +504,12 @@ Smallest end-to-end slice that delivers the operator's exact ask.
 1. **Self-lockout is the headline risk.** Mitigated by the compiler-injected control-plane/DNS allow +
    agent dead-man rollback. *Open:* the agent's dial-out destination (server host:port) must be known
    at compile time — it is (the agent is configured with the server URL; the server knows its own
-   advertised address). Confirm the server's public address is resolvable into the allow rule even
-   behind a proxy/CDN; if the operator fronts the server with Cloudflare, allow the egress by the
-   *resolved edge IPs or by DNS-name-driven set refresh*, not a single static IP.
+   advertised address). Iter-026 removed the IPv4-literal-only selfcheck
+   constraint for HTTPS hostnames by filling `lattice_control4` from DNS at
+   apply time. Remaining: periodic refresh after apply, IPv6, and policy remotes
+   that intentionally reference domains. DNS is not treated as authentication:
+   HTTPS verification and Lattice credentials still decide whether the endpoint
+   is trusted.
 2. **Node IP churn.** Node refs resolve at compile time; if a peer's IP changes after apply, the rule
    is stale until re-planned. *Decision:* surface "policy stale — peer IP changed" in the graph/list
    (the server already detects IP changes for DDNS) and let the operator re-plan; do **not** auto-apply
@@ -555,8 +566,8 @@ of step 6, the route subset of step 7, the egress compiler/plan/apply/selfcheck
 work from steps 8-10, apply-result consumption, and a basic dashboard policy
 panel from step 17 are complete. Step 16's operator `NodeGeo` CRUD and step 17's
 first inline-SVG fleet map are also complete. Do not reimplement those. Continue
-with ingress composition, domain/DDNS-backed nft sets, IPv6, bulk geo import,
-and map overlays.
+from this historical point with ingress composition, domain/DDNS-backed nft
+sets, IPv6, bulk geo import, and map overlays.
 
 **Progress note (2026-06-14 / iter-023):** the dashboard policy graph SVG is
 complete. It renders the existing server-derived `/api/netpolicy/graph` response
@@ -569,7 +580,16 @@ through Network Guard, not a second `lattice_policy input` hook. `POST
 /api/network/nft/plan` folds enabled ingress `NetPolicy` rules into the single
 `lattice_guard` input chain and `nft` approvals now commit the guard ruleset with
 `nft -c`, rollback snapshot, watchdog, and optional control-plane selfcheck.
-Continue with domain/DDNS-backed nft named sets, IPv6, and visualization overlays.
+At that point the next slice was domain/DDNS-backed nft named sets, IPv6, and
+visualization overlays.
+
+**Progress note (2026-06-14 / iter-026):** `POST /api/netpolicy/plan` now accepts
+an HTTPS hostname `public_url` for the control plane. The compiled egress plan
+uses `lattice_control4` instead of placing the hostname in nft syntax, and the
+queued apply task resolves/fills that set on the node before control-plane
+selfcheck. This solves the immediate domain-fronted self-lockout case. Continue
+with a durable updater/periodic refresh, IPv6, domain-valued operator remotes,
+and map overlays.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this

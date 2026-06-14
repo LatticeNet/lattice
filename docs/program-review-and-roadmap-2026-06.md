@@ -38,6 +38,12 @@
 > 2026-06-14 approval-safety update: iter-025 made `plan_sha256` mandatory for
 > pending high-risk approvals and added dashboard-side SHA-256 calculation over
 > the visible plan text. Missing hashes now fail before any apply task is queued.
+>
+> 2026-06-14 domain-set update: iter-026 removed the IPv4-literal-only
+> `public_url` constraint for `nftpolicy` control-plane selfcheck. HTTPS
+> hostnames now render a `lattice_control4` named set and the apply task
+> resolves/fills it before selfcheck. Periodic refresh, IPv6, and
+> domain-valued policy remotes remain future work.
 
 ---
 

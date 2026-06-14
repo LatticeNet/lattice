@@ -52,10 +52,13 @@ Per-node Network Policy has a narrower committed apply MVP:
   mark the edited policy as applied.
 
 Current limitations: `POST /api/netpolicy/plan` remains **egress-only** and
-requires an IPv4-literal server `PublicURL`; ingress enforcement is composed via
-Network Guard's `lattice_guard` plan instead. IPv6 and domain/DDNS-backed nft
-sets remain later design slices so the DDNS trust semantics are handled
-deliberately.
+ingress enforcement is composed via Network Guard's `lattice_guard` plan
+instead. The server `PublicURL` may be an IPv4 literal or an HTTPS hostname:
+IPv4 renders a direct control-plane allow; HTTPS hostnames render
+`lattice_control4`, which the node apply task resolves and fills before
+selfcheck. This is not yet a periodic DDNS updater. IPv6, domain-valued policy
+remotes, and durable DNS refresh remain later design slices so trust semantics
+stay explicit.
 
 Recommended host firewall layers:
 

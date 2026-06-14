@@ -46,7 +46,7 @@ The current pushed baseline includes:
   the existing approval path, applied by the node agent with `nft -c`, a 60s
   dead-man rollback watchdog, and unauthenticated `/api/health` selfcheck, then
   recorded back to `NetPolicy.LastAppliedAt` / `LastError`. This MVP is
-  **egress-only** and requires an IPv4-literal server `PublicURL`.
+  **egress-only**.
 - Design 05 map slice (iter-022): operator-owned `NodeGeo` can be updated,
   listed, and cleared through `GET/POST /api/nodes/geo` with `node:read` /
   `node:admin` plus per-node allowlists; `/api/nodes` exposes `geo`; dashboard
@@ -67,6 +67,12 @@ The current pushed baseline includes:
   approvals now require dashboard-computed `sha256(plan)` before approve/apply;
   missing hashes return 400, mismatches return 409, and already-decided
   approvals stay idempotent.
+- Domain-backed control-plane nft set (iter-026, 2026-06-14): `nftpolicy`
+  egress apply no longer requires an IPv4-literal server `PublicURL`. Static
+  IPv4 URLs still render direct nft allows; HTTPS hostname URLs render
+  `lattice_control4`, and the node-side apply task resolves/fills that set
+  before the existing control-plane selfcheck. Periodic refresh, IPv6, and
+  domain-valued policy remotes remain future slices.
 - Signed plugin manifest verification, fail-closed trust policy, startup loader,
   `/api/plugins/verify`, lifecycle registry/API/UI, host-API broker, server host
   services adapter, runtime manager, and a no-op runner contract.
