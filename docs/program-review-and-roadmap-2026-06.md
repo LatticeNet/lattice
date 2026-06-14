@@ -52,6 +52,11 @@
 > 2026-06-14 periodic-refresh update: iter-028 installs a systemd timer for
 > domain-backed `nftpolicy` control-plane set refresh and removes stale timer
 > artifacts when a later approved apply no longer uses a hostname.
+>
+> 2026-06-14 IPv6-control update: iter-029 adds `lattice_control6`, updates the
+> agent domain-set helper to refresh IPv4 and IPv6 sets from one resolver result,
+> and accepts IPv6 literal `public_url` values for `nftpolicy` control-plane
+> selfcheck.
 
 ---
 

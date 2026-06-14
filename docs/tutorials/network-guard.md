@@ -53,14 +53,15 @@ Per-node Network Policy has a narrower committed apply MVP:
 
 Current limitations: `POST /api/netpolicy/plan` remains **egress-only** and
 ingress enforcement is composed via Network Guard's `lattice_guard` plan
-instead. The server `PublicURL` may be an IPv4 literal or an HTTPS hostname:
-IPv4 renders a direct control-plane allow; HTTPS hostnames render
-`lattice_control4`, which the node apply task fills through
-`lattice-agent --update-nft-domain-set` before selfcheck. On systemd hosts,
+instead. The server `PublicURL` may be an IPv4 literal, IPv6 literal, or an
+HTTPS hostname: IPv4 renders a direct control-plane allow; HTTPS hostnames render
+`lattice_control4` and `lattice_control6`, which the node apply task fills
+through `lattice-agent --update-nft-domain-set` before selfcheck. IPv6 literal
+control-plane URLs render a direct `ip6 daddr` allow. On systemd hosts,
 domain-backed applies also install `lattice-nftpolicy-domain-refresh.timer` to
-refresh that set every minute. IPv6, domain-valued policy remotes, and
-non-systemd scheduling remain later design slices so trust semantics stay
-explicit.
+refresh those sets every minute. Domain-valued policy remotes,
+operator-authored IPv6 policy remotes, and non-systemd scheduling remain later
+design slices so trust semantics stay explicit.
 
 Recommended host firewall layers:
 

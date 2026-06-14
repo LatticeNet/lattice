@@ -10,8 +10,10 @@
 > iter-024; control-plane HTTPS-domain named set landed in iter-026; the
 > agent-native nft domain-set updater replaced the shell DNS pipeline in
 > iter-027; systemd periodic refresh for that control-plane set landed in
-> iter-028. Remaining: domain-valued operator remotes, IPv6, non-systemd
-> scheduling, bulk geo import, and map overlays.
+> iter-028; IPv6 control-plane parity (`lattice_control6` + IPv6 literal
+> `public_url`) landed in iter-029. Remaining: domain-valued operator remotes,
+> operator-authored IPv6 policy remotes, non-systemd scheduling, bulk geo
+> import, and map overlays.
 > Author: design pass · Date: 2026-06-13
 > Builds on: `architecture.md` (Safety Model, WireGuard Mesh, DDNS), `internal/network/nft.go`,
 > `internal/wireguard`, `internal/cftunnel`, `internal/ddns`, the `plan → approve → apply` flow.
@@ -51,7 +53,9 @@ Three capabilities, one cohesive slice:
   may *derive* nothing it cannot already see.
 - **No new on-node daemon.** Reuse the poll-only agent and the bounded apply task. No inbound ports.
 - **No nftables NAT / mangle / routing changes.** Filtering (`filter` hook) only.
-- **No IPv6 policy in the first MVP slice** (the data model is v6-ready; rendering lands in v2).
+- **No operator-authored IPv6 policy in the first MVP slice** (the data model is
+  v6-ready; control-plane IPv6 landed later in iter-029, policy remote rendering
+  remains v2).
 - **Not a plugin.** This is a CORE server-owned provider (see §2).
 - **Map tiles / basemap detail:** a single static low-poly world outline, not a real GIS basemap.
 
@@ -63,13 +67,14 @@ The first committed apply path is intentionally narrower than the full design:
   `table inet lattice_policy` with `output` hook default-drop.
 - The compiler injects control-plane and DNS egress allows before operator
   rules. `LATTICE_PUBLIC_URL` / `-public-url` can be either an IPv4 literal or
-  an HTTPS hostname. HTTPS hostnames render an empty `lattice_control4` named
-  set in the plan; the node-side apply script calls
+  an IPv4/IPv6 literal or an HTTPS hostname. HTTPS hostnames render empty
+  `lattice_control4` and `lattice_control6` named sets in the plan; the
+  node-side apply script calls
   `lattice-agent --update-nft-domain-set` to resolve/filter/fill that set, then
   runs the same control-plane selfcheck. On systemd hosts the same approved
   apply installs `lattice-nftpolicy-domain-refresh.timer` so DNS churn is
-  refreshed every minute. Domain-valued operator remotes, IPv6, and non-systemd
-  scheduling are still later slices.
+  refreshed every minute. Domain-valued operator remotes, operator-authored IPv6
+  policy remotes, and non-systemd scheduling are still later slices.
 - The node apply task validates with `nft -c`, snapshots rollback state, arms a
   60s watchdog, applies the nft batch, then runs
   `lattice-agent --selfcheck-controlplane -server <public-url>`. The task shell
@@ -365,11 +370,13 @@ Current output is split by hook ownership:
 - **Egress:** `POST /api/netpolicy/plan` renders `table inet lattice_policy`
   with an `output` hook default-drop. It injects control-plane + DNS allows
   before operator egress rules. Static IPv4 `public_url` values render a direct
-  `ip daddr <addr>` allow. HTTPS hostname `public_url` values render
-  `set lattice_control4 { type ipv4_addr; flags interval; }` and reference
-  `ip daddr @lattice_control4`; the apply script delegates set mutation to the
-  agent-native domain-set updater before selfcheck. IPv6 and operator-authored
-  domain remotes remain later slices.
+  `ip daddr <addr>` allow; static IPv6 values render a direct `ip6 daddr
+  <addr>` allow. HTTPS hostname `public_url` values render
+  `set lattice_control4 { type ipv4_addr; flags interval; }` and
+  `set lattice_control6 { type ipv6_addr; flags interval; }`, then reference
+  both sets. The apply script delegates set mutation to the agent-native
+  domain-set updater before selfcheck. Operator-authored IPv6 and domain remotes
+  remain later slices.
 - **Ingress:** `CompileIngressInputRules` converts enabled ingress `NetPolicy`
   rules into typed `network.NFTInputRule` values. `GenerateNFTPlan` folds those
   into the single `table inet lattice_guard` input chain rendered by Network
@@ -513,8 +520,9 @@ Smallest end-to-end slice that delivers the operator's exact ask.
    constraint for HTTPS hostnames by filling `lattice_control4` from DNS at
    apply time; iter-027 moved that mutation into an agent-native helper so DNS
    answers no longer flow through shell pipelines; iter-028 installs a systemd
-   timer to keep the set fresh after apply. Remaining: IPv6, non-systemd
-   scheduling, and policy remotes that intentionally reference domains. DNS is
+   timer to keep the set fresh after apply; iter-029 adds `lattice_control6`
+   and IPv6 literal control-plane support. Remaining: non-systemd scheduling and
+   policy remotes that intentionally reference domains or IPv6 targets. DNS is
    not treated as authentication: HTTPS verification and Lattice credentials
    still decide whether the endpoint is trusted.
 2. **Node IP churn.** Node refs resolve at compile time; if a peer's IP changes after apply, the rule
@@ -597,23 +605,32 @@ queued apply task resolves/fills that set on the node before control-plane
 selfcheck. This solves the immediate domain-fronted self-lockout case. Continue
 with an agent-native updater, durable periodic refresh, IPv6, domain-valued
 operator remotes, and map overlays. The updater and systemd periodic refresh
-were delivered in iter-027 and iter-028.
+were delivered in iter-027 and iter-028; control-plane IPv6 parity was delivered
+in iter-029.
 
 **Progress note (2026-06-14 / iter-027):** apply-time domain-set mutation now
 runs through `lattice-agent --update-nft-domain-set` instead of shell
-`getent|awk`. The helper resolves with Go, keeps IPv4 only, sorts/deduplicates
-answers, validates nft identifiers, and updates the existing set via direct
-`nft` argv calls. Continue with durable periodic refresh, IPv6, domain-valued
-operator remotes, and map overlays. The systemd periodic refresh was delivered
-in iter-028.
+`getent|awk`. The helper initially kept IPv4 only, sorted/deduplicated answers,
+validated nft identifiers, and updated the existing set via direct `nft` argv
+calls. Continue with durable periodic refresh, IPv6, domain-valued operator
+remotes, and map overlays. The systemd periodic refresh was delivered in
+iter-028; control-plane IPv6 parity was delivered in iter-029.
 
 **Progress note (2026-06-14 / iter-028):** approved domain-backed `nftpolicy`
 applies now install `/etc/lattice/nftpolicy-domain-refresh.sh` plus
 `lattice-nftpolicy-domain-refresh.service` / `.timer` on systemd hosts. The
 timer reuses the iter-027 agent helper every 60 seconds. Later approved
 IPv4/no-domain applies disable/remove those artifacts so stale refreshers do not
-survive a topology change. Continue with IPv6, domain-valued operator remotes,
-non-systemd scheduling, and map overlays.
+survive a topology change. Continue with IPv6 control-plane parity,
+domain-valued operator remotes, non-systemd scheduling, and map overlays.
+Control-plane IPv6 parity was delivered in iter-029.
+
+**Progress note (2026-06-14 / iter-029):** control-plane IPv6 parity is landed.
+Domain-backed plans now render both `lattice_control4` and `lattice_control6`;
+`lattice-agent --update-nft-domain-set` updates both from one Go resolver result
+without shell DNS parsing; IPv6 literal `public_url` values render direct
+`ip6 daddr` control-plane allows. Continue with domain-valued operator remotes,
+operator-authored IPv6 policy remotes, non-systemd scheduling, and map overlays.
 
 **Phase MVP**
 1. **Plan** — write `lattice/docs/iterations/iter-0NN-netpolicy-mvp.md` (goal, scope, design ref to this
@@ -674,5 +691,6 @@ non-systemd scheduling, and map overlays.
     `styles.css`, inside `script-src 'self'` / `style-src 'self'`.
 18. Verify (add a dashboard render smoke check), review, commit per slice.
 
-**Phase Later** — IPv6 parity, boot-persistence unit, optional CF map-pin DNS (ADR if default-on),
-latency/renewal overlay, bbolt cutover — each its own iter with the same gate.
+**Phase Later** — operator-authored IPv6 policy remotes, boot-persistence unit,
+optional CF map-pin DNS (ADR if default-on), latency/renewal overlay, bbolt
+cutover — each its own iter with the same gate.

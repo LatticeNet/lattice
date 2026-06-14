@@ -26,7 +26,8 @@ manual re-plan just to preserve control-plane reachability.
 
 ## Non-Goals
 
-- No IPv6 refresh (`lattice_control6`) yet.
+- IPv6 refresh (`lattice_control6`) was out of scope for this slice; this
+  residual was retired by iter-029.
 - No domain-valued operator remotes.
 - No new server API or store model.
 - No non-systemd scheduler in this slice. Non-systemd hosts keep the
@@ -97,12 +98,14 @@ contains cleanup for stale refresh artifacts and no domain timer install.
   - **Runtime detection:** non-systemd/container hosts with a stray `systemctl`
     binary skip timer installation instead of failing the apply.
   - **Scope control:** no IPv6, domain remotes, store model, or non-systemd
-    scheduler was added.
+    scheduler was added in iter-028. Control-plane IPv6 was added later in
+    iter-029.
 
 ## Residuals
 
 - Non-systemd hosts still only get apply-time refresh plus a clear log message.
-- The timer covers only `lattice_control4`; IPv6 needs `lattice_control6`.
+- Control-plane IPv6 refresh was a residual at iter-028 close and was retired
+  by iter-029.
 - Domain-valued operator policy remotes remain unsupported.
 - Timer interval is fixed at 60 seconds in this slice; per-node/operator tuning
   can be added later if needed.

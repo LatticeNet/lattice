@@ -32,8 +32,9 @@
 > the dependency-free dashboard Fleet Map landed in iter-022; dashboard
 > policy-graph SVG landed in iter-023; Network Guard now commits
 > `lattice_guard` with rollback/selfcheck and composes enabled ingress policy
-> into the single input chain in iter-024. Domain-backed nft sets, IPv6, bulk
-> geo import, and map overlays remain pending.
+> into the single input chain in iter-024. Control-plane domain-backed nft sets
+> now have IPv4/IPv6 refresh; domain-valued operator remotes, operator policy
+> IPv6, bulk geo import, and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -98,9 +99,11 @@
   `lattice-agent --update-nft-domain-set` so DNS answers no longer flow through
   shell parsing. Iter-028 installs a systemd timer to refresh the
   control-plane set periodically and removes stale timer artifacts when a later
-  approved apply no longer uses a hostname. Domain-valued operator remotes,
-  IPv6, non-systemd scheduling, bulk geo import, and map overlays remain
-  pending. *(Partially built.)*
+  approved apply no longer uses a hostname. Iter-029 adds `lattice_control6`
+  plus IPv6 literal `public_url` support for control-plane reachability.
+  Domain-valued operator remotes, operator-authored IPv6 policy remotes,
+  non-systemd scheduling, bulk geo import, and map overlays remain pending.
+  *(Partially built.)*
 
 ## Service Plugins / Providers
 
