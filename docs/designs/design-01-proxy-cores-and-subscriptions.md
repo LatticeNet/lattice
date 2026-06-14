@@ -63,7 +63,13 @@ All structs go in `lattice-sdk/model/model.go` (shared wire model). New `State` 
 **Landed in iter-039:** the shared SDK structs/constants, secret-free proto
 view contracts, JSON-store collections/CRUD, record-level bbolt buckets/CRUD,
 and at-rest encryption for `RealityPrivateKey`, `UUID`, `Password`, and
-`SubToken`. Renderer, HTTP handlers, dashboard UI, agent apply scripts, stats
+`SubToken`.
+
+**Landed in iter-040:** the first server-side sing-box renderer for
+`vless`+TCP+REALITY. It emits a canonical secret-bearing config artifact with a
+SHA-256 and fail-closed structural validation, omits disabled/expired/over-quota
+users, rejects unsupported transport/protocol combinations, and is covered by
+table-driven tests. HTTP handlers, dashboard UI, agent apply scripts, stats
 reporting, and public subscriptions remain pending.
 
 ### 3.1 Inbounds (central, node-agnostic template)
@@ -292,7 +298,7 @@ A `tcp` `Monitor` on each inbound `host:port` (created automatically when a prof
 ## 6. Config rendering / external integration
 
 ### Artifacts generated (server-side, in `internal/proxycore`)
-1. **sing-box `config.json`** per node: built from `ProxyNodeProfile.InboundIDs` → resolve `ProxyInbound`s → attach the `ProxyUser`s provisioned on each inbound (UUID for vless/vmess, password for trojan/ss/hy2; reality keys for reality inbounds). Output is a `map[string]any` marshaled with `encoding/json` — **no string templating of JSON** (injection-safe by construction; node-influenced metadata never reaches the renderer because inbounds/users are operator-defined server-side). Validate the marshaled tree against a minimal internal schema before it becomes a plan.
+1. **sing-box `config.json`** per node: built from `ProxyNodeProfile.InboundIDs` → resolve `ProxyInbound`s → attach the `ProxyUser`s provisioned on each inbound (UUID for vless/vmess, password for trojan/ss/hy2; reality keys for reality inbounds). Output is typed Go structs marshaled with `encoding/json` — **no string templating of JSON** (injection-safe by construction; node-influenced metadata never reaches the renderer because inbounds/users are operator-defined server-side). Validate the marshaled tree against a minimal internal schema before it becomes a plan. Iter-040 implements the first narrow path: sing-box `vless` over TCP with REALITY using `listen`/`listen_port`, VLESS `users[].uuid`, and TLS `reality` fields per the official sing-box docs.
 2. **Per-user subscription links** (the `/sub/{token}` body):
    - `vless://uuid@host:port?type=ws&security=reality&pbk=...&sid=...&sni=...&fp=chrome#node-label`
    - `vmess://<base64(json)>`, `trojan://pass@host:port?...#label`, `hysteria2://pass@host:port?...#label`, `ss://<base64(method:pass)>@host:port#label`
@@ -397,11 +403,11 @@ Follow `development-workflow.md`: plan → design (this doc) → build (TDD) →
 3. **Store** — `internal/store/store.go`: add the four `State` collections + `emptyState()` init + CRUD methods (mirror DDNS/Monitor). `internal/store/crypto.go`: encrypt `ProxyInbound.RealityPrivateKey`, `ProxyUser.UUID/Password/SubToken`; extend `stateHasEnvelope`. Tests: round-trip encrypt/decrypt, lost-key guard, bbolt import/export, and record-level proxy collections. **Landed in iter-039.** The opaque subscription-token lookup key is deferred to the `/sub/{token}` endpoint slice because no public subscription lookup exists yet.
 
 4. **Renderer** — new `internal/proxycore/`:
-   - `singbox.go`: `RenderConfig(profile, inbounds, users) (map[string]any, error)` → JSON; MVP path vless+reality+tcp; structural validation.
+   - `singbox.go`: `RenderSingBoxConfigJSON(profile, inbounds, users, opts) (SingBoxArtifact, error)` → canonical JSON + SHA-256 + target path + warnings; MVP path vless+reality+tcp; structural validation. **Landed in iter-040.**
    - `links.go`: `UserLinks(user, profile, inbounds) []string` (vless first); `Subscription(user, format) ([]byte, http.Header)`.
    - `reality.go`: X25519 keypair gen (pure Go `crypto/ecdh`), short-ID gen.
-   - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent).
-   *Commit: `feat(proxycore): sing-box renderer + vless/reality links + subscription encoders`.*
+   - Table-driven tests for each, including a golden sing-box config that `sing-box check` accepts (gated behind a build tag / skipped if binary absent). Iter-040 currently covers renderer shape/validation/hash/leak checks; optional `sing-box check` integration remains pending.
+   *Next commit shape: `feat(proxycore): vless/reality links + subscription encoders`.*
 
 5. **Server handlers** — new `internal/server/server_proxy.go`: inbounds/users/profiles CRUD (+ view structs that strip secrets), `/api/proxy/nodes/{id}/plan` (creates `Approval{Plugin:"proxycore"}`), `/sub/{token}` (public, rate-limited, constant-time token compare), `/api/proxy/usage`. Register routes in the existing mux. Add `proxy:read`/`proxy:admin` to the scope set. *Commit: `feat(server): proxy CRUD, plan, subscription endpoint`.*
 

@@ -43,8 +43,9 @@
 > changes, separate service-apply vs hostname-publish status fields, and
 > optional pinned CoreDNS executable install with SHA-256 verification. Proxy
 > core/subscription work has started: iter-039 landed the SDK model/proto/store
-> foundation with encrypted proxy credentials. Bulk geo import and map overlays
-> remain pending.
+> foundation with encrypted proxy credentials, and iter-040 landed the first
+> fail-closed sing-box `vless`+TCP+REALITY config renderer. Bulk geo import and
+> map overlays remain pending.
 
 
 ## V1 Hardening
@@ -128,8 +129,10 @@
   Iter-039 delivered the foundation: `ProxyInbound`, `ProxyUser`,
   `ProxyNodeProfile`, and `ProxyUsageSnapshot` SDK models, redacted proto views,
   JSON-store/bbolt collection parity, and AES-GCM at-rest encryption for Reality
-  private keys, UUID/password credentials, and subscription tokens. Next slices:
-  sing-box `vless+reality+tcp` renderer, scoped CRUD API, reviewed
+  private keys, UUID/password credentials, and subscription tokens. Iter-040
+  delivered the first server-side sing-box `vless`+TCP+REALITY renderer with
+  typed JSON generation, canonical config SHA-256, user eligibility filtering,
+  and fail-closed validation. Next slices: scoped CRUD API/read views, reviewed
   `proxycore` plan/apply, then `/sub/{token}` with an explicit opaque-token
   lookup design. *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF

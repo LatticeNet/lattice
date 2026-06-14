@@ -297,7 +297,8 @@ It owns bearer credentials, subscription tokens, and reviewed host mutations, so
 it uses the same server-owned trust boundary as DNS, DDNS, nft, WireGuard, and
 Cloudflare Tunnel.
 
-The current implementation is the iter-039 persistence foundation:
+The current implementation includes the iter-039 persistence foundation and the
+iter-040 first renderer slice:
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -307,9 +308,13 @@ The current implementation is the iter-039 persistence foundation:
 - `ProxyNodeProfile` binds inbounds to a node for later render/apply.
 - `ProxyUsageSnapshot` stores the last per-node accounting snapshot for later
   monotonic rollup.
+- `lattice-server/internal/proxycore` can render a canonical, SHA-256-addressed
+  sing-box config for the narrow MVP path: `vless` over TCP with REALITY. The
+  renderer is fail-closed, typed-JSON only, filters ineligible users, and treats
+  the output as a node-scoped secret-bearing artifact.
 
-Renderer, HTTP CRUD APIs, dashboard UI, agent apply scripts, stats reporting,
-and `/sub/{token}` are intentionally pending. The future subscription route
+HTTP CRUD APIs, dashboard UI, agent apply scripts, stats reporting, and
+`/sub/{token}` are intentionally pending. The future subscription route
 must not persist raw subscription tokens as map keys; add an opaque SHA-256
 token index or a constant-time scan with explicit rate limits before exposing
 that public endpoint.
