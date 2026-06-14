@@ -42,9 +42,8 @@ the bound node's public IP changes.
 
 - No CoreDNS binary download/installation.
 - No Cloudflare load balancer / geo-routing / anycast apex automation.
-- No separate `LastPublishedAt` field yet; the current shared timestamp is
-  sufficient for the MVP, but a future model revision should split service
-  apply status from DNS publication status.
+- No separate `LastPublishedAt` field yet in iter-036; iter-037 supersedes this
+  by splitting service apply status from DNS publication status.
 - No real Cloudflare network call in tests; provider injection covers the
   server contract.
 
@@ -80,5 +79,6 @@ the bound node's public IP changes.
 
 - Add CoreDNS binary provenance/install support or distro packaging guidance.
 - Run a Linux-node E2E proving CoreDNS + nft apply + Cloudflare publish together.
-- Add richer dashboard status grouping for "service running" vs "hostname
-  published".
+- Richer status grouping for "service running" vs "hostname published" was
+  completed in iter-037 by adding separate publish status fields and dashboard
+  labels.

@@ -39,8 +39,9 @@
 > scheduler paths. Self-host DNS now has a durable `DNSDeployment`
 > model/store/API/dashboard foundation with encrypted Cloudflare token storage,
 > CoreDNS/nft plan generation, rollback-protected apply, and status
-> reconciliation, Cloudflare publication, and automatic publication on node IP
-> changes. Bulk geo import and map overlays remain pending.
+> reconciliation, Cloudflare publication, automatic publication on node IP
+> changes, and separate service-apply vs hostname-publish status fields. Bulk
+> geo import and map overlays remain pending.
 
 
 ## V1 Hardening
@@ -131,8 +132,10 @@
   config/firewall rollback and task-result status reconciliation.
   Iter-036 delivered `/api/dns/publish`, Cloudflare publication through the
   existing DDNS provider, automatic publication on node IP changes, and a
-  dashboard Publish control. CoreDNS binary provenance/install support and a
-  real Linux-node E2E are next. *(Partially built.)*
+  dashboard Publish control. Iter-037 split CoreDNS/nft apply status
+  (`last_applied_at` / `last_error`) from Cloudflare publication status
+  (`last_published_at` / `last_publish_error`). CoreDNS binary provenance/install
+  support and a real Linux-node E2E are next. *(Partially built.)*
 - Sub-Store-style subscription transform/aggregation (folded into design-01 v2+).
 - nginx domain + path static publishing.
 

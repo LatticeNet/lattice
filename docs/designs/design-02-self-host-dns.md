@@ -1,6 +1,6 @@
 # Design 02 — One-Click Self-Hosted DNS Deployment
 
-> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + `/api/dns/plan` landed in iter-034; rollback-protected apply + status reconciliation landed in iter-035; Cloudflare publish + IP-change publication landed in iter-036 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
+> Status: **partially built**; shared `NFTInputs` prerequisite landed in iter-019; `DNSDeployment` model/store/API/dashboard foundation landed in iter-033; CoreDNS render + `/api/dns/plan` landed in iter-034; rollback-protected apply + status reconciliation landed in iter-035; Cloudflare publish + IP-change publication landed in iter-036; apply/publish status split landed in iter-037 · Author: design pass 2026-06-13 · Build target: the operator builds against this directly.
 > Companion to: `architecture.md` (DDNS, Cloudflare Tunnel, WireGuard, Storage, Safety Model), `PRODUCT-VISION.md` (pillars P1 Trust / P4 Durability), `development-workflow.md` (Plan→Execute→Review→Iterate).
 
 This document specifies a **CORE server-owned provider** (in the same class as `internal/ddns`, `internal/cftunnel`, `internal/wireguard`, `internal/network`) that lets an operator deploy a private DNS resolver/authoritative server onto a chosen node with a single approval, pair it with per-node nftables access rules, and publish a Cloudflare subdomain (e.g. `gmami-jp1.dns.roobli.org`) that DDNS keeps pointed at that node's public IP. It reuses the existing `plan → approve → apply` machinery verbatim; it adds no new external Go dependency and no CGo.
@@ -30,9 +30,12 @@ publish the deployment hostname through Cloudflare, persists last-published IPs
 and errors on the deployment, audits `dns.publish`, and also runs when the bound
 node's public IP changes. Dashboard now exposes a `Publish` control.
 
-**Still pending:** CoreDNS binary provenance/install support, a real Linux-node
-E2E, and clearer status separation between service apply and hostname
-publication (e.g. `LastPublishedAt` / `LastPublishError`).
+**Landed in iter-037:** service apply status and hostname publication status are
+now separate: `LastAppliedAt` / `LastError` describe CoreDNS+nft apply, while
+`LastPublishedAt` / `LastPublishError` describe Cloudflare publication.
+
+**Still pending:** CoreDNS binary provenance/install support and a real
+Linux-node E2E.
 
 ---
 
@@ -153,13 +156,18 @@ type DNSDeployment struct {
     CFAPIToken   string `json:"cf_api_token,omitempty"`  // SECRET; omitted from all read views
     DDNSProfileID string `json:"ddns_profile_id,omitempty"` // optional: reuse an existing CF DDNS profile
 
-    // Status (server-written after apply / publish).
+    // Service status (server-written after CoreDNS/nft apply).
     Status        string    `json:"status"`
     EngineVersion string    `json:"engine_version,omitempty"` // reported by agent facts
-    LastIPv4      string    `json:"last_ipv4,omitempty"`      // last published record value
-    LastIPv6      string    `json:"last_ipv6,omitempty"`
     LastAppliedAt time.Time `json:"last_applied_at,omitempty"`
     LastError     string    `json:"last_error,omitempty"`
+
+    // Hostname publication status (server-written after Cloudflare publish).
+    LastIPv4         string    `json:"last_ipv4,omitempty"` // last published record value
+    LastIPv6         string    `json:"last_ipv6,omitempty"`
+    LastPublishedAt  time.Time `json:"last_published_at,omitempty"`
+    LastPublishError string    `json:"last_publish_error,omitempty"`
+
     Disabled      bool      `json:"disabled,omitempty"`
     CreatedAt     time.Time `json:"created_at"`
     UpdatedAt     time.Time `json:"updated_at"`
@@ -313,8 +321,8 @@ New package **`lattice-server/internal/selfdns/`** — peer of `cftunnel`, depen
 - For *continuous* tracking, `maybeTriggerDDNS(nodeID, …)` also iterates
   `s.store.DNSDeploymentsForNode(nodeID)` and publishes each enabled
   deployment's hostname when the node IP changes, so the subdomain follows the
-  node with zero clicks. Record `LastIPv4/LastIPv6/LastAppliedAt/LastError` on
-  the deployment.
+  node with zero clicks. Record `LastIPv4/LastIPv6/LastPublishedAt/
+  LastPublishError` on the deployment without mutating CoreDNS/nft apply status.
 - Records are created **un-proxied** (grey-cloud) — the CF client already forces `Proxied:false` — because we want the raw node IP for DNS, not Cloudflare's proxy.
 
 ### 6.2 Apply-script encoding (chosen)
@@ -371,7 +379,8 @@ must re-plan.
 `network.selfdns.approve` (via the shared approve handler's
 `network.<plugin>.approve`), `dns.publish` (hostname + success flag, never the
 token), `dns.apply.result` (exit code, deployment id). Detailed provider errors
-live on `DNSDeployment.LastError`; audit metadata stays deliberately compact.
+live on `DNSDeployment.LastPublishError`; apply errors live on
+`DNSDeployment.LastError`. Audit metadata stays deliberately compact.
 
 ---
 
@@ -478,9 +487,11 @@ ruleset. Do not create a second nft table.
 3. Add `case "selfdns"` to `applyScriptFor` (delegates to `selfdns.ApplyScript`).
 4. Extend `maybeTriggerDDNS` to also publish `DNSDeploymentsForNode`; iter-036
    wires `handleDNSPublish` to the existing DDNS provider for one-shot publish
-   and records `LastIPv4/LastIPv6/LastAppliedAt/LastError` plus an audit event.
-4. Stamp `dns_id` into the queued apply task (metadata/link) and reconcile status in the task-result handler (`running`/`failed`).
-5. **TDD (`server_dns_test.go`):** create validates+hides token; plan records a pending approval with the right `Plugin`; plan text contains Corefile + nft candidate and no secret material; `queue_apply` creates an apply task whose script is generated from the reviewed plan; task results reconcile DNS status; `plan_sha256` mismatch is rejected; publish calls the mocked DDNS provider and records the IP; node IP changes auto-publish deployment hostnames; node-allowlist denial for a wrong-node token.
+   and records `LastIPv4/LastIPv6/LastPublishedAt/LastPublishError` plus an
+   audit event. Iter-037 keeps publication status separate from
+   `LastAppliedAt/LastError`.
+5. Stamp `dns_id` into the queued apply task (metadata/link) and reconcile status in the task-result handler (`running`/`failed`).
+6. **TDD (`server_dns_test.go`):** create validates+hides token; plan records a pending approval with the right `Plugin`; plan text contains Corefile + nft candidate and no secret material; `queue_apply` creates an apply task whose script is generated from the reviewed plan; task results reconcile DNS status; `plan_sha256` mismatch is rejected; publish calls the mocked DDNS provider and records the IP; node IP changes auto-publish deployment hostnames; node-allowlist denial for a wrong-node token.
 
 **Step 7 — Agent fact (optional, `lattice-node-agent`).** Report `coredns_version` in the hello payload when the binary exists. No other agent change (apply runs through the existing privileged-apply task path).
 
