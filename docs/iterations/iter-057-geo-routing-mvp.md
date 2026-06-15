@@ -60,16 +60,35 @@ validation; dashboard payload helpers.
 
 ## Residuals & Next (to reach the design-06 exit bar)
 
-1. **Apply** — ship the rendered geo zone to the DNS node via the Design 02
-   self-host DNS reviewed apply path (write `/etc/coredns/geo-<id>.conf` imported
-   by the Corefile → `coredns -validate` → atomic swap → reload). The render +
-   SHA are ready; this wires it to the approval/task channel.
-2. **NS delegation publish** — extend the `internal/ddns` Cloudflare client to NS
-   records + a `/api/geo-routing/publish-ns` endpoint that publishes
-   `dns.roobli.org NS …` + glue into the CF parent zone using the referenced
-   `DDNSProfile`'s token.
-3. **Re-render trigger** — call `touchGeoRoutingsForNode` from the existing
-   IP/geo/health-change path so a node going offline/moving re-renders.
+1. **Apply** (the foundational remaining piece — deliberately scoped as its own
+   focused slice, not rushed, because it touches the security-critical approval
+   dispatch at multiple points + CoreDNS config-import mechanics). Precise
+   blueprint (mirror the `selfdns`/`proxycore` approval pattern):
+   - `/api/geo-routing/apply` renders the zone and creates an `Approval{Plugin:
+     "georouting", Action: "geo-apply:<sha>", Plan: <rendered geo Corefile>}` —
+     mirroring `handleProxyNodePlan` / `handleDNSPlan`.
+   - Add a `"georouting"` case alongside `proxyCorePlugin`/`"selfdns"` at the
+     approval→task dispatch points in `server.go`: `applyScriptFor` (~2971), the
+     approve→queue-apply flow (~3437-3471), and status (~3515/3720). Generate the
+     apply script from the plan (a `georouting.ApplyScriptFromPlan` mirroring
+     `selfdns.ApplyScriptFromPlan`).
+   - Apply-script mechanics: write the rendered config to a **standalone**
+     `/etc/coredns/geo.d/<id>.conf` (heredoc, atomic swap) that the main self-host
+     DNS Corefile includes via `import geo.d/*.conf`; validate by re-running
+     `coredns -conf <main Corefile> -plugins` (the import resolves so the geo
+     blocks validate in context, and the GeoLite2 DB must be present); reload
+     CoreDNS. Keeps `selfdns.GenerateConfig` untouched (decoupled).
+   - A task-result handler (mirror `handleProxyCoreTaskResult`) sets
+     `LastRenderedSHA`/`LastAppliedAt`/`Status` on the `GeoRouting`.
+2. **NS delegation publish** (do **after** apply — a node must serve the geo zone
+   before it is delegated, or resolution breaks): extend the `internal/ddns`
+   Cloudflare client to NS records + a `/api/geo-routing/publish-ns` endpoint that
+   publishes `dns.roobli.org NS <dns-node-hostname>` into the CF parent zone using
+   the referenced `DDNSProfile`'s token (the DNS nodes' existing
+   `gmami-jp1.dns.roobli.org` A records serve as the NS targets — no separate glue).
+3. ~~**Re-render trigger**~~ — **done (this slice)**: `maybeTriggerDDNS` now calls
+   `touchGeoRoutingsForNode`, flagging dependent geo-routings `node-changed` on a
+   node IP change so the dashboard prompts a re-plan/apply (idempotent; tested).
 4. **Operator runtime** — GeoLite2 DB provisioning on the DNS node (or pinned
    install with the operator's MaxMind key) + the one-time NS delegation; a real
    Linux-node E2E (EU vs AS client resolves to the nearest node).

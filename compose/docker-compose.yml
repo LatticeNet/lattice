@@ -1,0 +1,24 @@
+services:
+  lattice-server:
+    image: ghcr.io/latticenet/lattice-server:latest
+    container_name: lattice-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      LATTICE_LISTEN: 0.0.0.0:8088
+      LATTICE_DATA: /var/lib/lattice/state.json
+      LATTICE_WEB_ROOT: /app/dashboard
+      LATTICE_MASTER_KEY_FILE: /var/lib/lattice/master.key
+      LATTICE_PLUGIN_DIR: /plugins
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - ./data:/var/lib/lattice
+      - ./plugins:/plugins:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8088/api/health >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

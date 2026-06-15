@@ -15,8 +15,9 @@ start with [Operator guide](./operator-guide.md).
 
 ## Production Shape
 
-Run `lattice-server` behind nginx, Caddy, or Cloudflare Tunnel. Bind the server
-to localhost or a WireGuard address:
+Run `lattice-server` behind nginx, Caddy, or Cloudflare Tunnel. For the easiest
+server-only deployment, use [Docker server deployment](./docker-server.md).
+For a direct binary install, bind the server to localhost or a WireGuard address:
 
 ```sh
 cd Lattice/lattice-server

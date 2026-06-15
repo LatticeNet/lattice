@@ -9,6 +9,7 @@ and what is still not production-ready.
 
 - [Operator guide](./operator-guide.md)
 - [Server install](./server-install.md)
+- [Docker server deployment](./docker-server.md)
 - [Agent install](./agent-install.md)
 - [Agent updates](./agent-updates.md)
 - [Storage migration drills](./storage-migration.md)

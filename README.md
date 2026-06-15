@@ -56,6 +56,21 @@ separately.
 
 ## Quick Start
 
+Docker server deployment:
+
+```sh
+cd Lattice/lattice/compose
+cp .env.example .env
+$EDITOR .env
+docker compose up -d
+```
+
+See [Docker server deployment](./docs/tutorials/docker-server.md). The
+recommended production shape is containerized `lattice-server` plus a
+systemd-managed host `lattice-node-agent`.
+
+Local binary development:
+
 ```sh
 cd Lattice/lattice
 make test

@@ -37,6 +37,10 @@ lattice-agent -version
 
 ## 2. Deploy the server
 
+Recommended public path: Docker/Compose for `lattice-server`, systemd binary for
+`lattice-node-agent`. See [Docker server deployment](./docker-server.md) for the
+container path.
+
 Recommended filesystem layout:
 
 ```txt
