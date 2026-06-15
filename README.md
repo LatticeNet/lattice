@@ -123,5 +123,13 @@ Task execution is disabled by default on the agent. Start with
 
 Publish `lattice-sdk` first, then `lattice-server` and `lattice-node-agent`,
 then `lattice-dashboard`, `lattice-plugin-template`, `lattice`, and `.github`.
-Tag `lattice-sdk` as `v0.1.0` before building server/agent without the local
-workspace.
+
+## Shared Contract Releases
+
+`lattice-server` and `lattice-node-agent` intentionally consume shared models
+from `lattice-sdk`. When SDK contracts change, cut a new `lattice-sdk` tag first
+and then update the dependent `go.mod` files. Local multi-repo development can
+use `go.work`, but standalone builds should not depend on an untagged SDK
+`main`.
+
+Current dependent SDK version: `v0.2.0`.

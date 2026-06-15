@@ -30,6 +30,52 @@ allow/deny host-call events. `http:egress` is only a permission to ask the
 server-owned HTTP host to dial; that host must still apply the outbound SSRF and
 egress guard.
 
+## Storage
+
+Plugin bundle bytes are not stored inside the server state database. They live
+under `LATTICE_PLUGIN_DIR` on the server host or container, for example:
+
+```txt
+/plugins/
+  example.plugin/
+    manifest.json
+    artifact
+```
+
+The server scans that directory, verifies manifest/artifact integrity, and then
+stores lifecycle metadata in server state: status, verified identity,
+capabilities, digest, timestamps, and runtime health. Plugin-specific durable
+data should use a plugin-owned KV namespace such as `plugin:<id>`.
+
+In Docker deployments the recommended mount is read-only:
+
+```yaml
+volumes:
+  - ./plugins:/plugins:ro
+```
+
+Changing bundle bytes should be a release operation, not a dashboard write.
+
+## Marketplace Status
+
+`LatticeNet/lattice-plugin-index` is the marketplace foundation. It currently
+contains a static `plugins.json` format plus a dependency-free validator. It is
+not yet a remote install mechanism.
+
+Operators should treat marketplace entries as install candidates only. A future
+server-side install flow must still verify:
+
+- index signature;
+- publisher trust policy;
+- plugin manifest signature;
+- artifact SHA-256 digest;
+- declared capabilities and risk tier;
+- runner sandbox compatibility.
+
+Until real runners and sandbox policy are mature, the dashboard should display
+marketplace metadata but should not install or execute remote community bundles
+automatically.
+
 ## Lifecycle
 
 The server now keeps a metadata-only lifecycle record for each bundle that

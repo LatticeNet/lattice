@@ -65,10 +65,11 @@ fail-closed path validation, agent tailer, per-source ingest budget, and a
 dashboard Logs panel — v2 adds encryption-default/sweeper, silent-source notify,
 and journald. Design 07 landed in iter-058: per-node `AgentUpdatePolicy`,
 manual server-controlled update plans, auto-plan pending approvals, delayed
-agent service restart, and dashboard policy controls. Each
-agent service restart, and dashboard policy controls. Design 08 records the
-safe path from the current noop plugin runtime to real worker/system/wasm
-runners without enabling artifact execution prematurely. Each
+agent service restart, and dashboard policy controls. Iter-060 adds
+release-readiness review/hardening around SDK contract versioning, the update
+script, and marketplace documentation. Design 08 records the safe path from the
+current noop plugin runtime to real worker/system/wasm runners without enabling
+artifact execution prematurely. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 `development-workflow.md`: plan → design → build → verify → review → commit).
 

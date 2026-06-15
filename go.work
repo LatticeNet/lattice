@@ -6,3 +6,5 @@ use (
 	../lattice-sdk
 	../lattice-server
 )
+
+replace github.com/LatticeNet/lattice-sdk v0.2.0 => ../lattice-sdk
