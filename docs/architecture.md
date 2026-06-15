@@ -305,7 +305,8 @@ iter-046 usage-reporting baseline, the iter-047 subscription-format slice, the
 iter-048 focused dashboard apply-review slice, the iter-049 loopback
 HTTP/V2Ray-stats collector foundation, the iter-050 proxy notification slice,
 the iter-051 subscription import-helper slice, the iter-052 collector-health
-slice, and the iter-053 xray renderer/apply slice:
+slice, the iter-053 xray renderer/apply slice, and the iter-054 dependency-free
+xray stats transport (`xray api statsquery` per ADR-003):
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
@@ -374,13 +375,16 @@ slice, and the iter-053 xray renderer/apply slice:
   when `expires_at` reaches 7d/1d/expired thresholds. The existing hourly
   reminder scheduler also evaluates proxy users, so expiry alerts do not depend
   on a fresh node usage report.
-- `lattice-node-agent` supports `-proxy-usage-file` /
-  `LATTICE_PROXY_USAGE_FILE` as a bounded JSON snapshot bridge and
-  `-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL` as a loopback-only HTTP JSON
-  source. The URL source accepts direct `ProxyUsageSnapshot`, `{"snapshot": ...}`,
-  or V2Ray-style `user>>>...>>>traffic>>>uplink/downlink` stats, rejects remote
-  hosts and URL userinfo, caps response bodies, and posts the same normalized
-  snapshot to `/api/agent/proxy-usage`.
+- `lattice-node-agent` supports three mutually-exclusive usage sources:
+  `-proxy-usage-file` / `LATTICE_PROXY_USAGE_FILE` (bounded JSON snapshot bridge),
+  `-proxy-usage-url` / `LATTICE_PROXY_USAGE_URL` (loopback-only HTTP JSON source),
+  and `-proxy-usage-xray-api` / `LATTICE_PROXY_USAGE_XRAY_API` (runs the on-node
+  `xray api statsquery` against a loopback API address per ADR-003 — no
+  `grpc-go`; sing-box's own HTTP API is consumed via the URL source). The URL and
+  xray sources accept direct `ProxyUsageSnapshot`, `{"snapshot": ...}`, or
+  V2Ray-style `user>>>...>>>traffic>>>uplink/downlink` stats, reject remote/
+  non-loopback hosts, cap output, refuse HTTP redirects, and post the same
+  normalized snapshot to `/api/agent/proxy-usage`.
 - Proxy usage collector health is surfaced through the same authenticated agent
   route. Successful reports set `collector_status=ok`; local file/HTTP
   collector failures post health-only `collector_status=error` snapshots. The

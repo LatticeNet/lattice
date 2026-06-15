@@ -70,6 +70,10 @@
 > server profile state to the dashboard.
 > Iter-053 landed xray VLESS+REALITY+TCP rendering and reviewed `xray test -c`
 > apply, reusing the same subscription and approval model.
+> Iter-054 landed the dependency-free xray stats transport — the agent runs the
+> on-node `xray api statsquery` (ADR-003, no `grpc-go`) — plus two low-severity
+> collector hardening fixes (HTTP redirect refusal, `config_path` `..` rejection).
+> Live over-quota/expired reconcile through a reviewed apply remains pending.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -186,8 +190,11 @@
   health/error state on proxy profiles without letting error reports mutate the
   accounting baseline. Iter-053 delivered xray VLESS+REALITY+TCP config
   rendering, reviewed `xray test -c` apply, dashboard core selection, and xray
-  nodes in the same fleet-wide VLESS subscriptions. Next slice: true
-  sing-box/xray API transport for usage collection.
+  nodes in the same fleet-wide VLESS subscriptions. Iter-054 delivered the
+  dependency-free xray stats transport (`xray api statsquery` via the on-node
+  binary, ADR-003 — no `grpc-go`; sing-box uses its existing loopback HTTP API).
+  Next slice: live over-quota/expired reconcile that removes disabled users from
+  applied node configs through a reviewed apply.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered
