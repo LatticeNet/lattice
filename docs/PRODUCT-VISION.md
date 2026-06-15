@@ -70,7 +70,7 @@ The bar is not "works." The bar is **惊艳 — a product that makes a self-host
 |---|---|---|
 | **P1 · Trust** | Secure by default, fail-closed, auditable, nothing to misconfigure into insecurity | Strong: RBAC, rate-limit, signed plugins (fail-closed), tamper-evident audit WAL, 2FA, at-rest encryption |
 | **P2 · Identity** | Password + 2FA + SSO; the front door is frictionless and enterprise-ready | Password ✅ + TOTP 2FA ✅ + OIDC/SSO backend/UI ✅; **2FA policy + WebAuthn groundwork next** |
-| **P3 · Platform** | A real plugin system — install, verify, run, and extend safely; a marketplace of official + community plugins | Manifest + signing ✅, loader ✅, preflight verify ✅, host-API broker + server adapter ✅, lifecycle registry/API/UI ✅, runtime manager + runner contract ✅; **plugin artifacts don't execute yet** |
+| **P3 · Platform** | A real plugin system — install, verify, run, and extend safely; a marketplace of official + community plugins | Manifest + signing ✅, loader ✅, preflight verify ✅, host-API broker + server adapter ✅, lifecycle registry/API/UI ✅, runtime manager + runner contract ✅, static plugin-index foundation ✅; **plugin artifacts don't execute yet** |
 | **P4 · Scale & durability** | Survives growth and crashes; backup/restore is a non-event | JSON state + at-rest encryption + audit WAL ✅; bbolt import/export + JSON migration/rollback CLI ✅; record-level APIs for current state buckets ✅; runtime cutover pending; **default store still whole-file JSON** |
 | **P5 · Experience (惊艳)** | A dashboard that is fast, legible, real-time, and beautiful; onboarding that takes minutes | Functional zero-dep dashboard with SSO + plugin lifecycle panels; **many endpoints still have no UI; design layer immature** |
 
@@ -92,8 +92,8 @@ Each phase has an exit bar. Phases ship as tested, reviewed, committed slices (t
 
 ### Phase B — The platform runs plugins  *(item ③)*
 - B1 · **Host-API broker** ✅: the stable, capability-gated interface a plugin calls back into (store/kv, http-egress, notify, log) — the contract the wasm tier was deferred behind (ADR-001 D2/D5).
-- B2 · **Real execution** of `system`/`worker` plugins on top of the loader: lifecycle registry/API/UI ✅; runtime manager + runner contract ✅; artifact execution, concrete runner isolation, per-plugin limits, and runtime health depth still pending.
-- B3 · First official plugins as reference; marketplace fetch of signed artifacts.
+- B2 · **Real execution** of `system`/`worker` plugins on top of the loader: lifecycle registry/API/UI ✅; runtime manager + runner contract ✅; Design 08 defines runner gates/order; artifact execution, concrete runner isolation, per-plugin limits, and runtime health depth still pending.
+- B3 · First official plugins as reference; static signed-index foundation exists, marketplace fetch/install of signed artifacts remains pending.
 - **Exit:** a signed plugin installs, runs, is capability-confined, and its host calls are brokered + audited. Foundation for the user's own LatticeNet/* official plugins (sing-box/xray/sub-store).
 
 ### Phase C — Storage that scales  *(item ④, next high-leverage backend slice)*

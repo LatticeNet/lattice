@@ -66,6 +66,9 @@ dashboard Logs panel — v2 adds encryption-default/sweeper, silent-source notif
 and journald. Design 07 landed in iter-058: per-node `AgentUpdatePolicy`,
 manual server-controlled update plans, auto-plan pending approvals, delayed
 agent service restart, and dashboard policy controls. Each
+agent service restart, and dashboard policy controls. Design 08 records the
+safe path from the current noop plugin runtime to real worker/system/wasm
+runners without enabling artifact execution prematurely. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 `development-workflow.md`: plan → design → build → verify → review → commit).
 
@@ -80,6 +83,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 | 05 | [Network ACL & geo-map](design-05-network-acl-and-map.md) | Per-node nft access rules (deny node→dmit:1234), policy/reachability viz, nezha-style global map | CORE `internal/netpolicy`; `NetPolicy` validation/store/API/graph/dashboard foundation landed iter-020; egress-only nft compiler + `/api/netpolicy/plan` + **60s agent dead-man rollback** apply path landed iter-021; `NodeGeo` CRUD + inline-SVG fleet map landed iter-022; policy graph SVG landed iter-023; Network Guard rollback apply + ingress guard composition landed iter-024; control-plane HTTPS-domain named set landed iter-026; agent-native domain-set updater landed iter-027; systemd periodic refresh landed iter-028; IPv6 control-plane parity landed iter-029; operator IPv6 remotes landed iter-030; egress domain remotes landed iter-031; cron.d refresh fallback landed iter-032 |
 | 06 | [Geo-routing dns.roobli.org](design-06-cf-dns-geo-routing.md) | Resolve a shared apex (`dns.roobli.org`) to the nearest healthy node by client location | **Decision (operator): Path B — free, self-hosted GeoDNS** (CF Load Balancing rejected on cost: paid add-on, country-geo needs Business plan). Lattice renders a geo-aware CoreDNS zone (haversine nearest-healthy node per continent from operator-owned `NodeGeo`, `geoip`+`view`) shipped via the Design 02 apply path, and delegates the subdomain NS into the CF parent zone with the existing DNS-edit token. Zero new Go deps; GeoLite2 is an operator-provisioned runtime file. **iter-057** shipped the configure+preview MVP (render core + `GeoRouting` model/store + CRUD/plan API + dashboard panel, all tested); next is apply-to-node (via Design 02 path) + NS delegation publish + the re-render trigger. |
 | 07 | [Agent lifecycle updates](design-07-agent-lifecycle-updates.md) | Server-controlled node-agent update policies, manual update plans, and auto-plan pending approvals | **iter-058 shipped MVP**: `AgentUpdatePolicy` model/store/bbolt bucket, HTTPS URL + SHA-256 validation, reviewed `agentupdate` approval path, 300s bounded update task, delayed service restart so the current agent can post the result, dashboard policy panel, and agent `-version` smoke flag. Next: signed release-channel resolver and post-restart confirmation. |
+| 08 | [Real plugin runners](design-08-real-plugin-runners.md) | Safe path from noop runtime to worker/system/wasm artifact execution | Keep `noop` default; implement worker template runner first, then a constrained system runner for official plugins, then wasm only after an ADR. Marketplace install remains separate from activation, and host-risk plugins keep trusted-signature requirements. |
 
 ## Shared architecture (all five honor)
 

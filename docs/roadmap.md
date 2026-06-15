@@ -81,6 +81,10 @@
 > server-controlled node-agent update policies with manual plan and auto-plan
 > pending approvals. Geo-Routing apply/NS publish, log ingestion v2, and signed
 > agent release-channel discovery remain pending.
+> The public ecosystem surface now has a server Docker/GHCR path, a planned
+> `latticenet.github.io` Pages site, and a `lattice-plugin-index` static
+> marketplace-index foundation. Plugin artifact execution remains gated by
+> [`designs/design-08-real-plugin-runners.md`](./designs/design-08-real-plugin-runners.md).
 > Bulk geo import and map overlays remain pending.
 
 
@@ -103,6 +107,8 @@
   *(Delivered 2026-06-14 in iter-025; re-authentication still pending.)*
 - Add systemd units and install scripts. *(Agent update control landed in
   iter-058; first-class packaging/unit templates remain pending.)*
+- Add Docker/Compose server deployment. *(Dockerfile, GHCR workflow, and compose
+  guide landed as the server deployment path; node-agent remains systemd-first.)*
 - Add end-to-end browser QA.
 - Add node-token last-used telemetry and optional source-IP policy. (Rotation API
   delivered; last-used/source-IP policy pending.)
@@ -117,8 +123,10 @@
 - Runtime manager + runner contract. *(Delivered 2026-06-12; default runner is
   `noop`, so plugin artifacts do not execute yet.)*
 - Concrete system/worker/wasm runners with capability enforcement, per-plugin
-  deadlines, rate limits, log/output caps, and runtime health depth.
-- Marketplace fetch/install of signed artifacts.
+  deadlines, rate limits, log/output caps, and runtime health depth. *(Design 08
+  defines the required gates and order; execution remains disabled.)*
+- Marketplace fetch/install of signed artifacts. *(Static `lattice-plugin-index`
+  foundation is defined; remote install and activation remain pending.)*
 
 ## Network Plugins
 
