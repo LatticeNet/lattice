@@ -73,7 +73,10 @@
 > Iter-054 landed the dependency-free xray stats transport — the agent runs the
 > on-node `xray api statsquery` (ADR-003, no `grpc-go`) — plus two low-severity
 > collector hardening fixes (HTTP redirect refusal, `config_path` `..` rejection).
-> Live over-quota/expired reconcile through a reviewed apply remains pending.
+> Iter-055 landed proxy config-drift detection: the scheduler flags when an
+> applied node config still serves now-ineligible users and the dashboard offers
+> a one-click Review & Apply enforce path (plan→approve→apply preserved; no
+> auto-apply). Opt-in auto-enforce for reduction-only drift remains pending.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -193,8 +196,10 @@
   nodes in the same fleet-wide VLESS subscriptions. Iter-054 delivered the
   dependency-free xray stats transport (`xray api statsquery` via the on-node
   binary, ADR-003 — no `grpc-go`; sing-box uses its existing loopback HTTP API).
-  Next slice: live over-quota/expired reconcile that removes disabled users from
-  applied node configs through a reviewed apply.
+  Iter-055 delivered config-drift detection: the scheduler flags applied configs
+  that still serve now-ineligible users, audits the transition, and the dashboard
+  promotes a one-click Review & Apply enforce path (no auto-apply; approval
+  preserved). Next slice: opt-in auto-enforce for reduction-only drift.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered

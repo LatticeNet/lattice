@@ -46,7 +46,9 @@
 > health/error surfacing landed in iter-052; xray VLESS+REALITY+TCP
 > renderer/apply landed in iter-053; the dependency-free xray stats transport
 > (`xray api statsquery`, ADR-003 — no `grpc-go`) plus collector hardening
-> (HTTP redirect refusal, `config_path` `..` rejection) landed in iter-054.
+> (HTTP redirect refusal, `config_path` `..` rejection) landed in iter-054;
+> proxy config-drift detection with a one-click Review & Apply enforce path
+> (no auto-apply) landed in iter-055.
 > See
 > `designs/README.md` for the remaining cross-cutting dependencies and
 > recommended build order.

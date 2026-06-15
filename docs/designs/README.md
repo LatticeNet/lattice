@@ -56,7 +56,9 @@ VLESS+REALITY+TCP renderer, reviewed `xray test -c` apply path, and dashboard
 core selection; iter-054 lands the dependency-free xray stats transport (the
 agent runs the on-node `xray api statsquery` per ADR-003 — no `grpc-go`) plus two
 low-severity collector hardening fixes (HTTP redirect refusal, `config_path` `..`
-rejection).
+rejection); iter-055 adds proxy config-drift detection — the scheduler flags when
+an applied node config still serves now-ineligible users and surfaces a one-click
+**Review & Apply** enforce path (plan→approve→apply preserved; no auto-apply).
 Remaining Design 05 work is bulk geo import and map overlays. Design 03 remains
 design-ready but unbuilt. Each
 new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
@@ -66,7 +68,7 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
 
 | # | Design | What it delivers | Core decision |
 |---|--------|------------------|---------------|
-| 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box/xray management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; SDK model/proto/store/encryption foundation landed iter-039; sing-box `vless+reality+tcp` renderer landed iter-040; scoped CRUD/read views landed iter-041; redacted reviewed plan endpoint landed iter-042; secret-safe queue/apply landed iter-043; plain/base64 `/sub/{token}` landed iter-044; dashboard CRUD + explicit subscription URL rotation/copy landed iter-045; usage reporting baseline landed iter-046; sing-box JSON + Clash/Mihomo YAML subscriptions landed iter-047; focused proxy apply UI landed iter-048; loopback HTTP/V2Ray-stats collector foundation landed iter-049; quota/expiry notifications landed iter-050; subscription import helpers landed iter-051; collector health/error surfacing landed iter-052; xray VLESS+REALITY+TCP renderer/apply landed iter-053; dependency-free xray stats transport (`xray api statsquery`, ADR-003) landed iter-054; next is live over-quota/expired reconcile through a reviewed apply; node-agnostic `ProxyUser` -> one subscription spans the fleet (remnawave model); secrets encrypted at rest |
+| 01 | [Proxy cores & subscriptions](design-01-proxy-cores-and-subscriptions.md) | Centralized sing-box/xray management across the node fleet + fleet-wide subscriptions | **CORE provider** `internal/proxycore`; SDK model/proto/store/encryption foundation landed iter-039; sing-box `vless+reality+tcp` renderer landed iter-040; scoped CRUD/read views landed iter-041; redacted reviewed plan endpoint landed iter-042; secret-safe queue/apply landed iter-043; plain/base64 `/sub/{token}` landed iter-044; dashboard CRUD + explicit subscription URL rotation/copy landed iter-045; usage reporting baseline landed iter-046; sing-box JSON + Clash/Mihomo YAML subscriptions landed iter-047; focused proxy apply UI landed iter-048; loopback HTTP/V2Ray-stats collector foundation landed iter-049; quota/expiry notifications landed iter-050; subscription import helpers landed iter-051; collector health/error surfacing landed iter-052; xray VLESS+REALITY+TCP renderer/apply landed iter-053; dependency-free xray stats transport (`xray api statsquery`, ADR-003) landed iter-054; config-drift detection + one-click reviewed enforce landed iter-055; next is opt-in auto-enforce for reduction-only drift; node-agnostic `ProxyUser` -> one subscription spans the fleet (remnawave model); secrets encrypted at rest |
 | 02 | [Self-hosted DNS](design-02-self-host-dns.md) | One-click private DNS on a chosen node + CF subdomain (gmami-jp1.dns.roobli.org) auto-updated via DDNS + nft-confined | CORE `internal/selfdns`; `DNSDeployment` model/API/dashboard foundation landed iter-033; CoreDNS render + `/api/dns/plan` landed iter-034; rollback-protected apply/status landed iter-035; Cloudflare publish landed iter-036; apply/publish status split landed iter-037; pinned CoreDNS install landed iter-038; reuses `internal/ddns` (CF) + shared `NFTInputs` |
 | 03 | [Log ingestion & query](design-03-log-ingestion.md) | Tail an operator-specified log path on a node → queryable store for debugging | Agent tails + ships deltas; **NOT on the JSON store** — a dedicated bounded append-only per-node log store (relates to the bbolt foundation); query API + dashboard |
 | 04 | [Machine inventory & cost](design-04-machine-inventory-and-cost.md) | Auto-detect CPU/mem/uptime/arch; operator-set cloud vendor/links/cost/renewal + renewal reminders | `HostFacts` auto-detect/report/display **landed iter-017**; server-only `MachineProfile` + renewal reminder MVP **landed iter-018** |
@@ -113,9 +115,11 @@ new build slice becomes a numbered `iterations/iter-NNN-*.md` (per
    subscription import helpers in the dashboard; iter-052 added collector
    health/error surfacing; iter-053 added xray rendering/apply for the same
    VLESS+REALITY+TCP MVP; iter-054 added the dependency-free xray stats transport
-   (`xray api statsquery`, ADR-003 — no `grpc-go`). Next: live over-quota/expired
-   reconcile that removes disabled users from applied node configs through a
-   reviewed apply.
+   (`xray api statsquery`, ADR-003 — no `grpc-go`); iter-055 added config-drift
+   detection that flags applied configs still serving now-ineligible users plus a
+   one-click **Review & Apply** enforce path (no auto-apply). Next: opt-in
+   auto-enforce for reduction-only drift, then **Design 03 (log ingestion)** —
+   the largest remaining unbuilt feature.
 4. **03 Log ingestion** — pairs with the bbolt cutover (Phase C); do once a real
    store backend is wired, or ship the bounded standalone store as an interim.
 5. **Design 04 v2 polish** — audited reveal endpoint, per-currency rollups,

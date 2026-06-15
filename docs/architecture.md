@@ -305,8 +305,10 @@ iter-046 usage-reporting baseline, the iter-047 subscription-format slice, the
 iter-048 focused dashboard apply-review slice, the iter-049 loopback
 HTTP/V2Ray-stats collector foundation, the iter-050 proxy notification slice,
 the iter-051 subscription import-helper slice, the iter-052 collector-health
-slice, the iter-053 xray renderer/apply slice, and the iter-054 dependency-free
-xray stats transport (`xray api statsquery` per ADR-003):
+slice, the iter-053 xray renderer/apply slice, the iter-054 dependency-free
+xray stats transport (`xray api statsquery` per ADR-003), and the iter-055
+config-drift detection slice (scheduler-computed `config_stale` signal +
+one-click Review & Apply; plan→approve→apply preserved, no auto-apply):
 
 - `ProxyInbound` models a central sing-box/xray inbound template. REALITY
   private keys are encrypted at rest and redacted from proto/read views.
