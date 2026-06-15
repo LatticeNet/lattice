@@ -221,9 +221,14 @@
 
 ## Observability
 
-- **System log ingestion + query** — designed in
-  [`designs/design-03-log-ingestion.md`](./designs/design-03-log-ingestion.md)
-  (agent tails a path → bounded per-node store, NOT the JSON store → query API). *(Designed.)*
+- **System log ingestion + query** — **MVP shipped iter-056**
+  ([`designs/design-03-log-ingestion.md`](./designs/design-03-log-ingestion.md)):
+  agent tails a path → dedicated bounded bbolt `logs.db` (NOT the JSON store) →
+  scoped query/stats API + dashboard Logs panel. Fail-closed path validation
+  (`/var/log/` allowlist, `/proc,/sys,/dev` deny), cross-node ingest rejection,
+  per-source byte-cap + lines/sec budget (429), optional at-rest chunk
+  encryption. v2: encryption-default + age/global sweeper + silent-source notify
+  + journald. *(MVP built.)*
 - **Machine inventory + cost/renewal** — designed in
   [`designs/design-04-machine-inventory-and-cost.md`](./designs/design-04-machine-inventory-and-cost.md)
   (auto-detect cores/mem/uptime/arch; cloud vendor/cost/renewal + reminder scheduler).
