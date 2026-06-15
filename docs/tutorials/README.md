@@ -7,8 +7,10 @@ and what is still not production-ready.
 
 ## Operator Guides
 
+- [Operator guide](./operator-guide.md)
 - [Server install](./server-install.md)
 - [Agent install](./agent-install.md)
+- [Agent updates](./agent-updates.md)
 - [Storage migration drills](./storage-migration.md)
 - [Network guard](./network-guard.md)
 - [Static and KV](./static-and-kv.md)

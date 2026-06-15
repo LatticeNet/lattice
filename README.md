@@ -30,6 +30,13 @@ separately.
 - Self-host DNS deployment intent, CoreDNS/nft planning, rollback-protected
   apply, Cloudflare hostname publication, separate service/publish status, and
   optional pinned CoreDNS executable install.
+- Geo-Routing configure+preview for a self-hosted DNS apex, using
+  operator-owned node locations and healthy-node selection.
+- Log ingestion/query MVP with a dedicated bounded `logs.db`, agent tailer,
+  scoped source management, and dashboard Logs panel.
+- Server-controlled node-agent update policies with manual update plans,
+  auto-plan pending approvals, SHA-256-pinned HTTPS artifacts, and delayed
+  service restart after task result reporting.
 - Proxy-core/subscription foundation: shared models, redacted proto views,
   JSON/bbolt persistence, and encrypted Reality/user/subscription credentials
   plus the first fail-closed sing-box `vless`+TCP+REALITY renderer, scoped
@@ -84,8 +91,10 @@ Task execution is disabled by default on the agent. Start with
 ## Operator Docs
 
 - [Tutorial index](./docs/tutorials/README.md)
+- [Operator guide](./docs/tutorials/operator-guide.md)
 - [Server install](./docs/tutorials/server-install.md)
 - [Agent install](./docs/tutorials/agent-install.md)
+- [Agent updates](./docs/tutorials/agent-updates.md)
 - [Storage migration drills](./docs/tutorials/storage-migration.md)
 - [Plugins](./docs/tutorials/plugins.md)
 - [Network guard](./docs/tutorials/network-guard.md)

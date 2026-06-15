@@ -60,8 +60,7 @@
 > proxy operators can review pending `proxycore/apply-config` plans and queue
 > apply from the Proxy Core panel without using the generic Approvals panel.
 > Iter-049 landed the node-agent loopback HTTP/V2Ray-stats proxy usage
-> collector foundation with no new Go dependencies; true sing-box/xray API
-> transport remains pending.
+> collector foundation with no new Go dependencies.
 > Iter-050 landed server-owned proxy quota/expiry notifications through the
 > existing `internal/notify` channel fan-out.
 > Iter-051 landed dashboard subscription import helpers for base64/plain/
@@ -77,6 +76,11 @@
 > applied node config still serves now-ineligible users and the dashboard offers
 > a one-click Review & Apply enforce path (plan→approve→apply preserved; no
 > auto-apply). Opt-in auto-enforce for reduction-only drift remains pending.
+> Iter-056 landed log ingestion/query MVP with dedicated bounded `logs.db`;
+> iter-057 landed Geo-Routing configure+preview; iter-058 landed
+> server-controlled node-agent update policies with manual plan and auto-plan
+> pending approvals. Geo-Routing apply/NS publish, log ingestion v2, and signed
+> agent release-channel discovery remain pending.
 > Bulk geo import and map overlays remain pending.
 
 
@@ -97,7 +101,8 @@
 - Add approval re-authentication for `network:apply` and `task:run`.
 - Require reviewed-plan SHA-256 binding before high-risk apply approvals.
   *(Delivered 2026-06-14 in iter-025; re-authentication still pending.)*
-- Add systemd units and install scripts.
+- Add systemd units and install scripts. *(Agent update control landed in
+  iter-058; first-class packaging/unit templates remain pending.)*
 - Add end-to-end browser QA.
 - Add node-token last-used telemetry and optional source-IP policy. (Rotation API
   delivered; last-used/source-IP policy pending.)
@@ -199,7 +204,8 @@
   Iter-055 delivered config-drift detection: the scheduler flags applied configs
   that still serve now-ineligible users, audits the transition, and the dashboard
   promotes a one-click Review & Apply enforce path (no auto-apply; approval
-  preserved). Next slice: opt-in auto-enforce for reduction-only drift.
+  preserved). Iter-058 added server-controlled agent updates outside the proxy
+  provider. Next proxy slice: opt-in auto-enforce for reduction-only drift.
   *(Partially built.)*
 - **Self-hosted DNS** — per-node CoreDNS deploy via plan→approve→apply + CF
   subdomain/DDNS + nft confinement. Shared `NFTInputs` persistence delivered

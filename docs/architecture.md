@@ -29,6 +29,22 @@ Agent responsibilities:
 - Poll for bounded tasks.
 - Execute tasks only when started with `-allow-exec=true`.
 - Return stdout/stderr/exit code with output caps.
+- Print its build version with `-version`, used by server-controlled update
+  smoke checks.
+
+## Agent Lifecycle Updates
+
+The server owns `AgentUpdatePolicy` records for node-agent updates. A policy
+pins the exact target version, HTTPS artifact URL, SHA-256 digest, install path,
+and service name. Manual updates and auto-plan updates both create a pending
+`agentupdate` approval; neither mode mutates a node without operator approval
+and `plan_sha256` binding.
+
+When approved with `queue_apply`, the node runs a bounded update script through
+the existing task executor. The script downloads over HTTPS, verifies the digest,
+runs the candidate with `-version`, backs up the current binary, atomically
+replaces it, then schedules a delayed service restart so the current agent can
+post the task result before being stopped.
 
 ## Safety Model
 
@@ -44,6 +60,9 @@ Dangerous operations use this flow:
 Pending host-mutating approvals require `plan_sha256`; the server rejects a
 missing hash with `400` and a mismatched hash with `409`. Already-decided
 approvals remain idempotent and do not queue duplicate tasks.
+
+`agentupdate` approvals are treated as high-risk host mutations and require the
+same plan hash binding as nft, self-host DNS, and proxy-core apply.
 
 The current nft flow has two committed apply paths:
 

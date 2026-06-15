@@ -17,12 +17,28 @@ lattice-agent \
   -allow-exec=false
 ```
 
+Check the installed binary:
+
+```sh
+lattice-agent -version
+```
+
 Task execution is off by default. Enable it only for nodes where remote script
 execution is acceptable:
 
 ```sh
 lattice-agent ... -allow-exec=true
 ```
+
+Agent self-update through the server also uses the task channel. If the update
+replaces `/usr/local/bin/lattice-agent` and restarts `lattice-agent.service`, the
+service normally needs both:
+
+```sh
+lattice-agent ... -allow-exec=true -allow-root-exec=true
+```
+
+See [Agent updates](./agent-updates.md).
 
 Execution limits:
 

@@ -10,6 +10,9 @@ LATTICE_ADMIN_PASSWORD='change-this-passphrase' make run-server
 
 Open `http://127.0.0.1:8088` and sign in as `admin`.
 
+For the full first-run sequence (2FA, nodes, updates, DNS, proxy, logs, plugins),
+start with [Operator guide](./operator-guide.md).
+
 ## Production Shape
 
 Run `lattice-server` behind nginx, Caddy, or Cloudflare Tunnel. Bind the server
@@ -30,3 +33,13 @@ Recommended perimeter:
 - Server process: localhost or WireGuard IP.
 - Agent traffic: outbound HTTPS from nodes to the server.
 - Admin traffic: Cloudflare Access, WireGuard, or both.
+
+Back up these files together:
+
+- `state.json`
+- `state.json.audit-wal`
+- `logs.db`
+- `master.key`
+
+The master key protects stored credentials and optionally log chunks; losing it
+makes encrypted values unrecoverable.
