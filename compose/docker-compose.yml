@@ -1,6 +1,6 @@
 services:
   lattice-server:
-    image: ghcr.io/latticenet/lattice-server:latest
+    image: ghcr.io/latticenet/lattice-server:main
     container_name: lattice-server
     restart: unless-stopped
     env_file:
@@ -9,7 +9,6 @@ services:
       LATTICE_LISTEN: 0.0.0.0:8088
       LATTICE_DATA: /var/lib/lattice/state.json
       LATTICE_WEB_ROOT: /app/dashboard
-      LATTICE_MASTER_KEY_FILE: /var/lib/lattice/master.key
       LATTICE_PLUGIN_DIR: /plugins
     ports:
       - "127.0.0.1:8088:8088"

@@ -21,6 +21,10 @@ mkdir -p data plugins
 docker compose up -d
 ```
 
+The default Compose file uses `ghcr.io/latticenet/lattice-server:main` for
+first private tests. The container publishes `:latest` as a compatibility alias,
+but production deployments should pin a version tag or image digest.
+
 The compose file binds the server to localhost only:
 
 ```txt
@@ -48,6 +52,11 @@ through a trusted reverse proxy that sets `CF-Connecting-IP` or
 
 The container stores all durable state under `/var/lib/lattice`, mounted from
 `./data` by the compose file.
+
+On first boot, leave `LATTICE_MASTER_KEY_FILE` unset. The server will generate
+`data/master.key` automatically with `0600` permissions. Set
+`LATTICE_MASTER_KEY_FILE` only when you are mounting a pre-existing key from a
+secret manager or restoring from backup.
 
 Back up these together:
 
@@ -115,6 +124,12 @@ The `lattice-server` repository publishes:
 ghcr.io/latticenet/lattice-server
 ```
 
+The default branch currently publishes:
+
+```yaml
+image: ghcr.io/latticenet/lattice-server:main
+```
+
 Use immutable tags or digests for production:
 
 ```yaml
@@ -123,7 +138,7 @@ image: ghcr.io/latticenet/lattice-server:v0.2.0
 image: ghcr.io/latticenet/lattice-server@sha256:<digest>
 ```
 
-Avoid `latest` for unattended production upgrades.
+Avoid mutable `main` or `latest` tags for unattended production upgrades.
 
 ## Recommended production shape
 
