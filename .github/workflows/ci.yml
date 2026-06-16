@@ -10,21 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout lattice
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { path: lattice }
       - name: checkout lattice-sdk
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { repository: LatticeNet/lattice-sdk, path: lattice-sdk }
       - name: checkout lattice-server
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { repository: LatticeNet/lattice-server, path: lattice-server }
       - name: checkout lattice-node-agent
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { repository: LatticeNet/lattice-node-agent, path: lattice-node-agent }
       - name: checkout lattice-plugin-template
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with: { repository: LatticeNet/lattice-plugin-template, path: lattice-plugin-template }
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26.x'
           check-latest: true

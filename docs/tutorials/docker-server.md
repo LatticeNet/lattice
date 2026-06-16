@@ -21,9 +21,10 @@ mkdir -p data plugins
 docker compose up -d
 ```
 
-The default Compose file uses `ghcr.io/latticenet/lattice-server:main` for
-first private tests. The container publishes `:latest` as a compatibility alias,
-but production deployments should pin a version tag or image digest.
+The default Compose file uses `ghcr.io/latticenet/lattice-server:latest`, which
+is published from stable `v*` release tags. Use
+`ghcr.io/latticenet/lattice-server:alpha` for the moving alpha test channel, or
+pin a specific version tag/digest for production change control.
 
 The compose file binds the server to localhost only:
 
@@ -147,21 +148,29 @@ The `lattice-server` repository publishes:
 ghcr.io/latticenet/lattice-server
 ```
 
-The default branch currently publishes:
+Stable releases publish:
 
 ```yaml
-image: ghcr.io/latticenet/lattice-server:main
+image: ghcr.io/latticenet/lattice-server:latest
+image: ghcr.io/latticenet/lattice-server:v0.3.0
 ```
 
-Use immutable tags or digests for production:
+Alpha testing uses:
 
 ```yaml
-image: ghcr.io/latticenet/lattice-server:v0.2.0
+image: ghcr.io/latticenet/lattice-server:alpha
+```
+
+Use immutable tags or digests for unattended production rollouts:
+
+```yaml
+image: ghcr.io/latticenet/lattice-server:v0.3.0
 # or
 image: ghcr.io/latticenet/lattice-server@sha256:<digest>
 ```
 
-Avoid mutable `main` or `latest` tags for unattended production upgrades.
+There is intentionally no `main` image channel. Source pushes run CI; image
+publication is tag-driven.
 
 ## Recommended production shape
 

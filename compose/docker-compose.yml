@@ -1,6 +1,6 @@
 services:
   lattice-server:
-    image: ghcr.io/latticenet/lattice-server:main
+    image: ghcr.io/latticenet/lattice-server:latest
     container_name: lattice-server
     restart: unless-stopped
     env_file:
