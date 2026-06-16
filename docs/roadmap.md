@@ -81,10 +81,11 @@
 > server-controlled node-agent update policies with manual plan and auto-plan
 > pending approvals. Iter-060 reviewed release readiness: Pages workflow
 > recovery, SDK `v0.2.0` contract hygiene, agent-update script hardening,
-> plugin marketplace/storage documentation, and restricted-environment test
-> stability. Geo-Routing apply/NS publish, log ingestion v2, and signed agent
-> release-channel discovery remain pending.
-> The public ecosystem surface now has a server Docker/GHCR path, a planned
+> target-bound agent release binaries, plugin marketplace/storage
+> documentation, and restricted-environment test stability. Geo-Routing apply/NS
+> publish, log ingestion v2, and signed agent release-channel discovery remain
+> pending.
+> The public ecosystem surface now has a server Docker/GHCR path, the
 > `latticenet.github.io` Pages site, and a `lattice-plugin-index` static
 > marketplace-index foundation. Plugin artifact execution remains gated by
 > [`designs/design-08-real-plugin-runners.md`](./designs/design-08-real-plugin-runners.md).

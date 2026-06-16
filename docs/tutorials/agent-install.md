@@ -8,7 +8,13 @@
 Example:
 
 ```sh
-cd Lattice/lattice-node-agent
+VERSION=v0.2.0
+ARCH=amd64
+curl -fsSLO "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/lattice-agent-linux-${ARCH}"
+curl -fsSLO "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/SHA256SUMS"
+grep "lattice-agent-linux-${ARCH}$" SHA256SUMS | sha256sum -c -
+install -m 0755 "lattice-agent-linux-${ARCH}" /usr/local/bin/lattice-agent
+
 lattice-agent \
   -server https://lattice.example.com \
   -node-id dmit-eb-wee \

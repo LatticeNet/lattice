@@ -26,6 +26,16 @@ On the server:
 - the approver has `network:apply`;
 - the artifact URL is HTTPS and the SHA-256 digest is known.
 
+Official Linux agent release artifacts are:
+
+```txt
+lattice-agent-linux-amd64
+lattice-agent-linux-arm64
+SHA256SUMS
+```
+
+Use the matching row in `SHA256SUMS` for the policy digest.
+
 ## Manual update
 
 1. Open **Agent Updates**.
@@ -34,7 +44,7 @@ On the server:
    - target version, e.g. `0.2.0`;
    - binary URL, e.g.
      `https://github.com/LatticeNet/lattice-node-agent/releases/download/v0.2.0/lattice-agent-linux-amd64`;
-   - SHA-256 digest;
+   - SHA-256 digest from `SHA256SUMS`;
    - install path, default `/usr/local/bin/lattice-agent`;
    - service name, default `lattice-agent.service`.
 4. Save policy.

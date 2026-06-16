@@ -107,7 +107,7 @@ Implemented in iter-058:
 - reviewed update script generation;
 - current-policy approval check before queueing;
 - dashboard policy panel;
-- agent `-version` smoke flag;
+- agent `-version` target-version check;
 - tests for policy validation, manual queue, auto-plan duplicate suppression,
   failed-result replan behavior, and dashboard payload helpers.
 
