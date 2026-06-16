@@ -29,8 +29,9 @@ approval.
    (300s) for download/verify/install. Approval also rejects stale plans if the
    current policy's version/URL/SHA/path/service tuple changed after planning.
 5. **Update script:** HTTPS download, pinned SHA-256 verification, candidate
-   `-version` smoke check, timestamped backup, atomic replacement, and delayed
-   systemd restart so the current agent can post the task result.
+   `-version` match against `target_version`, timestamped backup, atomic
+   replacement, and delayed systemd restart so the current agent can post the
+   task result.
 6. **Auto-plan:** the scheduler creates a pending approval when an enabled
    auto-plan policy's target version differs from the node's reported
    `agent_version` and no equivalent `pending`/`approved` update is open. It
@@ -62,8 +63,8 @@ Targeted coverage:
 
 - policy rejects non-HTTPS artifact URLs;
 - manual plan creates a secret-free `agentupdate` approval;
-- approval queues a script containing HTTPS download, SHA pin, `-version` smoke,
-  delayed restart, and 300s timeout;
+- approval queues a script containing HTTPS download, SHA pin, target-version
+  verification, delayed restart, and 300s timeout;
 - auto-plan does not duplicate an equivalent pending or approved approval;
 - failed update task results reject the old approval and allow a future re-plan;
 - stale approvals are rejected if the policy changed after planning;

@@ -35,7 +35,7 @@ The node-side script:
 
 1. downloads with `curl --proto '=https' --tlsv1.2` or `wget`;
 2. verifies SHA-256 before chmod/install;
-3. executes the candidate with `-version` before replacing the active binary;
+3. verifies the candidate `-version` output equals `target_version`;
 4. writes a timestamped backup of the current binary;
 5. installs atomically via `install ... "$TARGET.new"` then `mv`;
 6. delays systemd restart by a few seconds so the current agent can post the

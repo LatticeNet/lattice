@@ -51,7 +51,7 @@ The queued task:
 
 - downloads over HTTPS;
 - verifies SHA-256;
-- runs the candidate with `-version`;
+- requires the candidate's `-version` output to equal the target version;
 - backs up the old binary;
 - installs atomically;
 - schedules a delayed systemd restart so the current agent can report success.
@@ -100,7 +100,9 @@ Then confirm the node heartbeat and `agent_version` in the dashboard.
   or pre-stage artifacts if nodes are bandwidth-limited.
 - **SHA mismatch:** the task fails and does not replace the binary. Re-check the
   artifact and digest.
-- **Candidate does not run:** `-version` fails; the task fails before install.
+- **Candidate does not run or reports the wrong version:** the task fails before
+  install. Check that the artifact was built for the same target version in the
+  policy.
 - **No systemd:** the binary is installed, but restart is manual.
 - **No `-allow-exec` / root guard:** the agent refuses the task before running
   the script. This is expected safe default behavior.
