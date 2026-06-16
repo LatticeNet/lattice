@@ -58,6 +58,11 @@ On first boot, leave `LATTICE_MASTER_KEY_FILE` unset. The server will generate
 `LATTICE_MASTER_KEY_FILE` only when you are mounting a pre-existing key from a
 secret manager or restoring from backup.
 
+The image starts through a small root entrypoint that fixes ownership of the
+mounted data directory, then drops privileges to the unprivileged `lattice`
+user. This lets the root-created `./data` directory from a normal Compose
+bootstrap work without running the server itself as root.
+
 Back up these together:
 
 - `data/state.json`
