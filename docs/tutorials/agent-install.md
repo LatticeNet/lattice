@@ -3,7 +3,19 @@
 1. Start the server.
 2. Sign in to the dashboard.
 3. Create an enrollment token in the Nodes panel.
-4. Run the printed command on the node.
+4. Copy the generated install script or one-time node token before leaving the
+   page.
+5. Run the generated script on the node.
+
+The node token is a server-generated per-node bearer token. It is not an
+operator password, GitHub token, or Cloudflare token. The server stores only a
+hash of it, so the plain token is shown once during enrollment or token
+rotation. If it is lost, rotate or re-enroll the node and update the node's
+`/etc/lattice/agent.env`.
+
+The dashboard install script downloads the Linux `amd64` or `arm64` release
+artifact, verifies `SHA256SUMS`, installs `/usr/local/bin/lattice-agent`, writes
+`/etc/lattice/agent.env`, and enables `lattice-agent.service`.
 
 Example:
 

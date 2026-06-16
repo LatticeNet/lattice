@@ -166,3 +166,103 @@ The server container should not need:
 
 If a future feature appears to require any of those for `lattice-server`, treat
 that as a design smell and move the host mutation to `lattice-node-agent`.
+
+## NGINX, Let's Encrypt, and Cloudflare
+
+After `docker compose up -d`, verify the localhost service first:
+
+```sh
+curl -fsS http://127.0.0.1:8088/api/health
+```
+
+It should return:
+
+```json
+{"status":"ok"}
+```
+
+Use NGINX as a local HTTPS reverse proxy:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name lattice.example.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+
+    server_name lattice.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/lattice.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/lattice.example.com/privkey.pem;
+
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8088;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+```
+
+Then:
+
+```sh
+ln -sf /etc/nginx/sites-available/lattice.conf /etc/nginx/sites-enabled/lattice.conf
+nginx -t
+certbot --nginx -d lattice.example.com
+systemctl reload nginx
+```
+
+If `certbot --nginx` also wrote `lattice.example.com` into
+`/etc/nginx/sites-enabled/default`, NGINX will warn about a
+`conflicting server name` and may ignore the Lattice proxy. Remove the duplicate
+enabled site or remove the duplicate server block, then reload:
+
+```sh
+grep -R "server_name lattice.example.com" -n /etc/nginx/sites-enabled /etc/nginx/sites-available
+unlink /etc/nginx/sites-enabled/default
+nginx -t
+systemctl reload nginx
+```
+
+Cloudflare settings for an orange-clouded record:
+
+- DNS -> Records: `A lattice <origin-ip>`, Proxy status `Proxied`.
+- SSL/TLS -> Overview: `Full (strict)`.
+- SSL/TLS -> Edge Certificates: `Always Use HTTPS` can be enabled.
+- SSL/TLS -> Edge Certificates: `Automatic HTTPS Rewrites` can be enabled.
+- Caching -> Cache Rules: bypass API caching with:
+
+```txt
+(http.host eq "lattice.example.com" and starts_with(http.request.uri.path, "/api/"))
+```
+
+The cache rule action should be `Bypass cache`. Do not use `Cache Everything`
+for the dashboard until authenticated and API paths are explicitly excluded.
+
+Validate after DNS/proxy changes:
+
+```sh
+curl -fsS --resolve lattice.example.com:443:127.0.0.1 https://lattice.example.com/api/health
+curl -fsS https://lattice.example.com/api/health
+curl -I https://lattice.example.com/api/health | grep -iE 'cf-cache-status|server|location'
+```
