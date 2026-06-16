@@ -44,6 +44,12 @@ LATTICE_PUBLIC_URL=https://lattice.example.com
 LATTICE_SECURE_COOKIES=1
 ```
 
+`LATTICE_ADMIN_PASSWORD` is read only when the initial `admin` account is
+created. After `data/state.json` exists, changing the environment variable and
+restarting the container does **not** rotate the password. Sign in and rotate it
+through `POST /api/auth/password` instead; the change invalidates existing
+sessions and requires a fresh login.
+
 Set `LATTICE_TRUST_PROXY=1` only when the container is reachable exclusively
 through a trusted reverse proxy that sets `CF-Connecting-IP` or
 `X-Forwarded-For`. Do not enable it for direct exposure.
@@ -96,18 +102,22 @@ Lifecycle state is stored in `state.json`; the bundle bytes remain in
 
 ## Building the image locally
 
-`lattice-server`, `lattice-sdk`, and `lattice-dashboard` are separate
+`lattice-server`, `lattice-sdk`, and `lattice-dashboard-next` are separate
 repositories. The Dockerfile therefore uses BuildKit named contexts:
 
 ```sh
 cd Lattice
-DOCKER_BUILDKIT=1 docker build \
+docker buildx build --load \
   -f lattice-server/Dockerfile \
   --build-context lattice-sdk=./lattice-sdk \
-  --build-context lattice-dashboard=./lattice-dashboard \
+  --build-context lattice-dashboard=./lattice-dashboard-next \
   -t lattice-server:local \
   ./lattice-server
 ```
+
+If `docker buildx` is not installed locally, install Docker's buildx component
+or rely on the GitHub Actions container workflow, which provisions buildx before
+building multi-arch images.
 
 Run it:
 
