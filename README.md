@@ -121,10 +121,10 @@ Task execution is disabled by default on the agent. Start with
 
 ## Repository Creation Order
 
-Publish `lattice-sdk` first, then `lattice-server` and `lattice-node-agent`,
-then `lattice-dashboard-next`, `lattice-plugin-template`, `lattice`, and
-`.github`. The legacy `lattice-dashboard` repository is kept as a rollback
-source while the server image embeds the rebuilt dashboard.
+Publish `lattice-sdk` first, then `lattice-server`, `lattice-node-agent`,
+`lattice-dashboard`, `lattice-plugin-template`, `lattice`, and `.github`.
+`lattice-dashboard` is the canonical modern Vue dashboard; server images pin a
+specific dashboard commit through `lattice-server/dashboard.ref`.
 
 ## Shared Contract Releases
 

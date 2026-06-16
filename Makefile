@@ -23,4 +23,4 @@ run-agent:
 	cd ../lattice-node-agent && go run ./cmd/lattice-agent
 
 check-dashboard:
-	cd ../lattice-dashboard && npm run check
+	cd ../lattice-dashboard && pnpm build

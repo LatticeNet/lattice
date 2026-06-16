@@ -102,7 +102,7 @@ Lifecycle state is stored in `state.json`; the bundle bytes remain in
 
 ## Building the image locally
 
-`lattice-server`, `lattice-sdk`, and `lattice-dashboard-next` are separate
+`lattice-server`, `lattice-sdk`, and `lattice-dashboard` are separate
 repositories. The Dockerfile therefore uses BuildKit named contexts:
 
 ```sh
@@ -110,8 +110,8 @@ cd Lattice
 docker buildx build --load \
   -f lattice-server/Dockerfile \
   --build-context lattice-sdk=./lattice-sdk \
-  --build-context lattice-dashboard=./lattice-dashboard-next \
-  --build-arg DASHBOARD_COMMIT="$(cat lattice-server/dashboard-next.ref)" \
+  --build-context lattice-dashboard=./lattice-dashboard \
+  --build-arg DASHBOARD_COMMIT="$(cat lattice-server/dashboard.ref)" \
   -t lattice-server:local \
   ./lattice-server
 ```
@@ -121,11 +121,11 @@ or rely on the GitHub Actions container workflow, which provisions buildx before
 building multi-arch images.
 
 The published server image embeds the dashboard commit pinned in
-`lattice-server/dashboard-next.ref`. To intentionally roll a dashboard-only
-change into a new server image, first merge/push `lattice-dashboard-next`, then
-update `dashboard-next.ref` in `lattice-server` to that dashboard commit and
-push `lattice-server`. The server container workflow will publish a new image
-from the new server commit, preserving reproducible image tags.
+`lattice-server/dashboard.ref`. To intentionally roll a dashboard-only change
+into a new server image, first merge/push `lattice-dashboard`, then update
+`dashboard.ref` in `lattice-server` to that dashboard commit and push
+`lattice-server`. The server container workflow will publish a new image from
+the new server commit, preserving reproducible image tags.
 
 Run it:
 

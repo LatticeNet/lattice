@@ -87,7 +87,7 @@ shared contract:
 | `lattice-server` | Control plane: authN/Z, RBAC, node registry, task queue, audit, DDNS, notify, monitors, WireGuard/nft/tunnel plan→approve→apply | **Sole policy decision point** |
 | `lattice-node-agent` | Minimal dial-out executor: metrics, leased task exec, monitor probes, SSH-login events | **Least-trust executor**, no inbound ports |
 | `lattice-sdk` | Shared models + `proto` contract + contract tests | **Boundary / wire contract** |
-| `lattice-dashboard` | Dependency-free vanilla-JS console under strict CSP | **Render-only**, no security decisions |
+| `lattice-dashboard` | Vue 3 static operator console under strict CSP | **Render-only**, no security decisions |
 | `lattice-plugin-template` | Plugin author kit: manifest, capability tiers, signing, trust policy | **Author guidance + security spec** |
 | `lattice` | `go.work` workspace, docs, build glue | Aggregator |
 

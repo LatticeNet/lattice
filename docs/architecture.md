@@ -4,7 +4,7 @@ Lattice is split into separately deployable projects:
 
 - `lattice-server` - control plane.
 - `lattice-node-agent` - node-side daemon.
-- `lattice-dashboard` - static frontend.
+- `lattice-dashboard` - Vue static frontend.
 - `lattice-sdk` - shared protocol/domain model package.
 - `lattice-plugin-template` - starter extension templates.
 
@@ -15,8 +15,9 @@ Worker registration, network approvals, and audit events.
 
 The server exposes JSON HTTP APIs in this bootstrap build. The API boundary is
 kept narrow so it can move to protobuf/ConnectRPC later without changing domain
-packages. The dashboard lives in `lattice-dashboard` and can be served by
-`lattice-server -web ../lattice-dashboard` or by an independent static host.
+packages. The dashboard lives in `lattice-dashboard`; build it with `pnpm build`
+and serve `dist/` through `lattice-server -web ../lattice-dashboard/dist` or an
+independent static host.
 
 ## Node Agent
 

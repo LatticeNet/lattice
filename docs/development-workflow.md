@@ -130,8 +130,8 @@ For dashboard changes:
 
 ```sh
 cd ../lattice-dashboard
-npm test
-node --check assets/app.js
+pnpm type-check
+pnpm build
 ```
 
 For visual/UI changes, verify with a browser against the running server before
