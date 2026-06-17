@@ -4,8 +4,8 @@ Lattice is the umbrella repository for the LatticeNet ecosystem: a
 security-first server probe, automation, and cluster network control plane.
 
 The code is intentionally split into independent repositories so server,
-node-agent, dashboard, SDK, and plugins can be released and maintained
-separately.
+node-agent, dashboard, SDK, plugins, and mobile companion surfaces can be
+released and maintained separately.
 
 ## Ecosystem Repositories
 
@@ -15,6 +15,8 @@ separately.
 - [`lattice-dashboard`](https://github.com/LatticeNet/lattice-dashboard) - static dashboard.
 - [`lattice-plugin-template`](https://github.com/LatticeNet/lattice-plugin-template) - starter templates for system, Worker, and future Wasm plugins.
 - [`.github`](https://github.com/LatticeNet/.github) - organization profile.
+- `Astra/` - local iOS companion app worktree for the Lattice mobile control
+  surface. Remote repository publication is pending operator authorization.
 
 ## Current MVP
 
@@ -51,6 +53,11 @@ separately.
   subscription URL workflow, and a baseline usage-reporting path with
   server-side monotonic rollup plus dashboard usage/last-seen display.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
+- Local Astra iOS companion app v2 for phone-first operations: Overview, Nodes,
+  Monitors, Inventory, and More tabs backed by a Swift `LatticeClient` for
+  identity/version, nodes, PATs, machine inventory, monitors/results,
+  notifications, audit, tasks, and logs. Astra is currently local-only and not
+  yet part of the remote release surface.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
 

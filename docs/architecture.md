@@ -7,6 +7,8 @@ Lattice is split into separately deployable projects:
 - `lattice-dashboard` - Vue static frontend.
 - `lattice-sdk` - shared protocol/domain model package.
 - `lattice-plugin-template` - starter extension templates.
+- `Astra` - local iOS companion app for mobile-first fleet operations. It is
+  developed in a local worktree until its remote repository is authorized.
 
 ## Control Plane
 
@@ -18,6 +20,28 @@ kept narrow so it can move to protobuf/ConnectRPC later without changing domain
 packages. The dashboard lives in `lattice-dashboard`; build it with `pnpm build`
 and serve `dist/` through `lattice-server -web ../lattice-dashboard/dist` or an
 independent static host.
+
+## Mobile Companion
+
+`Astra` is the Lattice iOS companion app. The Xcode project and scheme keep the
+historical `Astra` name, while the installed app presents as `Lattice`.
+
+The v2 local worktree turns the old read-only node monitor into a phone-first
+operator surface:
+
+- Overview, Nodes, Monitors, Inventory, and More tabs.
+- `Sources/AstraCore/LatticeModels.swift` mirrors server and SDK response
+  shapes for mobile-safe operations.
+- `Sources/AstraCore/LatticeAPI.swift` provides a typed `LatticeClient` for
+  identity/version, nodes, PATs, machine inventory, monitors/results,
+  notifications, audit, tasks, and logs.
+- `Sources/AstraCore/LatticeAnalytics.swift` derives fleet health, metric
+  history, inventory cost/renewal summaries, monitor uptime, and formatting.
+
+Astra is intentionally not a full dashboard replacement. Heavy mutation planes
+such as NetPolicy, proxy core apply, DNS, storage, plugins, OIDC provider
+admin, and 2FA enrollment remain in the Web dashboard until their mobile
+review and rollback flows are designed.
 
 ## Node Agent
 
