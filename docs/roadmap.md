@@ -24,6 +24,12 @@
 > only. The SDK contract, server APIs, dashboard controls, public docs, and
 > GHCR `latest`/`alpha` images are aligned on this release.
 >
+> **2026-06-17 Fleet Map v2:** `/map` now uses a CSP-safe world SVG with
+> operator-grade placement, region rollups, source tracking (`operator` versus
+> `auto`), and an opt-in server-side GeoIP resolver configured by
+> `LATTICE_GEOIP_LOOKUP_URL`. GeoIP lookup is disabled by default so node public
+> IPs are never sent to a provider unless the operator explicitly configures one.
+>
 > **2026-06-13 audit + designs:** a full-codebase security/stability audit was
 > run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
 > ~25 fixes incl. state-file fsync durability, WireGuard `/32` host routes,
@@ -265,6 +271,9 @@
   `MachineProfile` cost/vendor/renewal metadata, encrypted console/detail links,
   renewal reminders, and Machines dashboard MVP delivered 2026-06-13. Audited
   link reveal, per-currency totals, and fact-change alerts remain v2.
+- **Fleet Map v2** — delivered 2026-06-17 with automatic IP lookup behind an
+  explicit GeoIP provider URL, manual override preservation, source-aware
+  NodeGeo metadata, and a refined SVG world map in the dashboard.
 - Historical metrics retention.
 - Server-controlled agent debug diagnostics. *(Delivered 2026-06-17 with
   `lattice-agent v0.2.1`: local node debug output plus optional central
