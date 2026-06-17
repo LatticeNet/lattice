@@ -26,9 +26,16 @@
 >
 > **2026-06-17 Fleet Map v2:** `/map` now uses a CSP-safe world SVG with
 > operator-grade placement, region rollups, source tracking (`operator` versus
-> `auto`), and an opt-in server-side GeoIP resolver configured by
-> `LATTICE_GEOIP_LOOKUP_URL`. GeoIP lookup is disabled by default so node public
-> IPs are never sent to a provider unless the operator explicitly configures one.
+> `auto`), and a server-side GeoIP resolver. The server defaults to the no-token
+> `ipwho.is` HTTPS provider for Nezha-like auto-location; set
+> `LATTICE_GEOIP_LOOKUP_URL=off` to prevent external lookup, or point it at an
+> internal HTTPS provider.
+>
+> **2026-06-17 Browser Terminal MVP:** Operations now has a real `/terminal`
+> screen backed by server-side in-memory Terminal sessions and an opt-in
+> `lattice-agent` PTY runner. It requires `terminal:open`, records open/close
+> audit events, preserves the no-inbound-agent model, and is enabled per node
+> with `LATTICE_AGENT_ALLOW_TERMINAL=1`.
 >
 > **2026-06-13 audit + designs:** a full-codebase security/stability audit was
 > run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
@@ -280,6 +287,8 @@
   collection into managed Logs sources.)*
 - Fleet latency matrix.
 - SSH login alert stream.
+- Browser terminal MVP: scoped `terminal:open` API, agent-side opt-in PTY
+  session runner, dashboard Terminal page, and open/close audit events.
 - Multi-channel notifications. (Delivered 2026-06-11: `internal/notify` + `POST /api/notify/test`; persistent channel config + event triggers pending.)
 - DDNS (dynamic DNS) plugin. (Delivered 2026-06-11: cloudflare + webhook providers, server-side IP-change trigger, `/api/ddns` CRUD + `/api/ddns/run`.)
 - Continuous service monitoring (ping/tcping/http). (Delivered 2026-06-11: tcp + http monitors, agent scheduler, capped result history, `/api/monitors` + agent fetch/report; icmp pending.)
