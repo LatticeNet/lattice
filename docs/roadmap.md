@@ -16,6 +16,14 @@
 > **2026-06-13 closeout:** the current six-repo baseline and next development
 > order are captured in [`development-report-2026-06-13.md`](./development-report-2026-06-13.md).
 >
+> **2026-06-17 operator UX + diagnostics:** the dashboard SSO New Provider flow
+> now links to the public SSO guide and explains each OIDC field, redirect URI,
+> and IdP expectation inline. `lattice-agent v0.2.1` adds server-controlled
+> debug policy: operators can enable per-node local debug logging, optionally
+> collect those debug lines into managed server Logs, or keep diagnostics local
+> only. The SDK contract, server APIs, dashboard controls, public docs, and
+> GHCR `latest`/`alpha` images are aligned on this release.
+>
 > **2026-06-13 audit + designs:** a full-codebase security/stability audit was
 > run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
 > ~25 fixes incl. state-file fsync durability, WireGuard `/32` host routes,
@@ -84,7 +92,10 @@
 > target-bound agent release binaries, plugin marketplace/storage
 > documentation, and restricted-environment test stability. Geo-Routing apply/NS
 > publish, log ingestion v2, and signed agent release-channel discovery remain
-> pending.
+> pending. Server-controlled node-agent diagnostics landed after iter-060:
+> `/api/nodes/debug` owns the policy, agents poll `/api/agent/config`, and
+> collected debug batches flow into managed `agent-debug://<node_id>` log
+> sources when central collection is enabled.
 > The public ecosystem surface now has a server Docker/GHCR path, the
 > `latticenet.github.io` Pages site, and a `lattice-plugin-index` static
 > marketplace-index foundation. Plugin artifact execution remains gated by
@@ -255,6 +266,9 @@
   renewal reminders, and Machines dashboard MVP delivered 2026-06-13. Audited
   link reveal, per-currency totals, and fact-change alerts remain v2.
 - Historical metrics retention.
+- Server-controlled agent debug diagnostics. *(Delivered 2026-06-17 with
+  `lattice-agent v0.2.1`: local node debug output plus optional central
+  collection into managed Logs sources.)*
 - Fleet latency matrix.
 - SSH login alert stream.
 - Multi-channel notifications. (Delivered 2026-06-11: `internal/notify` + `POST /api/notify/test`; persistent channel config + event triggers pending.)
