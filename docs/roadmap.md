@@ -35,7 +35,9 @@
 > screen backed by server-side in-memory Terminal sessions and an opt-in
 > `lattice-agent` PTY runner. It requires `terminal:open`, records open/close
 > audit events, preserves the no-inbound-agent model, and is enabled per node
-> with `LATTICE_AGENT_ALLOW_TERMINAL=1`.
+> with `LATTICE_AGENT_ALLOW_TERMINAL=1`. Live I/O is bounded in process memory:
+> four active sessions per node, 10-minute pending expiry, four-hour idle expiry,
+> and 30-minute closed transcript pruning.
 >
 > **2026-06-13 audit + designs:** a full-codebase security/stability audit was
 > run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
@@ -288,7 +290,8 @@
 - Fleet latency matrix.
 - SSH login alert stream.
 - Browser terminal MVP: scoped `terminal:open` API, agent-side opt-in PTY
-  session runner, dashboard Terminal page, and open/close audit events.
+  session runner, dashboard Terminal page, bounded in-memory transcript
+  retention, and open/close audit events.
 - Multi-channel notifications. (Delivered 2026-06-11: `internal/notify` + `POST /api/notify/test`; persistent channel config + event triggers pending.)
 - DDNS (dynamic DNS) plugin. (Delivered 2026-06-11: cloudflare + webhook providers, server-side IP-change trigger, `/api/ddns` CRUD + `/api/ddns/run`.)
 - Continuous service monitoring (ping/tcping/http). (Delivered 2026-06-11: tcp + http monitors, agent scheduler, capped result history, `/api/monitors` + agent fetch/report; icmp pending.)
