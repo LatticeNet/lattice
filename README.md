@@ -36,6 +36,9 @@ released and maintained separately.
   operator-owned node locations and healthy-node selection.
 - Log ingestion/query MVP with a dedicated bounded `logs.db`, agent tailer,
   scoped source management, and dashboard Logs panel.
+- Browser terminal MVP with scoped `terminal:open`, opt-in agent-side PTY
+  sessions, xterm rendering, node-level dashboard entrypoints, bounded
+  in-memory I/O, and audited open/close events.
 - Server-controlled node-agent update policies with manual update plans,
   auto-plan pending approvals, SHA-256-pinned HTTPS artifacts, and delayed
   service restart after task result reporting.
