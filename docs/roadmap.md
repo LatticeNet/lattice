@@ -44,10 +44,13 @@
 > app upgrades the old read-only node monitor into Overview, Nodes, Monitors,
 > Inventory, and More tabs. The Swift core models Lattice server/SDK views,
 > adds a broad typed `LatticeClient`, and derives fleet/inventory/monitor
-> analytics. Verification passed with `swift run AstraCoreCheck`, an iOS
-> Simulator `xcodebuild`, and a new GitHub Actions CI workflow. Signing,
-> TestFlight, live-service iPhone QA, Bark, and background refresh validation
-> remain device-side release steps. See [`iterations/iter-062-astra-ios-control-companion.md`](./iterations/iter-062-astra-ios-control-companion.md).
+> analytics. The follow-up Network & security slice adds mobile read views for
+> approvals, NetPolicy, reachability, nft inputs, and tunnels, plus
+> SHA-256-bound approval of already-reviewed plans; policy authoring and
+> planning remain Web dashboard responsibilities. Verification passed with
+> `swift run AstraCoreCheck`, an iOS Simulator `xcodebuild`, and GitHub Actions
+> CI. Signing, TestFlight, live-service iPhone QA, Bark, and background refresh
+> validation remain device-side release steps. See [`iterations/iter-062-astra-ios-control-companion.md`](./iterations/iter-062-astra-ios-control-companion.md).
 >
 > **2026-06-13 audit + designs:** a full-codebase security/stability audit was
 > run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
@@ -303,9 +306,10 @@
   session runner, dashboard Terminal page, bounded in-memory transcript
   retention, and open/close audit events.
 - Astra iOS companion v2 repository publication: phone-first Overview, Nodes,
-  Monitors, Inventory, More, typed API client, analytics layer, GitHub Actions
-  CI, and simulator build verification. Signing, TestFlight, live-server QA,
-  and final mobile operation policy are still pending.
+  Monitors, Inventory, More, typed API client, analytics layer, Network &
+  security read views with plan-hash-bound approval, GitHub Actions CI, and
+  simulator build verification. Signing, TestFlight, live-server QA, and final
+  mobile operation policy are still pending.
 - Multi-channel notifications. (Delivered 2026-06-11: `internal/notify` + `POST /api/notify/test`; persistent channel config + event triggers pending.)
 - DDNS (dynamic DNS) plugin. (Delivered 2026-06-11: cloudflare + webhook providers, server-side IP-change trigger, `/api/ddns` CRUD + `/api/ddns/run`.)
 - Continuous service monitoring (ping/tcping/http). (Delivered 2026-06-11: tcp + http monitors, agent scheduler, capped result history, `/api/monitors` + agent fetch/report; icmp pending.)

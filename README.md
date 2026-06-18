@@ -56,9 +56,9 @@ released and maintained separately.
 - Astra iOS companion app v2 for phone-first operations: Overview, Nodes,
   Monitors, Inventory, and More tabs backed by a Swift `LatticeClient` for
   identity/version, nodes, PATs, machine inventory, monitors/results,
-  notifications, audit, tasks, and logs. Source is published in
-  `LatticeNet/Astra`; signing, TestFlight, and live iPhone QA remain separate
-  release steps.
+  Network & security read views with SHA-256-bound approval, notifications,
+  audit, tasks, and logs. Source is published in `LatticeNet/Astra`; signing,
+  TestFlight, and live iPhone QA remain separate release steps.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
 

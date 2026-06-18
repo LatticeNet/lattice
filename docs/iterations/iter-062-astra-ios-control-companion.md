@@ -19,6 +19,9 @@
     nodes, node token/enrollment/geo operations, PAT management, machine
     inventory CRUD/renewal, monitors/results, notifications, audit search and
     verification, tasks/results, and logs.
+  - `LatticeNetwork.swift` adds typed Network & security models and endpoints
+    for approvals, NetPolicy list/graph, nft baseline inputs, tunnels, and
+    SHA-256-bound approval of reviewed plans.
   - `LatticeAnalytics.swift` derives fleet summaries, metric history buffers,
     inventory cost/renewal summaries, monitor uptime/latency stats, currency,
     relative time, and uptime formatting.
@@ -30,8 +33,11 @@
     enable/disable, token rotation, and enrollment QR entry points.
   - Monitors adds uptime/latency views, recent probes, create, and delete.
   - Inventory adds cost/renewal summaries plus create/edit/renew/delete.
-  - More groups Activity, Notifications, Logs, Tasks, Account/PATs, Settings,
-    and About.
+  - More groups Activity, Network & security, Notifications, Logs, Tasks,
+    Account/PATs, Settings, and About. Network & security shows pending
+    approvals, NetPolicy rules, reachability, nft inputs, and tunnels; its only
+    write path is a confirmation-gated approve action that sends the reviewed
+    plan's SHA-256.
   - `DesignSystem.swift` centralizes cards, rings, status pills, stat tiles,
     and Swift Charts sparklines.
 
@@ -42,8 +48,10 @@ surface intentionally focuses on personal fleet operations and quick response.
 Heavy mutation planes remain Web-first until their mobile review flows are
 designed:
 
-- NetPolicy, proxy/subscription apply, DNS publishing, storage/static hosting,
-  plugin execution, OIDC provider admin, and 2FA enrollment.
+- NetPolicy authoring/planning, proxy/subscription apply, DNS publishing,
+  storage/static hosting, plugin execution, OIDC provider admin, and 2FA
+  enrollment. Astra can observe network state and approve already-reviewed
+  plans, but it does not generate or apply new plans directly.
 - Terminal is not listed as an Astra feature in this iteration.
 - Live-service iPhone QA, Bark behavior, background refresh behavior, signing,
   and distribution still require device-side validation.
@@ -69,7 +77,7 @@ xcodebuild -project Astra.xcodeproj -scheme Astra \
 Built successfully with Xcode 26.5 for Simulator arm64/x86_64 under Swift 6
 strict concurrency after adding the required `Sendable` conformance.
 
-The first remote CI workflow runs the same two checks on `macos-latest`:
+The remote CI workflow runs the same two checks on `macos-latest`:
 
 ```txt
 .github/workflows/ci.yml
