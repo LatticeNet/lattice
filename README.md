@@ -15,8 +15,8 @@ released and maintained separately.
 - [`lattice-dashboard`](https://github.com/LatticeNet/lattice-dashboard) - static dashboard.
 - [`lattice-plugin-template`](https://github.com/LatticeNet/lattice-plugin-template) - starter templates for system, Worker, and future Wasm plugins.
 - [`.github`](https://github.com/LatticeNet/.github) - organization profile.
-- `Astra/` - local iOS companion app worktree for the Lattice mobile control
-  surface. Remote repository publication is pending operator authorization.
+- [`Astra`](https://github.com/LatticeNet/Astra) - iOS companion app for the
+  Lattice mobile control surface.
 
 ## Current MVP
 
@@ -53,11 +53,12 @@ released and maintained separately.
   subscription URL workflow, and a baseline usage-reporting path with
   server-side monotonic rollup plus dashboard usage/last-seen display.
 - Operator-owned NodeGeo records and a dependency-free dashboard world map.
-- Local Astra iOS companion app v2 for phone-first operations: Overview, Nodes,
+- Astra iOS companion app v2 for phone-first operations: Overview, Nodes,
   Monitors, Inventory, and More tabs backed by a Swift `LatticeClient` for
   identity/version, nodes, PATs, machine inventory, monitors/results,
-  notifications, audit, tasks, and logs. Astra is currently local-only and not
-  yet part of the remote release surface.
+  notifications, audit, tasks, and logs. Source is published in
+  `LatticeNet/Astra`; signing, TestFlight, and live iPhone QA remain separate
+  release steps.
 - Static TypeScript source and dependency-free browser assets.
 - Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
 

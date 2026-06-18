@@ -7,8 +7,7 @@ Lattice is split into separately deployable projects:
 - `lattice-dashboard` - Vue static frontend.
 - `lattice-sdk` - shared protocol/domain model package.
 - `lattice-plugin-template` - starter extension templates.
-- `Astra` - local iOS companion app for mobile-first fleet operations. It is
-  developed in a local worktree until its remote repository is authorized.
+- `Astra` - iOS companion app for mobile-first fleet operations.
 
 ## Control Plane
 
@@ -26,8 +25,8 @@ independent static host.
 `Astra` is the Lattice iOS companion app. The Xcode project and scheme keep the
 historical `Astra` name, while the installed app presents as `Lattice`.
 
-The v2 local worktree turns the old read-only node monitor into a phone-first
-operator surface:
+The v2 app turns the old read-only node monitor into a phone-first operator
+surface:
 
 - Overview, Nodes, Monitors, Inventory, and More tabs.
 - `Sources/AstraCore/LatticeModels.swift` mirrors server and SDK response

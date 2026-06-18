@@ -2,11 +2,11 @@
 
 ## Scope
 
-- **Repos:** `Astra` local worktree, `lattice`
-- **Worktree:** `Lattice/Astra/.claude/worktrees/lattice-ios-expansion`
-- **Goal:** Record the local Astra expansion from a read-only monitoring
-  prototype into a phone-first Lattice companion app, without claiming a remote
-  release before the repository is authorized.
+- **Repos:** [`Astra`](https://github.com/LatticeNet/Astra), `lattice`
+- **Source branch:** `main` in `LatticeNet/Astra`
+- **Goal:** Publish and record the Astra expansion from a read-only monitoring
+  prototype into a phone-first Lattice companion app, while keeping signing,
+  TestFlight, and live-device QA as explicit follow-up release work.
 
 ## Delivered
 
@@ -50,7 +50,7 @@ designed:
 
 ## Verification
 
-Reported verification from the local worktree:
+Verification:
 
 ```sh
 swift run AstraCoreCheck
@@ -69,10 +69,16 @@ xcodebuild -project Astra.xcodeproj -scheme Astra \
 Built successfully with Xcode 26.5 for Simulator arm64/x86_64 under Swift 6
 strict concurrency after adding the required `Sendable` conformance.
 
+The first remote CI workflow runs the same two checks on `macos-latest`:
+
+```txt
+.github/workflows/ci.yml
+```
+
 ## Release Status
 
-- No remote `Astra` repository exists yet.
-- No GitHub Actions, TestFlight, or release artifact exists yet.
-- The next publication step is to authorize/create the remote repository, then
-  push the local worktree branch and add CI for `AstraCoreCheck` plus simulator
-  build.
+- Public source repository: `https://github.com/LatticeNet/Astra`
+- CI: `AstraCoreCheck` plus unsigned iOS Simulator build.
+- No TestFlight or signed release artifact exists yet.
+- The next release step is device-side validation: signing, iPhone install,
+  live Lattice API behavior, Bark, and background refresh.

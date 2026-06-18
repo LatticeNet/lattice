@@ -13,7 +13,7 @@
 > bbolt APIs for current state buckets have landed, but JSON is still the
 > default server store.
 >
-> **2026-06-13 closeout:** the current six-repo baseline and next development
+> **2026-06-13 closeout:** the then-current six-repo baseline and next development
 > order are captured in [`development-report-2026-06-13.md`](./development-report-2026-06-13.md).
 >
 > **2026-06-17 operator UX + diagnostics:** the dashboard SSO New Provider flow
@@ -39,14 +39,15 @@
 > four active sessions per node, 10-minute pending expiry, four-hour idle expiry,
 > and 30-minute closed transcript pruning.
 >
-> **2026-06-17 Astra iOS v2 local expansion:** the local `Astra` worktree has
-> been upgraded from a read-only node monitor into a phone-first Lattice
-> companion app with Overview, Nodes, Monitors, Inventory, and More tabs. The
-> new Swift core models Lattice server/SDK views, adds a broad typed
-> `LatticeClient`, and derives fleet/inventory/monitor analytics. Verification
-> passed with `swift run AstraCoreCheck` and an iOS Simulator `xcodebuild`.
-> Astra has no remote repository yet; publication is pending operator
-> authorization. See [`iterations/iter-062-astra-ios-control-companion.md`](./iterations/iter-062-astra-ios-control-companion.md).
+> **2026-06-18 Astra iOS v2 repository publication:** `LatticeNet/Astra` is now
+> the public source repository for the phone-first Lattice companion app. The v2
+> app upgrades the old read-only node monitor into Overview, Nodes, Monitors,
+> Inventory, and More tabs. The Swift core models Lattice server/SDK views,
+> adds a broad typed `LatticeClient`, and derives fleet/inventory/monitor
+> analytics. Verification passed with `swift run AstraCoreCheck`, an iOS
+> Simulator `xcodebuild`, and a new GitHub Actions CI workflow. Signing,
+> TestFlight, live-service iPhone QA, Bark, and background refresh validation
+> remain device-side release steps. See [`iterations/iter-062-astra-ios-control-companion.md`](./iterations/iter-062-astra-ios-control-companion.md).
 >
 > **2026-06-13 audit + designs:** a full-codebase security/stability audit was
 > run and remediated ([`iterations/iter-016-audit-remediation.md`](./iterations/iter-016-audit-remediation.md)):
@@ -301,9 +302,9 @@
 - Browser terminal MVP: scoped `terminal:open` API, agent-side opt-in PTY
   session runner, dashboard Terminal page, bounded in-memory transcript
   retention, and open/close audit events.
-- Astra iOS companion v2 local expansion: phone-first Overview, Nodes,
-  Monitors, Inventory, More, typed API client, analytics layer, and simulator
-  build verification. Remote repository, signing, TestFlight, live-server QA,
+- Astra iOS companion v2 repository publication: phone-first Overview, Nodes,
+  Monitors, Inventory, More, typed API client, analytics layer, GitHub Actions
+  CI, and simulator build verification. Signing, TestFlight, live-server QA,
   and final mobile operation policy are still pending.
 - Multi-channel notifications. (Delivered 2026-06-11: `internal/notify` + `POST /api/notify/test`; persistent channel config + event triggers pending.)
 - DDNS (dynamic DNS) plugin. (Delivered 2026-06-11: cloudflare + webhook providers, server-side IP-change trigger, `/api/ddns` CRUD + `/api/ddns/run`.)
