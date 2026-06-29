@@ -10,6 +10,8 @@ services:
       LATTICE_DATA: /var/lib/lattice/state.json
       LATTICE_WEB_ROOT: /app/dashboard
       LATTICE_PLUGIN_DIR: /plugins
+      LATTICE_PLUGIN_TRUST: /plugins/.trust.json
+      LATTICE_PLUGIN_RUNTIME_DIR: /var/lib/lattice/plugin-runtime
     ports:
       - "127.0.0.1:8088:8088"
     volumes:

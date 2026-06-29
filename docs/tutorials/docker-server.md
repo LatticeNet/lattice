@@ -135,10 +135,18 @@ docker run --rm \
   -p 127.0.0.1:8088:8088 \
   -e LATTICE_ADMIN_PASSWORD='replace-with-a-long-random-password' \
   -e LATTICE_PUBLIC_URL='https://lattice.example.com' \
+  -e LATTICE_PLUGIN_RUNTIME_DIR='/var/lib/lattice/plugin-runtime' \
   -v "$PWD/lattice/compose/data:/var/lib/lattice" \
   -v "$PWD/lattice/compose/plugins:/plugins:ro" \
   lattice-server:local
 ```
+
+`LATTICE_PLUGIN_RUNTIME_DIR` enables the Tier-2 system runner so verified
+system-plugin artifacts execute in isolated per-plugin working directories
+instead of staying behind the noop runner. Leave it unset to preserve the
+fail-closed default. Plugins receive only the runner's fixed safe environment by
+default; set `LATTICE_PLUGIN_RUNTIME_ENV` to a comma/space-separated allowlist
+only when a trusted system plugin explicitly needs selected host variables.
 
 ## GHCR image
 
