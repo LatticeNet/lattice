@@ -3,17 +3,33 @@
 ## Status
 
 **IMPLEMENTED & DEPLOYED 2026-06-29** — all of S0–S5 are live on gomami-hkg
-(server `597ee2a`, dashboard `63a903b`, vpn-core plugin **v0.7.0**; plugin loader
-"2 loaded, 0 rejected"; live system runner). Verified end-to-end through the
-design-10 gateway: `latticenet.vpn-core/{lines,users,usage,profiles,subscriptions}`
-all return correct data (lines + profiles show the real dmit-eb-wee discovered
-sing-box nodes; users/subscriptions/usage correctly empty pending data). The
-dashboard VPN-Manage pages (Lines, Users, Node Profiles, Subscriptions, Usage)
-render live. Codex's live-runtime review (security-solid; HIGH-1 reply-discard
-fixed in `50317b9`) is incorporated. Deferred follow-ups: S1b `sb inspect`
-enrichment (discovered lines' outbound/user_count), S3b per-line usage collector
-(`sb stats`), HIGH-2 `firstPartyBuiltinInterfaceScopes` cleanup (dormant), and the
-`VpnCoreUsageView` i18n gap.
+(vpn-core plugin **v0.7.0**; plugin loader "2 loaded, 0 rejected"; live system
+runner). Verified end-to-end through the design-10 gateway:
+`latticenet.vpn-core/{lines,users,usage,profiles,subscriptions}` all return data
+through the signed manifest interface contract. The dashboard VPN-Manage pages
+(Lines, Users, Node Profiles, Subscriptions, Usage) render live. Codex's
+live-runtime review is incorporated: HIGH-1 reply-discard fixed in `50317b9`,
+HIGH-2 `firstPartyBuiltinInterfaceScopes` manifest bypass removed in `f21b7a0`,
+and `VpnCoreUsageView` i18n fixed in dashboard `09513f9`. Access Tokens rendering
+was also fixed in server `de46e2a` + dashboard `9f41589` (`revoked_at` zero-time
+and nil `server_allowlist` no longer break the page).
+
+**Operational update 2026-06-29:** `openjobs-dmit-4` exposed the common standard
+sing-box deployment shape: `sing-box run -c /etc/sing-box/config.json -C
+/etc/sing-box/conf`, no 233boy `sb --json` management interface, and the existing
+node agent intentionally has `allow_exec=false`. Root cause: manual dashboard
+probe queued a generic task, which the agent refused, and the old probe result
+path could overwrite good read-only inventory with an empty error snapshot. Fixes:
+server `f21b7a0` adds runtime-config fallback for exec-backed manual probes and
+removes the signed-manifest bypass; server `1b80d79` preserves existing read-only
+inventory when a manual probe fails because exec is disabled; node-agent
+`b7b9cdb` adds native read-only runtime-config discovery fallback for future
+agent rollouts. The live `openjobs-dmit-4` node was repaired without reinstalling
+`lattice-agent`: a read-only sidecar timer reports the existing `/etc/sing-box`
+runtime config every 30 seconds and the control plane now shows 13 discovered
+VLESS REALITY lines for that node. Deferred follow-ups: S1b `sb inspect`
+enrichment (discovered lines' outbound/user_count) and S3b per-line usage
+collector (`sb stats`).
 
 Originally proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
 **design-10** (declarative dashboard contributions + scope-gated gateway), and
@@ -60,6 +76,8 @@ agents ── push (sing-box inventory, usage snapshots) ──▶ server core (
 dashboard ──▶ /api/plugins/call ──▶ CallOperator ──▶ latticenet.vpn-core/{lines,users,usage,nodes}
                                                        (in-core handlers; vpn-core-namespaced)
 host mutation (probe / adopt / apply / add-user) ──▶ Task plan ▶ agent ▶ `sb --json ...`
+read-only discovery ───────────────────────────────▶ agent/sidecar ▶ `sb --json list`
+                                                                    or sing-box `-c/-C` config parse
 ```
 
 - **Ownership is declarative**: retire the hardcoded UI-ownership switches at
