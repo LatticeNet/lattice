@@ -2,7 +2,20 @@
 
 ## Status
 
-Proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
+**IMPLEMENTED & DEPLOYED 2026-06-29** — all of S0–S5 are live on gomami-hkg
+(server `597ee2a`, dashboard `63a903b`, vpn-core plugin **v0.7.0**; plugin loader
+"2 loaded, 0 rejected"; live system runner). Verified end-to-end through the
+design-10 gateway: `latticenet.vpn-core/{lines,users,usage,profiles,subscriptions}`
+all return correct data (lines + profiles show the real dmit-eb-wee discovered
+sing-box nodes; users/subscriptions/usage correctly empty pending data). The
+dashboard VPN-Manage pages (Lines, Users, Node Profiles, Subscriptions, Usage)
+render live. Codex's live-runtime review (security-solid; HIGH-1 reply-discard
+fixed in `50317b9`) is incorporated. Deferred follow-ups: S1b `sb inspect`
+enrichment (discovered lines' outbound/user_count), S3b per-line usage collector
+(`sb stats`), HIGH-2 `firstPartyBuiltinInterfaceScopes` cleanup (dormant), and the
+`VpnCoreUsageView` i18n gap.
+
+Originally proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
 **design-10** (declarative dashboard contributions + scope-gated gateway), and
 **design-11** (VPN Manage IA/security migration). Where design-11 migrated the
 *existing* page set under plugin ownership, design-12 is the **product redesign**
