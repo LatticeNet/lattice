@@ -56,6 +56,18 @@ stats adapter/source is configured. Remaining follow-ups: runtime stats source
 adapter/config (`sb stats` / sing-box stats API) and, if needed, a first-class
 `sb inspect` wrapper for non-standard managers.
 
+**Operational update 2026-06-30 operator UX:** VPN Users now defaults new
+identities to a full credential set (`vless`, `vmess`, `trojan`, `shadowsocks`,
+`hysteria2`, `tuic`, `anytls`) while preserving credentials on edit unless the
+operator explicitly replaces them. `/tasks` now fans a batch task out to every
+target node with per-node lease/result history and node-scoped rerun. Node
+enrollment and node detail now expose an agent launch profile so VPN operators
+can set `allow_exec`, `allow_root_exec`, `singbox_discover`, terminal, SSH alert,
+and usage collector flags before copying the install/reconfigure command. The
+official plugin operation contract, including sing-box source-of-truth and
+Lattice annotation conventions, lives in
+`lattice-plugin-index/docs/OFFICIAL-VPN-CORE.md`.
+
 Originally proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
 **design-10** (declarative dashboard contributions + scope-gated gateway), and
 **design-11** (VPN Manage IA/security migration). Where design-11 migrated the
