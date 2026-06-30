@@ -68,6 +68,15 @@ official plugin operation contract, including sing-box source-of-truth and
 Lattice annotation conventions, lives in
 `lattice-plugin-index/docs/OFFICIAL-VPN-CORE.md`.
 
+**Operational update 2026-06-30 Lines management:** vpn-core plugin `v0.7.1`
+removes the legacy `Inbounds` nav/view from the signed official manifest. Lines
+is now both the read model and the common operator entry for sing-box add/delete.
+The dashboard queues the existing task-backed `sb add` / `sb del` bridge, then
+waits for runtime discovery to report the real line before showing the result.
+When the operator preselects VPN users during add, the dashboard records a
+pending bind plan and applies `users-admin bind` only after a matching
+node/protocol/port line appears and yields an authoritative `line_hash_id`.
+
 Originally proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
 **design-10** (declarative dashboard contributions + scope-gated gateway), and
 **design-11** (VPN Manage IA/security migration). Where design-11 migrated the
