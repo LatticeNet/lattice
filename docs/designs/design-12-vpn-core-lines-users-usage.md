@@ -40,8 +40,20 @@ verification shows `node_gdawc2fnz6mhfath` / `openjobs-dmit-4` with 13 lines and
 the first runtime-config line carrying `listen_host="::"`,
 `outbound_ref="[openjobs]-qqpw-vds1-vless"`, `user_count=1`, and
 `user_known=true` through both `/api/proxy/discovered` and the signed
-`latticenet.vpn-core/lines:list` gateway. Remaining follow-ups: S3b per-line
-usage collector (`sb stats` / sing-box stats API) and, if needed, a first-class
+`latticenet.vpn-core/lines:list` gateway.
+
+**Operational update 2026-06-30 S3b contract:** line-aware usage transport and
+read-model support is implemented and deployed in SDK `v0.2.9`, node-agent
+`442a608`, server `552c578`, and dashboard `b447129`. `ProxyUsageSnapshot` now
+accepts optional cumulative `line_user_bytes` (`line_hash_id -> proxy_user_id ->
+bytes`); node-agent file/http snapshot sources normalize it and derive
+`user_bytes` when needed; server ingestion filters to known lines + eligible
+users; `latticenet.vpn-core/usage:query` emits rows with `line_hash_id` and
+`per_line=true` when such data exists. gomami-hkg is deployed and healthy, but
+the live nodes currently have no configured sing-box stats source, so production
+usage still correctly reports `per_line=false` and empty rows until a node-side
+stats adapter/source is configured. Remaining follow-ups: runtime stats source
+adapter/config (`sb stats` / sing-box stats API) and, if needed, a first-class
 `sb inspect` wrapper for non-standard managers.
 
 Originally proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
@@ -219,9 +231,11 @@ provision backup add change del` with `--json`. New work:
 - **S2 — VpnUser identity + credential set.** Model + `LineUserBinding`; migrate
   `ProxyUser`; `latticenet.vpn-core/users` RPC; Users view rework (add user once,
   bind to many lines).
-- **S3 — Usage 3-D.** `sb stats --json` collector + agent reporting; `UsageRow`
-  history; `latticenet.vpn-core/usage` RPC; Usage page (user × node dimensions),
-  graceful "stats unavailable".
+- **S3 — Usage 3-D.** `latticenet.vpn-core/usage` RPC + Usage page (user × node
+  dimensions), graceful "stats unavailable". S3b contract is implemented:
+  snapshots can carry `line_user_bytes` and the RPC emits `line_hash_id` rows
+  with `per_line=true`. Runtime stats adapter/source configuration (`sb stats` /
+  sing-box stats API) remains a node-side follow-up.
 - **S4 — Node Profiles → vpn-core runtime.** Per-node: core type/version, config
   path, service status, last probe/apply, recent logs, supported capabilities.
 - **S5 — Subscriptions ↔ Sub-Store convergence.** Boundary + thin Subscriptions
@@ -255,9 +269,9 @@ provision backup add change del` with `--json`. New work:
 
 - Autonomous long-lived plugin process (socket RPC + event subscriptions) — out
   of scope; revisit only if a real need outgrows core-hosted serving.
-- S3b per-line usage collector (`sb stats` / sing-box stats API) — deferred until
-  the runtime stats source and stable `(node,line,user)` identity mapping are
-  pinned.
+- S3b runtime stats adapter/source configuration (`sb stats` / sing-box stats
+  API) — deferred until a node exposes a safe stats source. The cross-repo
+  `line_user_bytes` contract and read model are already shipped.
 - First-class `sb inspect --json` wrapper — optional after S1b because standard
   sing-box `-c/-C` deployments now have read-only runtime-config enrichment.
 - Reimplementing Sub-Store in Go / copying its source — rejected (AGPL/GPL
