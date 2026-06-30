@@ -27,9 +27,22 @@ inventory when a manual probe fails because exec is disabled; node-agent
 agent rollouts. The live `openjobs-dmit-4` node was repaired without reinstalling
 `lattice-agent`: a read-only sidecar timer reports the existing `/etc/sing-box`
 runtime config every 30 seconds and the control plane now shows 13 discovered
-VLESS REALITY lines for that node. Deferred follow-ups: S1b `sb inspect`
-enrichment (discovered lines' outbound/user_count) and S3b per-line usage
-collector (`sb stats`).
+VLESS REALITY lines for that node.
+
+**Operational update 2026-06-30:** S1b runtime-config inspection enrichment is
+implemented and deployed in SDK `v0.2.8`, node-agent `2117382`, server
+`c0a7abd`, and dashboard `3fb7773`. The read-only discovery path now parses split
+`config.json` + `conf/*.json` runtime config sets, including route rules, and
+surfaces safe line metadata: `listen_host`, `outbound_ref`, `user_count`,
+`user_known`, and `_lattice` string labels. The live `openjobs-dmit-4` sidecar
+helper was updated in place without reinstalling `lattice-agent`; gomami-hkg
+verification shows `node_gdawc2fnz6mhfath` / `openjobs-dmit-4` with 13 lines and
+the first runtime-config line carrying `listen_host="::"`,
+`outbound_ref="[openjobs]-qqpw-vds1-vless"`, `user_count=1`, and
+`user_known=true` through both `/api/proxy/discovered` and the signed
+`latticenet.vpn-core/lines:list` gateway. Remaining follow-ups: S3b per-line
+usage collector (`sb stats` / sing-box stats API) and, if needed, a first-class
+`sb inspect` wrapper for non-standard managers.
 
 Originally proposed 2026-06-29. Builds on **design-09** (vpn-core/sub-store plugins),
 **design-10** (declarative dashboard contributions + scope-gated gateway), and
@@ -196,10 +209,13 @@ provision backup add change del` with `--json`. New work:
   **Deferred to S1** (belongs with the Line persistence model): persist the
   inventory + `first_seen_at`, and a first-class `Task.Action` field (codex's
   script-marker fingerprint works + is tested, so no rush).
-- **S1 — Lines read-model.** `sb inspect --json` + `_lattice`; `Line` model +
-  `line_hash_id`; merge discovered + managed-rendered into node-grouped Lines;
-  `latticenet.vpn-core/lines` RPC (`list`, `get`); Vue **Lines** view (rename
-  Inbounds → Lines, fold Discovered in) with outbound detail drawer + relay edges.
+- **S1 — Lines read-model.** `Line` model + `line_hash_id`; merge discovered +
+  managed-rendered into node-grouped Lines; `latticenet.vpn-core/lines` RPC
+  (`list`, `get`); Vue **Lines** view (rename Inbounds → Lines, fold Discovered
+  in) with outbound detail drawer + relay edges. S1b runtime-config inspection
+  enrichment is implemented for standard sing-box `-c/-C` deployments; a
+  standalone `sb inspect --json` wrapper remains optional for managers that
+  expose richer native inspection.
 - **S2 — VpnUser identity + credential set.** Model + `LineUserBinding`; migrate
   `ProxyUser`; `latticenet.vpn-core/users` RPC; Users view rework (add user once,
   bind to many lines).
@@ -239,6 +255,11 @@ provision backup add change del` with `--json`. New work:
 
 - Autonomous long-lived plugin process (socket RPC + event subscriptions) — out
   of scope; revisit only if a real need outgrows core-hosted serving.
+- S3b per-line usage collector (`sb stats` / sing-box stats API) — deferred until
+  the runtime stats source and stable `(node,line,user)` identity mapping are
+  pinned.
+- First-class `sb inspect --json` wrapper — optional after S1b because standard
+  sing-box `-c/-C` deployments now have read-only runtime-config enrichment.
 - Reimplementing Sub-Store in Go / copying its source — rejected (AGPL/GPL
   boundary, design-11).
 - `comment_xxx` as the primary annotation model — rejected in favor of `_lattice`.
