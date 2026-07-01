@@ -23,16 +23,19 @@ Build individual binaries:
 
 ```sh
 cd ../lattice-server
-GOWORK=../lattice/go.work go build -o /usr/local/bin/lattice-server ./cmd/lattice-server
+GOWORK=../lattice/go.work go build -o /tmp/lattice-server ./cmd/lattice-server
+sudo install -m 0755 /tmp/lattice-server /usr/local/bin/lattice-server
 
 cd ../lattice-node-agent
-GOWORK=../lattice/go.work go build -o /usr/local/bin/lattice-agent ./cmd/lattice-agent
+GOWORK=../lattice/go.work go build -o /tmp/lattice-agent ./cmd/lattice-agent
+sudo install -d -m 0755 /opt/lattice
+sudo install -m 0755 /tmp/lattice-agent /opt/lattice/lattice-agent
 ```
 
 Verify the agent binary supports the update smoke check:
 
 ```sh
-lattice-agent -version
+/opt/lattice/lattice-agent -version
 ```
 
 ## 2. Deploy the server

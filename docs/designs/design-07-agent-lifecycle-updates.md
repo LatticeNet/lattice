@@ -87,6 +87,14 @@ the approval's bound URL/SHA/version/path/service tuple. If the operator edited
 the policy after planning, the server rejects the old approval and requires a
 fresh plan.
 
+`GET /api/network/approvals` also performs a local-only cleanup pass for pending
+`agentupdate` approvals. It rejects historical approvals that are already
+locally impossible to approve safely: invalid bound payloads, missing/disabled
+policies, missing nodes, invalid local policy fields, changed explicit artifact
+pins, or locally detectable official-version/install/service drift. It does not
+resolve `latest` or fetch release metadata during inbox rendering; the approve
+path remains the authoritative network-resolving safety gate.
+
 ## Dashboard
 
 The dashboard adds an **Agent Updates** panel:
@@ -106,6 +114,7 @@ Implemented in iter-058:
 - auto-plan scheduler hook;
 - reviewed update script generation;
 - current-policy approval check before queueing;
+- local inbox cleanup for historical stale pending approvals;
 - dashboard policy panel;
 - agent `-version` target-version check;
 - tests for policy validation, manual queue, auto-plan duplicate suppression,

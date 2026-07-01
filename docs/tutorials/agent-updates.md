@@ -16,7 +16,7 @@ LATTICE_AGENT_ALLOW_EXEC=1
 LATTICE_AGENT_ALLOW_ROOT_EXEC=1
 ```
 
-Root is normally required to replace `/usr/local/bin/lattice-agent` and restart a
+Root is normally required to replace `/opt/lattice/lattice-agent` and restart a
 system service. If the agent runs as a non-root user, choose an install path and
 service strategy that user can actually mutate.
 
@@ -45,7 +45,7 @@ Use the matching row in `SHA256SUMS` for the policy digest.
    - binary URL, e.g.
      `https://github.com/LatticeNet/lattice-node-agent/releases/download/v0.2.0/lattice-agent-linux-amd64`;
    - SHA-256 digest from `SHA256SUMS`;
-   - install path, default `/usr/local/bin/lattice-agent`;
+   - install path, default `/opt/lattice/lattice-agent`;
    - service name, default `lattice-agent.service`.
 4. Save policy.
 5. Click `Plan Update`.
@@ -55,7 +55,10 @@ Use the matching row in `SHA256SUMS` for the policy digest.
 
 If you edit the policy after creating a plan, discard the old approval and
 create a new one. The server rejects stale approvals whose bound tuple no longer
-matches the current policy.
+matches the current policy. The approvals inbox also performs a local cleanup
+pass for historical stale `agentupdate` approvals, so an old pending plan may
+appear as `rejected` after a refresh instead of waiting for an approve attempt to
+fail.
 
 The queued task:
 
@@ -93,15 +96,15 @@ review gate for privileged host changes.
 The update script creates a timestamped backup:
 
 ```txt
-/usr/local/bin/lattice-agent.bak.YYYYMMDDHHMMSS
+/opt/lattice/lattice-agent.bak.YYYYMMDDHHMMSS
 ```
 
 Manual rollback on the node:
 
 ```sh
 systemctl stop lattice-agent.service
-cp -p /usr/local/bin/lattice-agent.bak.YYYYMMDDHHMMSS /usr/local/bin/lattice-agent
-chmod 0755 /usr/local/bin/lattice-agent
+cp -p /opt/lattice/lattice-agent.bak.YYYYMMDDHHMMSS /opt/lattice/lattice-agent
+chmod 0755 /opt/lattice/lattice-agent
 systemctl start lattice-agent.service
 ```
 

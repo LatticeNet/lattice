@@ -11,11 +11,11 @@ The node token is a server-generated per-node bearer token. It is not an
 operator password, GitHub token, or Cloudflare token. The server stores only a
 hash of it, so the plain token is shown once during enrollment or token
 rotation. If it is lost, rotate or re-enroll the node and update the node's
-`/etc/lattice/agent.env`.
+`/opt/lattice/lattice-agent.env`.
 
 The dashboard install script downloads the Linux `amd64` or `arm64` release
-artifact, verifies `SHA256SUMS`, installs `/usr/local/bin/lattice-agent`, writes
-`/etc/lattice/agent.env`, and enables `lattice-agent.service`.
+artifact, verifies `SHA256SUMS`, installs `/opt/lattice/lattice-agent`, writes
+`/opt/lattice/lattice-agent.env`, and enables `lattice-agent.service`.
 
 Example:
 
@@ -25,9 +25,10 @@ ARCH=amd64
 curl -fsSLO "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/lattice-agent-linux-${ARCH}"
 curl -fsSLO "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/SHA256SUMS"
 grep "lattice-agent-linux-${ARCH}$" SHA256SUMS | sha256sum -c -
-install -m 0755 "lattice-agent-linux-${ARCH}" /usr/local/bin/lattice-agent
+install -d -m 0755 /opt/lattice
+install -m 0755 "lattice-agent-linux-${ARCH}" /opt/lattice/lattice-agent
 
-lattice-agent \
+/opt/lattice/lattice-agent \
   -server https://lattice.example.com \
   -node-id dmit-eb-wee \
   -token '<node-token>' \
@@ -38,22 +39,22 @@ lattice-agent \
 Check the installed binary:
 
 ```sh
-lattice-agent -version
+/opt/lattice/lattice-agent -version
 ```
 
 Task execution is off by default. Enable it only for nodes where remote script
 execution is acceptable:
 
 ```sh
-lattice-agent ... -allow-exec=true
+/opt/lattice/lattice-agent ... -allow-exec=true
 ```
 
 Agent self-update through the server also uses the task channel. If the update
-replaces `/usr/local/bin/lattice-agent` and restarts `lattice-agent.service`, the
+replaces `/opt/lattice/lattice-agent` and restarts `lattice-agent.service`, the
 service normally needs both:
 
 ```sh
-lattice-agent ... -allow-exec=true -allow-root-exec=true
+/opt/lattice/lattice-agent ... -allow-exec=true -allow-root-exec=true
 ```
 
 See [Agent updates](./agent-updates.md).
