@@ -145,8 +145,8 @@ and then update the dependent `go.mod` files. Local multi-repo development can
 use `go.work`, but standalone builds should not depend on an untagged SDK
 `main`.
 
-Current published SDK baseline: latest `lattice-sdk` tag is `v0.2.13`;
-`lattice-server` consumes `v0.2.13`, and `lattice-node-agent` consumes
-`v0.2.13`. The workspace `use` list includes the local SDK checkout, so
+Current published SDK baseline: latest `lattice-sdk` tag is `v0.2.14`;
+`lattice-server` consumes `v0.2.14`, and `lattice-node-agent` consumes
+`v0.2.14`. The workspace `use` list includes the local SDK checkout, so
 cross-repo development exercises the current model sources without relying on a
 stale version-specific replace.
