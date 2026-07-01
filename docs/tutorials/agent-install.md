@@ -22,8 +22,8 @@ Example:
 ```sh
 VERSION=v0.2.0
 ARCH=amd64
-curl -fsSLO "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/lattice-agent-linux-${ARCH}"
-curl -fsSLO "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/SHA256SUMS"
+curl -fsSL --proto '=https' --tlsv1.2 -O "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/lattice-agent-linux-${ARCH}"
+curl -fsSL --proto '=https' --tlsv1.2 -O "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/SHA256SUMS"
 grep "lattice-agent-linux-${ARCH}$" SHA256SUMS | sha256sum -c -
 install -d -m 0755 /opt/lattice
 install -m 0755 "lattice-agent-linux-${ARCH}" /opt/lattice/lattice-agent
