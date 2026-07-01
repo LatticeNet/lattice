@@ -20,7 +20,7 @@ artifact, verifies `SHA256SUMS`, installs `/opt/lattice/lattice-agent`, writes
 Example:
 
 ```sh
-VERSION=v0.2.0
+VERSION=v0.2.8
 ARCH=amd64
 curl -fsSL --proto '=https' --tlsv1.2 -O "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/lattice-agent-linux-${ARCH}"
 curl -fsSL --proto '=https' --tlsv1.2 -O "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/SHA256SUMS"

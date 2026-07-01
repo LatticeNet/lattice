@@ -24,7 +24,10 @@ On the server:
 
 - the operator has `node:admin` and `network:plan` for planning;
 - the approver has `network:apply`;
-- the artifact URL is HTTPS and the SHA-256 digest is known.
+- official-release mode is preferred: leave Binary URL and SHA-256 empty so the
+  server resolves `LatticeNet/lattice-node-agent` for the node OS/arch;
+- custom artifact mode is still available when the HTTPS artifact URL and
+  SHA-256 digest are known.
 
 Official Linux agent release artifacts are:
 
@@ -34,17 +37,17 @@ lattice-agent-linux-arm64
 SHA256SUMS
 ```
 
-Use the matching row in `SHA256SUMS` for the policy digest.
+For custom artifact mode, use the matching row in `SHA256SUMS` for the policy
+digest. Official-release mode resolves that digest on the server at plan time.
 
 ## Manual update
 
 1. Open **Agent Updates**.
 2. Click `Update` on a node row, or type `node_id`.
 3. Fill:
-   - target version, e.g. `0.2.0`;
-   - binary URL, e.g.
-     `https://github.com/LatticeNet/lattice-node-agent/releases/download/v0.2.0/lattice-agent-linux-amd64`;
-   - SHA-256 digest from `SHA256SUMS`;
+   - target version, e.g. `latest` or `0.2.8`;
+   - leave Binary URL empty for the official `lattice-node-agent` release;
+   - leave SHA-256 empty for the official release;
    - install path, default `/opt/lattice/lattice-agent`;
    - service name, default `lattice-agent.service`.
 4. Save policy.
@@ -52,6 +55,11 @@ Use the matching row in `SHA256SUMS` for the policy digest.
 6. Review the generated `agentupdate` approval. It should show the exact
    version, URL, SHA, path, and service.
 7. Approve with `queue_apply`.
+
+For forked or emergency binaries, provide Binary URL and SHA-256 together. The
+URL must be HTTPS and the digest must match the artifact. Do not use custom
+artifacts for normal upgrades; they bypass the official release affordances and
+are harder to audit.
 
 If you edit the policy after creating a plan, discard the old approval and
 create a new one. The server rejects stale approvals whose bound tuple no longer
@@ -123,13 +131,13 @@ Then confirm the node heartbeat and `agent_version` in the dashboard.
 - **No `-allow-exec` / root guard:** the agent refuses the task before running
   the script. This is expected safe default behavior.
 
-## Future release-channel support
+## Release resolution boundary
 
-Do not implement "latest" by letting nodes fetch arbitrary release metadata.
-Future channel support should be server-side and signed:
+Do not let nodes fetch arbitrary release metadata. `latest` and official
+release resolution stay server-side:
 
-1. fetch or receive release manifest;
-2. verify signature;
-3. resolve channel (`stable`, `canary`) into URL + SHA + version;
-4. store/update `AgentUpdatePolicy`;
+1. resolve the trusted release repository;
+2. map the node OS/arch to the expected artifact;
+3. fetch `SHA256SUMS`;
+4. embed the concrete URL + SHA + version in the approval plan;
 5. create pending approvals as today.
