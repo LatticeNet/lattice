@@ -80,7 +80,9 @@ If they differ and there is no equivalent open approval (`pending` or
 `approved`), the server creates a new pending `agentupdate` approval. It does not
 approve or apply automatically. A failed update task closes the old approval and
 stores the failure reason on the policy, so the next scheduler tick can create a
-fresh reviewed plan.
+fresh reviewed plan. If the node already reports the current target before an
+approval is applied, the scheduler closes the pending no-op approval as rejected
+instead of keeping stale update work in the inbox.
 
 This gives you a Nezha-like centralized update entry while preserving Lattice's
 review gate for privileged host changes.
