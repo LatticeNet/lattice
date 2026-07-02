@@ -99,7 +99,10 @@ management as plugin interfaces.
 under VPN Manage via the `proxy.substore` builtin component. The shipped server
 helper at `/api/substore/*` still only imports vpn-core node links into an
 operator-supplied Sub-Store backend URL; a full embedded service lifecycle is
-still the next stage.
+still the next stage. The interim helper is treated as a global proxy operation:
+restricted `server_allowlist` PATs cannot call status/import, and the backend URL
+must be an absolute http(s) URL with the Sub-Store secret path, no credentials,
+no query/fragment, and HTTPS for non-loopback hosts.
 
 ### sing-box local tool
 
