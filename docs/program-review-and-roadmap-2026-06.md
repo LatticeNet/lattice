@@ -219,9 +219,6 @@ per-node RBAC, capability tiers).
   detects edit/reorder/gap/mid-truncation, but end-truncation requires comparing
   the current head to an independently anchored value. Retention/remote shipping
   are still open.
-- **F-P1-1 · Node token lifecycle is partially complete.** Rotation and
-  write-throttled `token_last_used_at` telemetry exist; per-node agent source-IP
-  allowlist is still pending.
 - **F-P1-2 · Storage will not scale.** `Save()` re-serializes the entire state
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
@@ -242,6 +239,11 @@ per-node RBAC, capability tiers).
   isolation, and adversarial tests before any artifact code runs.
 
 ### Closed since this review
+- **F-P1-1 · Node token lifecycle.** Rotation, write-throttled
+  `token_last_used_at` telemetry, and per-node `agent_source_allowlist`
+  exact-IP/CIDR enforcement have all landed. The dashboard can set the
+  allowlist during enrollment or later from the node detail page; proxy headers
+  count only under explicit `TrustProxy`.
 - **F-P3-1 · Node-scoped `audit:read` for restricted tokens.** `audit:read`
   calls now respect non-global token `server_allowlist` values: restricted
   tokens see only audit rows whose `node_id` is inside their allowlist, while
@@ -298,8 +300,8 @@ capabilities, deadlines, and audit.*
   *(Delivered 2026-06-12.)*
 - **S** Append-only, tamper-evident audit WAL. *(Delivered 2026-06-12; remote
   head anchoring and retention policy pending.)*
-- **S** Node-token lifecycle. *(Rotation and `token_last_used_at` telemetry
-  delivered; optional source-IP allowlist pending.)*
+- **S** Node-token lifecycle. *(Rotation, `token_last_used_at` telemetry, and
+  optional source-IP allowlist delivered.)*
 - **S** Operator MFA. *(TOTP delivered; enforce-2FA policy + WebAuthn pending.)*
 - **Gate:** until bbolt, runner isolation, and MFA policy close, treat Lattice as
   **single-operator / trusted fleet behind WireGuard or CF Access** — not an
