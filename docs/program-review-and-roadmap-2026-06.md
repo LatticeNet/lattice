@@ -239,7 +239,12 @@ per-node RBAC, capability tiers).
   loader, lifecycle, broker, and runner contract are ready, but concrete
   system/worker/wasm runners need resource limits, cancellation, log/output caps,
   isolation, and adversarial tests before any artifact code runs.
-- **F-P3-1 · `audit:read` is global**, not node-scoped for restricted tokens.
+
+### Closed since this review
+- **F-P3-1 · Node-scoped `audit:read` for restricted tokens.** `audit:read`
+  calls now respect non-global token `server_allowlist` values: restricted
+  tokens see only audit rows whose `node_id` is inside their allowlist, while
+  unrestricted operators keep the full audit stream.
 
 ---
 
