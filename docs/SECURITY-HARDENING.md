@@ -79,12 +79,21 @@ issue, the fix, and where it lives.
   disabled execution, root-refused execution, Linux rlimit/process-group
   hardening, Linux `no_new_privs`, optional cgroup v2 caps, and any
   root/non-Linux warning from the node detail page. This does not replace all
-  OS-level isolation: hard filesystem isolation and
+  OS-level isolation: mount namespace filesystem isolation and
   seccomp/AppArmor/bubblewrap-style isolation remain production-hardening work.
 - **Task no-new-privileges guard:** Linux task interpreters are executed with
   `PR_SET_NO_NEW_PRIVS`, so a task cannot gain privilege through setuid or
   file-capability executables. If the kernel refuses the guard, task launch
   fails instead of silently running without it.
+- **Private task temp/workdir environment:** each task gets a fresh private
+  workdir. Agents bind `HOME`, `TMPDIR`, and `XDG_RUNTIME_DIR` to that directory
+  so task-local temporary files stay under the per-task cleanup path. Operators
+  can set `LATTICE_TASK_WORK_ROOT` to an absolute, non-group/world-writable root
+  such as `/opt/lattice/state/tasks`; if that root cannot be prepared safely,
+  task launch fails before the script runs. On Linux, the task shim also sets
+  `umask 077` before exec so newly created files default to owner-only access.
+  This is not a full filesystem sandbox: task scripts retain the filesystem
+  access of the agent user outside the private workdir.
 - **Optional per-task cgroup caps:** Linux agents support
   `LATTICE_TASK_CGROUP_ROOT=auto` (or an absolute delegated cgroup root) plus
   `LATTICE_TASK_CGROUP_MEMORY_MAX`, `LATTICE_TASK_CGROUP_PIDS_MAX`, and

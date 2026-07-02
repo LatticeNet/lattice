@@ -80,9 +80,14 @@ Execution limits:
 - Default timeout: 30 seconds.
 - Maximum timeout: 10 minutes.
 - Maximum captured stdout/stderr: 256 KiB.
-- Minimal environment and temporary working directory.
+- Minimal environment and temporary working directory. `HOME`, `TMPDIR`, and
+  `XDG_RUNTIME_DIR` are bound to the task-private workdir. Set
+  `LATTICE_TASK_WORK_ROOT=/opt/lattice/state/tasks` to place those per-task
+  directories under a dedicated absolute root; unsafe roots fail closed before
+  the script runs.
 - Linux `no_new_privs` guard: task interpreters cannot gain privilege through
   setuid or file-capability executables.
+- Linux `umask 077`: task-created files default to owner-only access.
 - Optional Linux cgroup v2 caps: set `LATTICE_TASK_CGROUP_ROOT=auto` for a
   delegated systemd service cgroup, or use an absolute delegated cgroup root.
   Defaults are `memory.max=536870912`, `pids.max=64`, and

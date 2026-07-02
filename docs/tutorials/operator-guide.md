@@ -171,6 +171,14 @@ creates one child cgroup per task with default `memory.max=536870912`,
 root instead of `auto` for custom service layouts. If cgroup setup fails after
 being configured, the task fails rather than running without the requested cap.
 
+Set `LATTICE_TASK_WORK_ROOT=/opt/lattice/state/tasks` on task-executing nodes
+when you want task working directories under an operator-controlled path rather
+than the OS temp root. The agent creates one private per-task subdirectory,
+binds `HOME`, `TMPDIR`, and `XDG_RUNTIME_DIR` to it, removes it after the task,
+and refuses unsafe relative or group/world-writable roots. On Linux, task
+scripts also inherit `umask 077`. This is temp/workdir containment; it does not
+replace a future mount namespace, seccomp, or bubblewrap profile.
+
 For a fleet-wide pause during incident response, set
 `LATTICE_TASK_EXEC_DISABLED=1` or start `lattice-server` with
 `-task-exec-disabled`. This server-side kill switch rejects new task queueing,

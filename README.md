@@ -117,6 +117,12 @@ when configured but unavailable, so tasks do not silently run without the
 requested OS-level limit.
 Linux task interpreters also run with `no_new_privs`, blocking setuid or
 file-capability privilege gain from task scripts.
+Set `LATTICE_TASK_WORK_ROOT=/opt/lattice/state/tasks` to place task-private
+working directories under an operator-controlled root. Each task gets its own
+removed-after-run directory, and the agent binds `HOME`, `TMPDIR`, and
+`XDG_RUNTIME_DIR` to it. On Linux, task scripts also inherit `umask 077`.
+This reduces temp-file leakage but is not a full mount namespace or filesystem
+sandbox.
 For least-privilege Linux systemd installs, set
 `LATTICE_AGENT_RUN_USER=lattice-agent` before running the agent installer; use a
 root-capable service profile only for host mutation or self-update tasks.
