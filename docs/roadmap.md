@@ -158,8 +158,9 @@
 - Add end-to-end browser QA.
 - Add node-token last-used telemetry and optional source-IP policy. (Rotation API
   delivered; last-used/source-IP policy pending.)
-- Add task-exec OS sandboxing: non-root service profile, cgroup CPU/memory caps,
-  kill switch, and optional seccomp/bubblewrap where available.
+- Add task-exec OS sandboxing: non-root service profile and optional
+  seccomp/bubblewrap remain; runtime posture reporting, server kill switch, and
+  configurable cgroup v2 CPU/memory/pids caps have landed.
 
 ## Plugin Platform
 

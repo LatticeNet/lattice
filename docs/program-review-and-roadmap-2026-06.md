@@ -236,11 +236,12 @@ per-node RBAC, capability tiers).
   file size, process count, address space, and data segment size. Runtime
   heartbeats now report a `task_sandbox` profile so operators can see disabled
   execution, root-refused execution, and the Linux rlimit/process-group hardened
-  path in the dashboard. The server now also has a fleet kill switch
+  path in the dashboard. Linux agents can now also enforce configured cgroup v2
+  memory, pids, and CPU caps per task, failing closed if the requested cgroup
+  cannot be prepared or joined. The server now also has a fleet kill switch
   (`LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled`) that blocks new task
   queueing and agent leases while preserving already leased task-result intake.
-  It still lacks a non-root unit profile, cgroup CPU/mem caps, and
-  seccomp/bubblewrap.
+  It still lacks a non-root unit profile and seccomp/bubblewrap.
 - **F-P2-2 · Operator MFA policy is partially complete.** TOTP and an optional
   server-enforced `-require-totp` policy now exist, but passkey/WebAuthn support
   and richer admin-facing rollout/reporting workflows remain open.
@@ -344,9 +345,10 @@ capabilities, deadlines, and audit.*
   notify channels, WireGuard plan/approve, tunnels, PAT, audit WAL verification,
   and runtime audit drill-through — dependency-free, same strict CSP.
 - **S** Task-exec sandbox on the agent: runtime task-sandbox posture reporting
-  has landed; dedicated non-root unit, hard workdir isolation, cgroup CPU/mem
-  caps, and optional seccomp/bubblewrap remain. A server-side fleet kill switch
-  has landed. *(F-P1-3)*
+  has landed; per-task cgroup v2 memory/pids/CPU caps are configurable and
+  fail closed. Dedicated non-root unit, hard workdir isolation, and optional
+  seccomp/bubblewrap remain. A server-side fleet kill switch has landed.
+  *(F-P1-3)*
 
 ### Phase 3 — Platform expansion (the original vision), through the approval flow
 - **F** sing-box/xray deploy + subscription management; sub-store; nginx +

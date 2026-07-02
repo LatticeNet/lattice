@@ -110,6 +110,11 @@ For fleet-wide incident response, start `lattice-server` with
 `LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled`; the server will reject
 new task queueing and return no leases to agents while still accepting results
 from tasks that were already leased.
+Linux agents can also enforce optional per-task cgroup v2 caps for resident
+memory, pids, and CPU by setting `LATTICE_TASK_CGROUP_ROOT=auto` (or an
+absolute delegated cgroup root). Cgroup caps are off by default and fail closed
+when configured but unavailable, so tasks do not silently run without the
+requested OS-level limit.
 
 ## Design Defaults
 

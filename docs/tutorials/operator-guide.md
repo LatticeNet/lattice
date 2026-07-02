@@ -154,6 +154,14 @@ lattice-agent \
 Use `-allow-exec=false` on nodes that should only report metrics and run
 monitors. Use `LATTICE_NO_EXEC=1` as a kill switch.
 
+On Linux systemd nodes that execute tasks, enable per-task cgroup v2 caps by
+setting `LATTICE_TASK_CGROUP_ROOT=auto` before installing or reconfiguring the
+agent. The installer writes `Delegate=yes` into the systemd unit, and the agent
+creates one child cgroup per task with default `memory.max=536870912`,
+`pids.max=64`, and `cpu.max="100000 100000"`. Use an absolute delegated cgroup
+root instead of `auto` for custom service layouts. If cgroup setup fails after
+being configured, the task fails rather than running without the requested cap.
+
 For a fleet-wide pause during incident response, set
 `LATTICE_TASK_EXEC_DISABLED=1` or start `lattice-server` with
 `-task-exec-disabled`. This server-side kill switch rejects new task queueing,

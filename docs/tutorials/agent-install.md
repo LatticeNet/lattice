@@ -66,3 +66,8 @@ Execution limits:
 - Maximum timeout: 10 minutes.
 - Maximum captured stdout/stderr: 256 KiB.
 - Minimal environment and temporary working directory.
+- Optional Linux cgroup v2 caps: set `LATTICE_TASK_CGROUP_ROOT=auto` for a
+  delegated systemd service cgroup, or use an absolute delegated cgroup root.
+  Defaults are `memory.max=536870912`, `pids.max=64`, and
+  `cpu.max="100000 100000"`. If configured cgroup setup fails, the task fails
+  before running.

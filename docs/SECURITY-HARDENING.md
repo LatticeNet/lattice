@@ -77,9 +77,16 @@ issue, the fix, and where it lives.
 - **Task execution posture visibility:** node agents now report a
   `task_sandbox` runtime profile in metrics heartbeats. Operators can see
   disabled execution, root-refused execution, Linux rlimit/process-group
-  hardening, and any root/non-Linux warning from the node detail page. This does
-  not replace OS-level isolation: non-root service units, cgroup policy, and
-  seccomp/AppArmor/bubblewrap-style isolation remain production-hardening work.
+  hardening, optional cgroup v2 caps, and any root/non-Linux warning from the
+  node detail page. This does not replace all OS-level isolation: non-root
+  service units and seccomp/AppArmor/bubblewrap-style isolation remain
+  production-hardening work.
+- **Optional per-task cgroup caps:** Linux agents support
+  `LATTICE_TASK_CGROUP_ROOT=auto` (or an absolute delegated cgroup root) plus
+  `LATTICE_TASK_CGROUP_MEMORY_MAX`, `LATTICE_TASK_CGROUP_PIDS_MAX`, and
+  `LATTICE_TASK_CGROUP_CPU_MAX`. When configured, the agent creates a per-task
+  cgroup, writes memory/pids/CPU caps, and fails task launch if the cgroup
+  cannot be prepared or joined.
 - **Fleet task-execution kill switch:** `lattice-server` supports
   `LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled` for incident response.
   While enabled, operator task queueing, rerun, and approval apply task creation
@@ -114,6 +121,9 @@ the `go.work` workspace and runs `make test`/`make build`. Dashboard runs
   can complete TOTP enrollment from the Security page before relying on the
   policy for all operators.
 - Run agents non-root; keep `-allow-exec=false` unless the node accepts the risk.
+- On Linux systemd nodes that execute tasks, enable a delegated cgroup root with
+  `LATTICE_TASK_CGROUP_ROOT=auto` and keep the default memory/pids/CPU caps
+  unless the node workload requires tighter or looser limits.
 - Use `LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled` on the server to
   pause task queueing and leasing fleet-wide during incident response.
 - Set a strong `LATTICE_ADMIN_PASSWORD`; rotate PATs with least-privilege scopes
