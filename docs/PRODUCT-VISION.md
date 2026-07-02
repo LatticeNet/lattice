@@ -99,7 +99,7 @@ Each phase has an exit bar. Phases ship as tested, reviewed, committed slices (t
 - **Exit:** a signed plugin installs, runs, is capability-confined, and its host calls are brokered + audited. Foundation for the user's own LatticeNet/* official plugins (sing-box/xray/sub-store).
 
 ### Phase C — Storage that scales  *(item ④, next high-leverage backend slice)*
-- C1 · **Replace the whole-file JSON store with bbolt** (pure Go, preserves zero-CGo). Import/export + JSON migration/rollback CLI ✅; record-level APIs for current state buckets ✅; audit WAL head anchoring, backup/restore, and runtime cutover still pending.
+- C1 · **Replace the whole-file JSON store with bbolt** (pure Go, preserves zero-CGo). Import/export + JSON migration/rollback CLI ✅; record-level APIs for current state buckets ✅; local audit WAL head anchoring ✅; off-box head shipping, backup/restore, and runtime cutover still pending.
 - C2 · crash-safe migration from the JSON file, JSON export/import, retention policy for high-volume audit/monitor results.
 - **Exit:** writes are O(record) not O(state); a 10k-node/long-audit deployment stays responsive; crash-safe.
 - **Timing note:** done after A/B so it migrates a known-stable schema; the fresh at-rest boundary is re-homed deliberately, not rushed.

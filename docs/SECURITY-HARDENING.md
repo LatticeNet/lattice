@@ -65,6 +65,12 @@ issue, the fix, and where it lives.
   `token_last_used_at`; optional per-node `agent_source_allowlist` accepts
   exact IPs/CIDRs only and evaluates proxy headers only under explicit
   `TrustProxy`.
+- **Audit WAL end-truncation hardening:** file-backed stores now keep
+  `state.json.audit-anchor` beside `state.json.audit-wal`. The anchor is updated
+  with a crash-recoverable pending/committed protocol and is checked on server
+  open plus `/api/audit/verify`, so deleting records from the end of the WAL no
+  longer verifies silently. Remote/off-box head shipping and retention policy
+  remain separate production-hardening work.
 
 ## Test coverage added
 

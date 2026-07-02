@@ -144,8 +144,8 @@ The 2026-06 change set is a real, well-built security layer, not a checkbox pass
    audit events carry a correlation id and are queryable
    (action/decision/node/actor/token/scope/correlation, bounded pagination).
    Audit-sink failures are logged, not silently dropped. File-backed stores also
-   append every audit event to a hash-chained, fsync'd audit WAL that verifies on
-   open and via `/api/audit/verify`.
+   append every audit event to a hash-chained, fsync'd audit WAL with a local
+   sidecar head anchor that verifies on open and via `/api/audit/verify`.
 8. **Plugin trust model is now load-bearing up to the execution boundary.**
    Capability **risk tiers** (read/write/host); `wasm`/`worker` may never hold
    host-risk; host-risk requires a `system` plugin; strict manifest decode
@@ -157,7 +157,8 @@ The 2026-06 change set is a real, well-built security layer, not a checkbox pass
 
 **STRIDE quick read:** Spoofing — strong (bearer/session separation, signed
 plugins, OIDC state/nonce/PKCE). Tampering — strong on wire/plan and detectable
-for audit WAL edits; end-truncation still needs off-box head anchoring.
+for audit WAL edits plus local end-truncation; off-box head anchoring is still
+needed for stronger host-compromise evidence.
 Repudiation — materially improved by the WAL, still needs retention/remote
 shipping. Info-disclosure — strong (view structs, sanitized errors, at-rest
 encryption for reversible secrets). DoS — partial (login/API/agent rate limits,
@@ -215,17 +216,17 @@ per-node RBAC, capability tiers).
   trust-policy example. It is a skeleton you sign at build time.
 
 ### Open findings → tracked in the roadmap (not patched in isolation)
-- **F-P0-3 follow-up · Audit WAL needs anchoring and retention.** The WAL now
-  detects edit/reorder/gap/mid-truncation, but end-truncation requires comparing
-  the current head to an independently anchored value. Retention/remote shipping
+- **F-P0-3 follow-up · Audit WAL needs remote anchoring and retention.** The WAL
+  now detects edit/reorder/gap/mid-truncation, and a local sidecar anchor catches
+  end-truncation on the same host. Retention plus remote/off-box head shipping
   are still open.
 - **F-P1-2 · Storage will not scale.** `Save()` re-serializes the entire state
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
   beyond that. The decided replacement is bbolt, not SQLite, to preserve zero
   CGo. Bucketized import/export, JSON migration/rollback, and current-state
-  record-level APIs have landed; runtime cutover, audit WAL anchoring, and
-  backup/restore drills are still pending.
+  record-level APIs have landed; runtime cutover, off-box audit head shipping,
+  and backup/restore drills are still pending.
 - **F-P1-3 · Task execution is bounded but not OS-sandboxed.** The agent has
   interpreter allowlists, env limits, timeouts, output caps, and isolated
   workdirs. It still lacks a non-root unit profile, cgroup CPU/mem caps,
@@ -303,8 +304,9 @@ capabilities, deadlines, and audit.*
 ### Phase 0 — Security baseline closure (mostly delivered)
 - **S** Plugin loader + trust policy + lifecycle + no-exec runtime contract.
   *(Delivered 2026-06-12.)*
-- **S** Append-only, tamper-evident audit WAL. *(Delivered 2026-06-12; remote
-  head anchoring and retention policy pending.)*
+- **S** Append-only, tamper-evident audit WAL. *(Delivered 2026-06-12; local
+  sidecar head anchoring delivered after that; remote head shipping and retention
+  policy pending.)*
 - **S** Node-token lifecycle. *(Rotation, `token_last_used_at` telemetry, and
   optional source-IP allowlist delivered.)*
 - **S** Operator MFA. *(TOTP + optional enforced TOTP policy delivered;
@@ -322,8 +324,8 @@ capabilities, deadlines, and audit.*
   still JSON.)*
 - **S/P** Move ephemeral high-churn records (OIDC auth states, TOTP challenges,
   sessions, monitor history) off whole-file rewrites.
-- **S** Audit WAL head anchoring: expose and optionally ship the head hash so
-  end-truncation is detectable off-box.
+- **S** Audit WAL remote head shipping: periodically export or ship the anchored
+  head hash so end-truncation remains detectable after host compromise.
 
 ### Phase 2 — Make what exists usable
 - **U** Dashboard coverage for DDNS, monitors (with latency trend sparklines),

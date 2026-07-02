@@ -39,6 +39,7 @@ Back up these files together:
 
 - `state.json`
 - `state.json.audit-wal`
+- `state.json.audit-anchor`
 - `logs.db`
 - `master.key`
 

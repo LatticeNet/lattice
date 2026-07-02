@@ -74,6 +74,7 @@ Back up these together:
 
 - `data/state.json`
 - `data/state.json.audit-wal`
+- `data/state.json.audit-anchor`
 - `data/logs.db`
 - `data/master.key`
 

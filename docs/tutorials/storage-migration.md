@@ -8,8 +8,10 @@ runtime store yet.
 
 - Stop `lattice-server` before migrating. The current JSON store rewrites the
   whole file, so an online copy can race with server writes.
-- Back up `state.json`, `state.json.audit-wal`, and `master.key` together.
-  Losing `master.key` makes encrypted secrets unrecoverable.
+- Back up `state.json`, `state.json.audit-wal`, `state.json.audit-anchor`, and
+  `master.key` together. Losing `master.key` makes encrypted secrets
+  unrecoverable; losing the audit anchor weakens end-truncation detection until a
+  new anchor is bootstrapped from the current WAL.
 - Use explicit paths. The migration CLI requires both `-json` and `-bolt`.
 - Do not use `-overwrite` until the target file is backed up and the command has
   already succeeded once without it.
@@ -23,6 +25,9 @@ systemctl stop lattice-server
 
 cp -a /var/lib/lattice/state.json /var/lib/lattice/state.json.bak
 cp -a /var/lib/lattice/state.json.audit-wal /var/lib/lattice/state.json.audit-wal.bak
+if [ -f /var/lib/lattice/state.json.audit-anchor ]; then
+  cp -a /var/lib/lattice/state.json.audit-anchor /var/lib/lattice/state.json.audit-anchor.bak
+fi
 cp -a /var/lib/lattice/master.key /var/lib/lattice/master.key.bak
 
 lattice-server migrate json-to-bolt \
@@ -58,7 +63,7 @@ values, DDNS tokens, notification credentials, or OIDC client secrets.
 
 - It does not change server startup. `lattice-server` still opens
   `/var/lib/lattice/state.json`.
-- It does not migrate or anchor the audit WAL into bbolt.
+- It does not migrate the audit WAL or its local sidecar anchor into bbolt.
 - It does not route runtime traffic to record-level bbolt writes. Foundation
   APIs currently exist for all current top-level state buckets, including
   secret-bearing identity/auth/DDNS/notify/OIDC records.

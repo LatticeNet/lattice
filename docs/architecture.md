@@ -453,11 +453,12 @@ full scan.
 ## Storage
 
 The bootstrap build uses a JSON state file plus an append-only hash-chained
-audit WAL. Reversible secrets are envelope-encrypted at the store persistence
-boundary with AES-256-GCM; one-way password/token/recovery-code hashes remain
-hashes. The server `internal/store` package is intentionally isolated so a
-bbolt implementation can replace whole-file JSON rewrites without changing
-handlers or agents while preserving the pure-Go / zero-CGo constraint.
+audit WAL and local sidecar head anchor. Reversible secrets are
+envelope-encrypted at the store persistence boundary with AES-256-GCM; one-way
+password/token/recovery-code hashes remain hashes. The server `internal/store`
+package is intentionally isolated so a bbolt implementation can replace
+whole-file JSON rewrites without changing handlers or agents while preserving
+the pure-Go / zero-CGo constraint.
 
 The bbolt path currently supports full import/export, JSON migration, JSON
 rollback export, and record-level APIs for nodes, KV, audit, static objects,
@@ -468,4 +469,4 @@ auth states, plus proxy inbounds/users/node profiles/usage snapshots. Session
 IDs, TOTP challenge IDs, and OIDC auth-state keys use
 opaque SHA-256 storage keys when encryption is enabled. Server startup still
 uses the JSON store by default. Runtime cutover is blocked on backup/restore
-drills, audit WAL anchoring, and an explicit operator opt-in.
+drills, remote audit-head shipping/retention, and an explicit operator opt-in.
