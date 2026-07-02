@@ -81,6 +81,8 @@ Execution limits:
 - Maximum timeout: 10 minutes.
 - Maximum captured stdout/stderr: 256 KiB.
 - Minimal environment and temporary working directory.
+- Linux `no_new_privs` guard: task interpreters cannot gain privilege through
+  setuid or file-capability executables.
 - Optional Linux cgroup v2 caps: set `LATTICE_TASK_CGROUP_ROOT=auto` for a
   delegated systemd service cgroup, or use an absolute delegated cgroup root.
   Defaults are `memory.max=536870912`, `pids.max=64`, and

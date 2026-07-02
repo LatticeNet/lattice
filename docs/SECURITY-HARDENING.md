@@ -77,10 +77,14 @@ issue, the fix, and where it lives.
 - **Task execution posture visibility:** node agents now report a
   `task_sandbox` runtime profile in metrics heartbeats. Operators can see
   disabled execution, root-refused execution, Linux rlimit/process-group
-  hardening, optional cgroup v2 caps, and any root/non-Linux warning from the
-  node detail page. This does not replace all OS-level isolation: non-root
-  service units and seccomp/AppArmor/bubblewrap-style isolation remain
-  production-hardening work.
+  hardening, Linux `no_new_privs`, optional cgroup v2 caps, and any
+  root/non-Linux warning from the node detail page. This does not replace all
+  OS-level isolation: hard filesystem isolation and
+  seccomp/AppArmor/bubblewrap-style isolation remain production-hardening work.
+- **Task no-new-privileges guard:** Linux task interpreters are executed with
+  `PR_SET_NO_NEW_PRIVS`, so a task cannot gain privilege through setuid or
+  file-capability executables. If the kernel refuses the guard, task launch
+  fails instead of silently running without it.
 - **Optional per-task cgroup caps:** Linux agents support
   `LATTICE_TASK_CGROUP_ROOT=auto` (or an absolute delegated cgroup root) plus
   `LATTICE_TASK_CGROUP_MEMORY_MAX`, `LATTICE_TASK_CGROUP_PIDS_MAX`, and

@@ -159,9 +159,9 @@
 - Add node-token last-used telemetry and optional source-IP policy. (Rotation API
   delivered; last-used/source-IP policy pending.)
 - Add task-exec OS sandboxing: hard workdir isolation and optional
-  seccomp/bubblewrap remain; runtime posture reporting, optional non-root
-  systemd service profile, server kill switch, and configurable cgroup v2
-  CPU/memory/pids caps have landed.
+  seccomp/bubblewrap remain; runtime posture reporting, Linux no-new-privileges,
+  optional non-root systemd service profile, server kill switch, and
+  configurable cgroup v2 CPU/memory/pids caps have landed.
 
 ## Plugin Platform
 
