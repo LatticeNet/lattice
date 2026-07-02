@@ -80,6 +80,12 @@ issue, the fix, and where it lives.
   hardening, and any root/non-Linux warning from the node detail page. This does
   not replace OS-level isolation: non-root service units, cgroup policy, and
   seccomp/AppArmor/bubblewrap-style isolation remain production-hardening work.
+- **Fleet task-execution kill switch:** `lattice-server` supports
+  `LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled` for incident response.
+  While enabled, operator task queueing, rerun, and approval apply task creation
+  fail with `task_execution_disabled`, and agent polls receive no task leases.
+  Already leased task results remain accepted so in-flight executions can
+  report terminal state.
 
 ## Test coverage added
 
@@ -108,5 +114,7 @@ the `go.work` workspace and runs `make test`/`make build`. Dashboard runs
   can complete TOTP enrollment from the Security page before relying on the
   policy for all operators.
 - Run agents non-root; keep `-allow-exec=false` unless the node accepts the risk.
+- Use `LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled` on the server to
+  pause task queueing and leasing fleet-wide during incident response.
 - Set a strong `LATTICE_ADMIN_PASSWORD`; rotate PATs with least-privilege scopes
   and per-server allowlists.

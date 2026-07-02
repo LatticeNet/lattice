@@ -106,6 +106,10 @@ go run ./cmd/lattice-agent \
 
 Task execution is disabled by default on the agent. Start with
 `-allow-exec=true` only on machines where you accept the risk.
+For fleet-wide incident response, start `lattice-server` with
+`LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled`; the server will reject
+new task queueing and return no leases to agents while still accepting results
+from tasks that were already leased.
 
 ## Design Defaults
 

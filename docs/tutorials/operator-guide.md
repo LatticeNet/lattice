@@ -154,6 +154,13 @@ lattice-agent \
 Use `-allow-exec=false` on nodes that should only report metrics and run
 monitors. Use `LATTICE_NO_EXEC=1` as a kill switch.
 
+For a fleet-wide pause during incident response, set
+`LATTICE_TASK_EXEC_DISABLED=1` or start `lattice-server` with
+`-task-exec-disabled`. This server-side kill switch rejects new task queueing,
+blocks reruns and approval apply task creation, and returns an empty task lease
+list to agents. Already leased task results are still accepted so in-flight work
+can report terminal state.
+
 ## 6. Remove or disable a node
 
 Preferred sequence:
