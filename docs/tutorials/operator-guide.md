@@ -154,6 +154,16 @@ lattice-agent \
 Use `-allow-exec=false` on nodes that should only report metrics and run
 monitors. Use `LATTICE_NO_EXEC=1` as a kill switch.
 
+For tighter node-token custody, bind the token to the node's expected source
+address. During enrollment, or later from the node detail page, set
+`agent_source_allowlist` to exact IPs or CIDR prefixes such as
+`198.51.100.10/32` or `2001:db8:10::/64`. A node token with an allowlist is
+accepted only when the request source matches one of those entries; failed
+source checks do not update the node's `token_last_used_at` telemetry. The
+server uses the socket remote address by default. `CF-Connecting-IP` and
+`X-Forwarded-For` count only when `lattice-server` is deliberately started with
+`-trust-proxy` behind a trusted reverse proxy.
+
 For least-privilege Linux systemd agents, set
 `LATTICE_AGENT_RUN_USER=lattice-agent` before running the installer or
 reconfigure command. The installer creates the service account when needed,

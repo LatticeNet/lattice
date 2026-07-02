@@ -156,8 +156,10 @@
 - Add Docker/Compose server deployment. *(Dockerfile, GHCR workflow, and compose
   guide landed as the server deployment path; node-agent remains systemd-first.)*
 - Add end-to-end browser QA.
-- Add node-token last-used telemetry and optional source-IP policy. (Rotation API
-  delivered; last-used/source-IP policy pending.)
+- Add node-token last-used telemetry and optional source-IP policy. *(Delivered:
+  token rotation, write-throttled `token_last_used_at`, and per-node
+  `agent_source_allowlist` exact-IP/CIDR enforcement with proxy headers honored
+  only under explicit `TrustProxy`.)*
 - Add task-exec OS sandboxing: mount namespace filesystem isolation and optional
   seccomp/bubblewrap remain; runtime posture reporting, Linux no-new-privileges,
   private per-task temp/workdir envs, Linux task `umask 077`, optional non-root
