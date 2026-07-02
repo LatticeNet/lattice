@@ -112,7 +112,9 @@ The 2026-06 change set is a real, well-built security layer, not a checkbox pass
    node)`. `task:read` is split from `task:run`. Token creation enforces
    `serverAllowlistSubset` — a token cannot mint a child with a broader node
    allowlist than its own (no allowlist privilege escalation). Restricted tokens
-   cannot create or delete fleet-wide (`assign_all`) monitors.
+   cannot create or delete fleet-wide (`assign_all`) monitors, and plugin
+   gateway calls for global proxy views inherit the same unrestricted-allowlist
+   requirement as the direct proxy APIs.
 3. **Defense in depth on output.** Secret-free view structs hide
    `token_hash` / `password_hash` / `cf_api_token` / webhook config (only key
    *names* are exposed). Tasks expose `script_sha256` + size, not the raw script,

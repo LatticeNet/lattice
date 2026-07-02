@@ -85,6 +85,8 @@ Every non-trivial design needs a short risk pass:
   bounded memory/output?
 - **Elevation of privilege:** does RBAC and server allowlist enforcement happen
   against the real target resource?
+- **Gateway parity:** do plugin/RPC/dashboard gateways enforce the same global
+  vs node-scoped allowlist semantics as the direct REST handler they front?
 
 Unsafe defaults are bugs. Prefer fail-closed behavior even when it is less
 convenient.

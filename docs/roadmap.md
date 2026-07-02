@@ -147,7 +147,9 @@
 - TOTP setup and recovery codes. *(Delivered 2026-06-12; TOTP replay protection
   delivered 2026-06-13 (per-user last-step compare-and-set). Enforce-2FA policy
   and WebAuthn groundwork pending.)*
-- Add PAT creation/revocation UI. (API delivered 2026-06-11: `POST/GET /api/tokens`, `/api/tokens/revoke`; UI pending.)
+- Add PAT creation/revocation UI. *(Delivered: API and dashboard UI support
+  one-time credential reveal, revocation, scope containment, and current
+  `server_allowlist` context when minting child PATs.)*
 - Add approval re-authentication for `network:apply` and `task:run`.
 - Require reviewed-plan SHA-256 binding before high-risk apply approvals.
   *(Delivered 2026-06-14 in iter-025; re-authentication still pending.)*
