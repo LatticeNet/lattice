@@ -41,6 +41,14 @@ The node-side script:
 6. delays systemd restart by a few seconds so the current agent can post the
    task result before it is stopped.
 
+When the policy uses the default or legacy install path, the apply script adopts
+the currently running `lattice-agent` executable path if it can read
+`/proc/$PPID/exe`; likewise the default service name can adopt the current
+systemd unit from cgroup metadata. This keeps legacy/manual installations
+updatable without silently replacing a binary that the running service does not
+execute. The reviewed approval plan calls out this effective-target behavior so
+operators do not confuse the policy's default path with the runtime path.
+
 Execution still requires the node-agent process to run with `-allow-exec`; if
 the service runs as root, `-allow-root-exec` is also required. This matches the
 existing high-risk task boundary for nft, DNS, proxy-core apply, and other host
