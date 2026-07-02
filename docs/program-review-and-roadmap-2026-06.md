@@ -230,9 +230,9 @@ per-node RBAC, capability tiers).
   interpreter allowlists, env limits, timeouts, output caps, and isolated
   workdirs. It still lacks a non-root unit profile, cgroup CPU/mem caps,
   seccomp/bubblewrap, and a fleet kill switch.
-- **F-P2-2 · Operator MFA policy is incomplete.** TOTP exists, but there is no
-  enforced 2FA policy, passkey/WebAuthn support, or admin-facing MFA rollout
-  workflow yet.
+- **F-P2-2 · Operator MFA policy is partially complete.** TOTP and an optional
+  server-enforced `-require-totp` policy now exist, but passkey/WebAuthn support
+  and richer admin-facing rollout/reporting workflows remain open.
 - **F-P2-3 · Plugin artifact execution remains intentionally disabled.** The
   loader, lifecycle, broker, and runner contract are ready, but concrete
   system/worker/wasm runners need resource limits, cancellation, log/output caps,
@@ -244,6 +244,11 @@ per-node RBAC, capability tiers).
   exact-IP/CIDR enforcement have all landed. The dashboard can set the
   allowlist during enrollment or later from the node detail page; proxy headers
   count only under explicit `TrustProxy`.
+- **F-P2-2 partial · Enforced TOTP policy.** `LATTICE_REQUIRE_TOTP=1` /
+  `-require-totp` gates interactive sessions to `/api/me`, logout, and TOTP
+  enroll/activate until the account has active TOTP. Other session-backed APIs
+  return `mfa_required` and record a deny audit event; bearer PAT automation is
+  unaffected.
 - **F-P3-1 · Node-scoped `audit:read` for restricted tokens.** `audit:read`
   calls now respect non-global token `server_allowlist` values: restricted
   tokens see only audit rows whose `node_id` is inside their allowlist, while
@@ -302,8 +307,9 @@ capabilities, deadlines, and audit.*
   head anchoring and retention policy pending.)*
 - **S** Node-token lifecycle. *(Rotation, `token_last_used_at` telemetry, and
   optional source-IP allowlist delivered.)*
-- **S** Operator MFA. *(TOTP delivered; enforce-2FA policy + WebAuthn pending.)*
-- **Gate:** until bbolt, runner isolation, and MFA policy close, treat Lattice as
+- **S** Operator MFA. *(TOTP + optional enforced TOTP policy delivered;
+  WebAuthn/passkeys and richer rollout reporting pending.)*
+- **Gate:** until bbolt, runner isolation, and full MFA rollout close, treat Lattice as
   **single-operator / trusted fleet behind WireGuard or CF Access** — not an
   internet-exposed multi-tenant control plane.
 
@@ -341,7 +347,7 @@ capabilities, deadlines, and audit.*
 
 ### Phase 4 — Operate at scale / enterprise
 - **S** mTLS for agents; in-server TLS (autocert) option; WebAuthn/passkeys and
-  enforced MFA policy. *(F-P2-2)*
+  richer MFA rollout reporting. *(F-P2-2 remainder)*
 - **P** HA control plane: replicated store + leader election, or stateless server
   + external DB; readiness/liveness; backpressure and a global request quota.
 - **Ops** First-class observability: Prometheus metrics, structured logs, tracing,

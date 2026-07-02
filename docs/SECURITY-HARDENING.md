@@ -54,6 +54,12 @@ issue, the fix, and where it lives.
 - **Multi-channel notifications:** dependency-free `internal/notify` (Telegram, Bark, Discord, generic webhook) with a fan-out dispatcher; admin-gated `POST /api/notify/test` (scope `notify:send`).
 - **Credential encryption at rest (resolves F-P2-1):** stdlib AES-256-GCM envelope encryption of the reversible secrets in the state file — `User.TOTPSecret`, `DDNSProfile.CFAPIToken`/`WebhookHeaders`, `NotifyChannel.Config[*]` — at the store persistence boundary; in-memory state stays plaintext so handlers are unchanged. Master key resolves from `LATTICE_MASTER_KEY` / `-master-key-file` / auto-generated `<dataDir>/master.key` (`0600`); fail-closed on wrong/lost key; transparent migration of legacy plaintext. Zero new deps. `internal/secret/`, `internal/store/crypto.go`. Design + adversarial review in `docs/adr-002-encryption-at-rest.md`.
 - **OIDC / SSO login (Phase A1, ADR-001 D7–D9):** provider-agnostic OAuth2 auth-code + PKCE(S256) + state + nonce; one callback URL with the provider bound via stored state; ID-token verified by go-oidc (signature/issuer/audience/expiry). Identity mapping is allowlist-gated with no auto-provision (durable link keyed on the vetted **ProviderID**; first login requires verified email + allowed domain + a pre-existing local user). Client secret is secret-at-rest + write-only via the admin API (scope `oidc:admin`). **Login-CSRF defense** via an HttpOnly/SameSite=Lax browser-binding cookie; SSO honors local 2FA (no silent bypass); timeout-bounded IdP calls. **First external deps** (`golang.org/x/oauth2`, `github.com/coreos/go-oidc/v3`, transitive `go-jose/v4`), justified by ADR-001 D8. `internal/oidc/`, `internal/server/server_oidc.go`, `-public-url`. Design + adversarial review (FIX-FIRST, 5 fixes) in `docs/iterations/iter-001-oidc-sso.md`.
+- **Enforced operator TOTP policy (F-P2-2 partial):** `lattice-server`
+  supports `LATTICE_REQUIRE_TOTP=1` / `-require-totp`, which constrains
+  interactive password/SSO sessions to `/api/me`, logout, and TOTP
+  enroll/activate until the user has active TOTP. Non-setup APIs fail with the
+  stable `mfa_required` code and a deny audit event. Bearer PATs remain scoped
+  automation credentials and are not treated as interactive sessions.
 - **Node-token lifecycle hardening:** node token rotation clears stale last-used
   telemetry; successful bearer auth records write-throttled
   `token_last_used_at`; optional per-node `agent_source_allowlist` accepts
@@ -82,6 +88,10 @@ the `go.work` workspace and runs `make test`/`make build`. Dashboard runs
   hardened reverse proxy or Cloudflare Tunnel.
 - Run with `-secure-cookies` (enables HSTS) behind TLS, and `-trust-proxy` only
   when a trusted proxy sets the client-IP header.
+- Enable `-require-totp` / `LATTICE_REQUIRE_TOTP=1` for internet-adjacent or
+  multi-operator deployments. Roll out by confirming at least one administrator
+  can complete TOTP enrollment from the Security page before relying on the
+  policy for all operators.
 - Run agents non-root; keep `-allow-exec=false` unless the node accepts the risk.
 - Set a strong `LATTICE_ADMIN_PASSWORD`; rotate PATs with least-privilege scopes
   and per-server allowlists.
