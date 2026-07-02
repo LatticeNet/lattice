@@ -115,6 +115,9 @@ memory, pids, and CPU by setting `LATTICE_TASK_CGROUP_ROOT=auto` (or an
 absolute delegated cgroup root). Cgroup caps are off by default and fail closed
 when configured but unavailable, so tasks do not silently run without the
 requested OS-level limit.
+For least-privilege Linux systemd installs, set
+`LATTICE_AGENT_RUN_USER=lattice-agent` before running the agent installer; use a
+root-capable service profile only for host mutation or self-update tasks.
 
 ## Design Defaults
 

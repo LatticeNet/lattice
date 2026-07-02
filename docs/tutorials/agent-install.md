@@ -59,6 +59,21 @@ service normally needs both:
 
 See [Agent updates](./agent-updates.md).
 
+For least-privilege Linux systemd installs, run the installer with:
+
+```sh
+LATTICE_AGENT_RUN_USER=lattice-agent \
+LATTICE_AGENT_RUN_GROUP=lattice-agent \
+sh scripts/install.sh
+```
+
+The installer creates the service account when needed, writes `User=` and
+`Group=` into the unit, leaves the token env file readable only by root, and
+assigns the state directory to the service user. Use this profile for
+monitoring, inventory, terminal, and non-privileged tasks. Host mutation and
+self-update tasks normally need a root-capable service profile or a separate
+privileged helper.
+
 Execution limits:
 
 - Interpreter allowlist: `sh`, `bash`, `python3`, `node`.

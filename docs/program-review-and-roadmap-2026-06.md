@@ -238,10 +238,13 @@ per-node RBAC, capability tiers).
   execution, root-refused execution, and the Linux rlimit/process-group hardened
   path in the dashboard. Linux agents can now also enforce configured cgroup v2
   memory, pids, and CPU caps per task, failing closed if the requested cgroup
-  cannot be prepared or joined. The server now also has a fleet kill switch
-  (`LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled`) that blocks new task
-  queueing and agent leases while preserving already leased task-result intake.
-  It still lacks a non-root unit profile and seccomp/bubblewrap.
+  cannot be prepared or joined. The installer now supports an optional non-root
+  systemd service identity via `LATTICE_AGENT_RUN_USER`, with state ownership
+  adjusted while the token env file remains root-only. The server now also has
+  a fleet kill switch (`LATTICE_TASK_EXEC_DISABLED=1` / `-task-exec-disabled`)
+  that blocks new task queueing and agent leases while preserving already
+  leased task-result intake. It still lacks hard workdir filesystem isolation
+  and seccomp/bubblewrap.
 - **F-P2-2 · Operator MFA policy is partially complete.** TOTP and an optional
   server-enforced `-require-totp` policy now exist, but passkey/WebAuthn support
   and richer admin-facing rollout/reporting workflows remain open.
@@ -346,7 +349,8 @@ capabilities, deadlines, and audit.*
   and runtime audit drill-through — dependency-free, same strict CSP.
 - **S** Task-exec sandbox on the agent: runtime task-sandbox posture reporting
   has landed; per-task cgroup v2 memory/pids/CPU caps are configurable and
-  fail closed. Dedicated non-root unit, hard workdir isolation, and optional
+  fail closed. Optional non-root systemd units are installable through
+  `LATTICE_AGENT_RUN_USER`. Hard workdir isolation and optional
   seccomp/bubblewrap remain. A server-side fleet kill switch has landed.
   *(F-P1-3)*
 

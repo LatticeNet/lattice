@@ -120,7 +120,10 @@ the `go.work` workspace and runs `make test`/`make build`. Dashboard runs
   multi-operator deployments. Roll out by confirming at least one administrator
   can complete TOTP enrollment from the Security page before relying on the
   policy for all operators.
-- Run agents non-root; keep `-allow-exec=false` unless the node accepts the risk.
+- Run agents non-root where the node only needs monitoring, inventory,
+  terminal, and non-privileged tasks. On Linux systemd installs, set
+  `LATTICE_AGENT_RUN_USER=lattice-agent` before running the installer; keep
+  `-allow-exec=false` unless the node accepts remote task execution risk.
 - On Linux systemd nodes that execute tasks, enable a delegated cgroup root with
   `LATTICE_TASK_CGROUP_ROOT=auto` and keep the default memory/pids/CPU caps
   unless the node workload requires tighter or looser limits.

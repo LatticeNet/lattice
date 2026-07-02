@@ -154,6 +154,15 @@ lattice-agent \
 Use `-allow-exec=false` on nodes that should only report metrics and run
 monitors. Use `LATTICE_NO_EXEC=1` as a kill switch.
 
+For least-privilege Linux systemd agents, set
+`LATTICE_AGENT_RUN_USER=lattice-agent` before running the installer or
+reconfigure command. The installer creates the service account when needed,
+writes `User=`/`Group=` into the unit, keeps the token env file root-only, and
+grants the service user ownership of the state directory. Use this profile for
+monitoring, inventory, terminal, and non-privileged tasks. Use a root-capable
+agent only for host mutation flows such as nft/WireGuard apply or agent
+self-update, and keep those nodes behind approval gates.
+
 On Linux systemd nodes that execute tasks, enable per-task cgroup v2 caps by
 setting `LATTICE_TASK_CGROUP_ROOT=auto` before installing or reconfiguring the
 agent. The installer writes `Delegate=yes` into the systemd unit, and the agent
