@@ -216,10 +216,11 @@ per-node RBAC, capability tiers).
   trust-policy example. It is a skeleton you sign at build time.
 
 ### Open findings → tracked in the roadmap (not patched in isolation)
-- **F-P0-3 follow-up · Audit WAL needs remote anchoring and retention.** The WAL
-  now detects edit/reorder/gap/mid-truncation, and a local sidecar anchor catches
-  end-truncation on the same host. Retention plus remote/off-box head shipping
-  are still open.
+- **F-P0-3 follow-up · Audit WAL needs automated remote anchoring and retention.**
+  The WAL now detects edit/reorder/gap/mid-truncation, a local sidecar anchor
+  catches end-truncation on the same host, and the dashboard can export a
+  verified off-box head record for manual custody. Retention plus automated
+  remote/off-box head shipping are still open.
 - **F-P1-2 · Storage will not scale.** `Save()` re-serializes the entire state
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
@@ -324,8 +325,9 @@ capabilities, deadlines, and audit.*
   still JSON.)*
 - **S/P** Move ephemeral high-churn records (OIDC auth states, TOTP challenges,
   sessions, monitor history) off whole-file rewrites.
-- **S** Audit WAL remote head shipping: periodically export or ship the anchored
-  head hash so end-truncation remains detectable after host compromise.
+- **S** Audit WAL remote head shipping: periodically ship the anchored head hash
+  so end-truncation remains detectable after host compromise. *(Manual dashboard
+  off-box export exists; automated shipping pending.)*
 
 ### Phase 2 — Make what exists usable
 - **U** Dashboard coverage for DDNS, monitors (with latency trend sparklines),

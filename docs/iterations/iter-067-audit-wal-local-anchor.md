@@ -40,10 +40,14 @@ Backups must include `state.json.audit-anchor` together with `state.json`,
 destroy data, but it weakens end-truncation evidence until a new anchor is
 bootstrapped from the current WAL.
 
+The dashboard Audit panel exposes the verified WAL head and local anchor head and
+can export a `lattice-audit-head.json` record. Store that file outside the server
+host after setup and maintenance windows to create a manual off-box checkpoint.
+
 ## Remaining Work
 
-- Remote/off-box audit head shipping, so a host-level attacker cannot delete both
-  the WAL tail and the local anchor.
+- Automated remote/off-box audit head shipping, so a host-level attacker cannot
+  delete both the WAL tail and the local anchor without leaving remote evidence.
 - Retention policy and backup/restore drills for realistic long-running audit
   history.
 - bbolt runtime cutover remains separate from the JSON + WAL + anchor runtime

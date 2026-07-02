@@ -49,6 +49,8 @@ Recommended filesystem layout:
 ```txt
 /opt/lattice/dashboard     # lattice-dashboard static files
 /var/lib/lattice/state.json
+/var/lib/lattice/state.json.audit-wal
+/var/lib/lattice/state.json.audit-anchor
 /var/lib/lattice/logs.db
 /var/lib/lattice/master.key
 ```
@@ -70,8 +72,10 @@ Production perimeter:
 - `lattice-server` listens on `127.0.0.1` or a WireGuard address.
 - Set `-secure-cookies` when TLS is terminated at the server, or ensure the
   trusted reverse proxy is the only public entry.
-- Back up `state.json`, `state.json.audit-wal`, `logs.db`, and `master.key`
-  together. Losing `master.key` makes encrypted secrets unrecoverable.
+- Back up `state.json`, `state.json.audit-wal`, `state.json.audit-anchor`,
+  `logs.db`, and `master.key` together. Losing `master.key` makes encrypted
+  secrets unrecoverable; losing the audit anchor weakens local end-truncation
+  evidence until a new anchor is bootstrapped from the current WAL.
 
 ## 3. First login and 2FA
 
@@ -84,7 +88,23 @@ If using SSO/OIDC, configure providers only after the first local admin path is
 working. OIDC users are still server-provisioned accounts; the IdP is not a
 blanket authorization source.
 
-## 4. Add a node
+## 4. Verify the audit chain
+
+In the dashboard Audit panel, click `Verify` after setup and after important
+maintenance windows. A healthy file-backed store should report:
+
+- chain `OK`;
+- `anchored`;
+- matching WAL head and local anchor head.
+
+Use the Audit panel's off-box anchor export after verification and store the
+downloaded `lattice-audit-head.json` outside the server host, for example in a
+password manager, ticket, or external log archive. The local
+`state.json.audit-anchor` detects accidental or local tail truncation; an
+off-host copy is what lets you notice later host rollback or deletion of both
+the WAL tail and the local anchor.
+
+## 5. Add a node
 
 In the dashboard Nodes panel:
 
@@ -118,7 +138,7 @@ lattice-agent \
 Use `-allow-exec=false` on nodes that should only report metrics and run
 monitors. Use `LATTICE_NO_EXEC=1` as a kill switch.
 
-## 5. Remove or disable a node
+## 6. Remove or disable a node
 
 Preferred sequence:
 
@@ -130,7 +150,7 @@ Preferred sequence:
 
 Do not delete audit evidence just to make the dashboard cleaner.
 
-## 6. Update node agents
+## 7. Update node agents
 
 Use the Agent Updates panel:
 
@@ -149,7 +169,7 @@ open; it does not auto-approve or auto-apply.
 
 See [Agent updates](./agent-updates.md).
 
-## 7. Configure network guard and per-node ACL
+## 8. Configure network guard and per-node ACL
 
 Use Network Guard for the base host firewall:
 
@@ -169,7 +189,7 @@ previous ruleset, arms a rollback watchdog, applies, and selfchecks.
 
 See [Network guard](./network-guard.md).
 
-## 8. Configure self-host DNS and geo-routing
+## 9. Configure self-host DNS and geo-routing
 
 Use DNS Deployments for a chosen authoritative node:
 
@@ -187,7 +207,7 @@ Use Geo Routing for shared apexes such as `dns.roobli.org`:
 As of iter-058, Geo-Routing apply and NS delegation publication are the next
 slice; preview is implemented.
 
-## 9. Configure proxy cores and subscriptions
+## 10. Configure proxy cores and subscriptions
 
 Proxy Core supports centralized users and node profiles:
 
@@ -205,7 +225,7 @@ Usage collection:
 Config drift detection flags applied configs that still serve now-ineligible
 users. Use the Proxy panel's Review & Apply path to enforce.
 
-## 10. Configure logs
+## 11. Configure logs
 
 Log ingestion is bounded and node-assigned:
 
@@ -221,7 +241,7 @@ Security notes:
   `LATTICE_LOG_PATH_ALLOW`;
 - `/proc`, `/sys`, and `/dev` are denied.
 
-## 11. Configure machine inventory and reminders
+## 12. Configure machine inventory and reminders
 
 Agents report CPU, memory, uptime, architecture, OS, and kernel facts. Operators
 can add cloud vendor, region, console links, cost, renewal cycle, renewal date,
@@ -229,7 +249,7 @@ and reminders in the Machines panel.
 
 Use this for operational planning, not authorization.
 
-## 12. Plugins
+## 13. Plugins
 
 Plugins are metadata-gated and capability-scoped. Current runtime default is
 `noop`: active plugins arm a broker and report health but do not execute
@@ -241,7 +261,7 @@ operator explicitly opts into risk.
 
 See [Plugins](./plugins.md).
 
-## 13. Verification checklist
+## 14. Verification checklist
 
 After any host-mutating change:
 
