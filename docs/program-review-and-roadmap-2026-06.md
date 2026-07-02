@@ -232,8 +232,12 @@ per-node RBAC, capability tiers).
   still pending.
 - **F-P1-3 · Task execution is bounded but not OS-sandboxed.** The agent has
   interpreter allowlists, env limits, timeouts, output caps, and isolated
-  workdirs. It still lacks a non-root unit profile, cgroup CPU/mem caps,
-  seccomp/bubblewrap, and a fleet kill switch.
+  workdirs. Linux agents also enforce process-group cleanup plus rlimits for CPU,
+  file size, process count, address space, and data segment size. Runtime
+  heartbeats now report a `task_sandbox` profile so operators can see disabled
+  execution, root-refused execution, and the Linux rlimit/process-group hardened
+  path in the dashboard. It still lacks a non-root unit profile, cgroup CPU/mem
+  caps, seccomp/bubblewrap, and a fleet kill switch.
 - **F-P2-2 · Operator MFA policy is partially complete.** TOTP and an optional
   server-enforced `-require-totp` policy now exist, but passkey/WebAuthn support
   and richer admin-facing rollout/reporting workflows remain open.
@@ -336,9 +340,9 @@ capabilities, deadlines, and audit.*
 - **U** Dashboard coverage for DDNS, monitors (with latency trend sparklines),
   notify channels, WireGuard plan/approve, tunnels, PAT, audit WAL verification,
   and runtime audit drill-through — dependency-free, same strict CSP.
-- **S** Task-exec sandbox on the agent: dedicated non-root unit, hard workdir
-  isolation, cgroup CPU/mem caps, optional seccomp/bubblewrap, and a kill switch.
-  *(F-P1-3)*
+- **S** Task-exec sandbox on the agent: runtime task-sandbox posture reporting
+  has landed; dedicated non-root unit, hard workdir isolation, cgroup CPU/mem
+  caps, optional seccomp/bubblewrap, and a kill switch remain. *(F-P1-3)*
 
 ### Phase 3 — Platform expansion (the original vision), through the approval flow
 - **F** sing-box/xray deploy + subscription management; sub-store; nginx +

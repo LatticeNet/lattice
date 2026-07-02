@@ -74,6 +74,12 @@ issue, the fix, and where it lives.
   the verified anchored head to an HTTPS webhook using the guarded outbound HTTP
   client. Remote immutable retention, rollback alerting, and restore drills
   remain separate production-hardening work.
+- **Task execution posture visibility:** node agents now report a
+  `task_sandbox` runtime profile in metrics heartbeats. Operators can see
+  disabled execution, root-refused execution, Linux rlimit/process-group
+  hardening, and any root/non-Linux warning from the node detail page. This does
+  not replace OS-level isolation: non-root service units, cgroup policy, and
+  seccomp/AppArmor/bubblewrap-style isolation remain production-hardening work.
 
 ## Test coverage added
 
