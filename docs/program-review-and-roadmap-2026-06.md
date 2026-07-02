@@ -219,8 +219,9 @@ per-node RBAC, capability tiers).
   detects edit/reorder/gap/mid-truncation, but end-truncation requires comparing
   the current head to an independently anchored value. Retention/remote shipping
   are still open.
-- **F-P1-1 · Node token lifecycle is partially complete.** Rotation exists; no
-  `last_used_at` telemetry or per-node agent source-IP allowlist yet.
+- **F-P1-1 · Node token lifecycle is partially complete.** Rotation and
+  write-throttled `token_last_used_at` telemetry exist; per-node agent source-IP
+  allowlist is still pending.
 - **F-P1-2 · Storage will not scale.** `Save()` re-serializes the entire state
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
@@ -297,8 +298,8 @@ capabilities, deadlines, and audit.*
   *(Delivered 2026-06-12.)*
 - **S** Append-only, tamper-evident audit WAL. *(Delivered 2026-06-12; remote
   head anchoring and retention policy pending.)*
-- **S** Node-token lifecycle. *(Rotation delivered; `last_used_at` and optional
-  source-IP allowlist pending.)*
+- **S** Node-token lifecycle. *(Rotation and `token_last_used_at` telemetry
+  delivered; optional source-IP allowlist pending.)*
 - **S** Operator MFA. *(TOTP delivered; enforce-2FA policy + WebAuthn pending.)*
 - **Gate:** until bbolt, runner isolation, and MFA policy close, treat Lattice as
   **single-operator / trusted fleet behind WireGuard or CF Access** — not an
