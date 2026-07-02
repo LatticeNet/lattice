@@ -104,6 +104,22 @@ password manager, ticket, or external log archive. The local
 off-host copy is what lets you notice later host rollback or deletion of both
 the WAL tail and the local anchor.
 
+For continuous custody, configure the server to ship the verified anchored head
+to an HTTPS webhook:
+
+```sh
+LATTICE_AUDIT_HEAD_WEBHOOK_URL='https://audit-archive.example.com/lattice/head'
+LATTICE_AUDIT_HEAD_WEBHOOK_TOKEN='opaque-bearer-token'
+LATTICE_AUDIT_HEAD_INTERVAL=15m
+```
+
+The server sends only `OK` + `anchored` heads, uses the guarded outbound HTTP
+client, and logs delivery failures without blocking the control plane. Keep
+secrets in `LATTICE_AUDIT_HEAD_WEBHOOK_TOKEN`, not in the URL query or fragment.
+The receiver should append every record immutably and alert if a later head
+count or hash rolls back. Keep the manual dashboard export as a break-glass
+checkpoint after setup and maintenance windows.
+
 ## 5. Add a node
 
 In the dashboard Nodes panel:

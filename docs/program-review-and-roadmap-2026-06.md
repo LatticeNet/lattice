@@ -216,18 +216,20 @@ per-node RBAC, capability tiers).
   trust-policy example. It is a skeleton you sign at build time.
 
 ### Open findings → tracked in the roadmap (not patched in isolation)
-- **F-P0-3 follow-up · Audit WAL needs automated remote anchoring and retention.**
+- **F-P0-3 follow-up · Audit WAL needs remote retention and restore drills.**
   The WAL now detects edit/reorder/gap/mid-truncation, a local sidecar anchor
   catches end-truncation on the same host, and the dashboard can export a
-  verified off-box head record for manual custody. Retention plus automated
-  remote/off-box head shipping are still open.
+  verified off-box head record for manual custody. The server can also
+  periodically POST the verified anchored head to an operator-controlled HTTPS
+  webhook. Remote immutable retention, rollback alerting, and backup/restore
+  drills are still open.
 - **F-P1-2 · Storage will not scale.** `Save()` re-serializes the entire state
   and `rename()`s on every mutation under one global mutex → O(state) write
   amplification, no concurrency, no indices. Fine for tens of nodes; a ceiling
   beyond that. The decided replacement is bbolt, not SQLite, to preserve zero
   CGo. Bucketized import/export, JSON migration/rollback, and current-state
-  record-level APIs have landed; runtime cutover, off-box audit head shipping,
-  and backup/restore drills are still pending.
+  record-level APIs have landed; runtime cutover and backup/restore drills are
+  still pending.
 - **F-P1-3 · Task execution is bounded but not OS-sandboxed.** The agent has
   interpreter allowlists, env limits, timeouts, output caps, and isolated
   workdirs. It still lacks a non-root unit profile, cgroup CPU/mem caps,
@@ -306,8 +308,8 @@ capabilities, deadlines, and audit.*
 - **S** Plugin loader + trust policy + lifecycle + no-exec runtime contract.
   *(Delivered 2026-06-12.)*
 - **S** Append-only, tamper-evident audit WAL. *(Delivered 2026-06-12; local
-  sidecar head anchoring delivered after that; remote head shipping and retention
-  policy pending.)*
+  sidecar head anchoring and HTTPS webhook head shipping delivered after that;
+  remote retention/alerting policy pending.)*
 - **S** Node-token lifecycle. *(Rotation, `token_last_used_at` telemetry, and
   optional source-IP allowlist delivered.)*
 - **S** Operator MFA. *(TOTP + optional enforced TOTP policy delivered;
@@ -325,9 +327,10 @@ capabilities, deadlines, and audit.*
   still JSON.)*
 - **S/P** Move ephemeral high-churn records (OIDC auth states, TOTP challenges,
   sessions, monitor history) off whole-file rewrites.
-- **S** Audit WAL remote head shipping: periodically ship the anchored head hash
-  so end-truncation remains detectable after host compromise. *(Manual dashboard
-  off-box export exists; automated shipping pending.)*
+- **S** Audit WAL remote head custody: periodically ship the anchored head hash
+  so end-truncation remains detectable after host compromise. *(HTTPS webhook
+  shipping and manual dashboard export exist; remote immutable retention and
+  alerting remain operator/deployment work.)*
 
 ### Phase 2 — Make what exists usable
 - **U** Dashboard coverage for DDNS, monitors (with latency trend sparklines),

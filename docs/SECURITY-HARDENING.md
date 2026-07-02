@@ -70,8 +70,10 @@ issue, the fix, and where it lives.
   with a crash-recoverable pending/committed protocol and is checked on server
   open plus `/api/audit/verify`, so deleting records from the end of the WAL no
   longer verifies silently. The dashboard Audit panel can export a verified
-  off-box head record for manual custody; automated remote head shipping and
-  retention policy remain separate production-hardening work.
+  off-box head record for manual custody, and the server can periodically POST
+  the verified anchored head to an HTTPS webhook using the guarded outbound HTTP
+  client. Remote immutable retention, rollback alerting, and restore drills
+  remain separate production-hardening work.
 
 ## Test coverage added
 
