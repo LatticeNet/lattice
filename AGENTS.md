@@ -19,6 +19,13 @@ the user explicitly approves a stable release.
 - Server `target_version=latest` means latest stable node-agent only:
   non-draft, non-prerelease `v*`. Alpha/beta/rc node-agent versions are opt-in
   by exact version string and reviewed plan.
+- Dashboard/server may expose alpha/beta/rc candidates and experimental feature
+  channels, but they must be explicit user opt-ins with visible channel labels
+  and review text. Do not auto-select prereleases because a dashboard supports
+  them or because GitHub marks one as newest.
+- Node-agent release artifacts must embed machine-readable server/dashboard
+  compatibility metadata. Planning UI should surface that metadata before a
+  user approves a test-channel rollout.
 - If server/dashboard work consumes new SDK fields, update the SDK dependency
   pin in the same slice. Prefer Go pseudo-versions or prerelease SDK tags during
   alpha; do not mint stable SDK tags for test-only contract changes.
