@@ -92,6 +92,14 @@ exactly what the ADR-001 capability table was built for.
 
 Practically, "plugin" here means, per plugin:
 
+0. **Shipped 2026-07-09:** [`LatticeNet/lattice-plugin-netguard`](https://github.com/LatticeNet/lattice-plugin-netguard)
+   and [`LatticeNet/lattice-plugin-wireguard`](https://github.com/LatticeNet/lattice-plugin-wireguard),
+   both at `0.1.0-alpha.1`, **unsigned**: the trusted-publisher ed25519 seed is
+   operator-held, and a host-risk plugin without a valid signature is refused
+   by the loader unless `allow_unsigned_host_risk` (dev only) is set. Signing
+   happens at release time via `lattice-server/cmd/pluginsign`. Neither
+   declares `ui` or `interfaces` yet — see §9 G4 and §10.8.
+
 1. A repo (`lattice-plugin-netguard`, `lattice-plugin-wireguard`) with a signed
    manifest declaring capabilities, `ui` contributions, and `interfaces`.
 2. In-core engine packages (`internal/netguard`, evolved `internal/wireguard`)
@@ -668,6 +676,22 @@ mechanics (prerelease tags per AGENTS.md discipline).
 7. **Astra**: both plugins are dashboard-first; mobile surfaces remain
    read-only status views until the review/rollback flows have a mobile
    design (architecture.md mobile stance).
+8. **The plugin gateway cannot express per-node authorization.** *(Found while
+   building the plugin repos, 2026-07-09.)* `POST /api/plugins/call` checks an
+   interface's declared scopes with `rbac.Allows(principal, scope, "")`, and
+   `rbac.Allows` short-circuits to `true` when the node id is empty — even for
+   a principal with a non-empty `ServerAllowlist`. `plugin.RPCHandler` is
+   `func(ctx, method string, request []byte)`, carrying no principal, so an
+   in-core handler physically cannot re-apply the per-node allowlist that the
+   REST handlers enforce. Any node-scoped service exposed through the gateway
+   is therefore readable in full by a node-restricted PAT. This is the same
+   class design-11 worked around for Sub-Store by refusing restricted
+   principals outright.
+   **Consequence for this design:** both plugin manifests ship with **no
+   `interfaces`**; every netguard read and mutation stays on `/api/netguard/*`,
+   which filters correctly. **Open:** extend `RPCHandler` with a principal (or
+   an authorization callback) before any node-scoped plugin interface is
+   declared. Until then the rule is: gateway interfaces must be fleet-global.
 
 ---
 
