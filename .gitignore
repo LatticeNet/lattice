@@ -5,3 +5,6 @@ lattice-agent
 
 # OMC orchestration tool state (not part of the project)
 .omc/
+
+# Claude Code local session state (never part of the project)
+.claude/
