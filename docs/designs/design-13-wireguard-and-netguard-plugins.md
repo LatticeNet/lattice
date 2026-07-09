@@ -1,6 +1,15 @@
 # Design 13 — WireGuard + NetGuard as first-class plugins (security-group-grade network control)
 
-> Status: draft for review · Author: design pass · Date: 2026-07-08
+> Status: partially implemented. G1 (model, store, read-only legacy views)
+> landed in iter-068; G2 (compiler, byte-parity gate, lockout linting, write
+> path, plan endpoint) landed in iter-069; W1 (WireGuard topology model,
+> `BuildTopology` with mesh render-parity, hub-and-spoke) and W2 (WireGuard
+> apply gains nft-parity snapshot → watchdog → selfcheck, plus a shared
+> watchdog window and a `wg syncconf` fast path) landed in iter-070.
+> Remaining: G3 reality/drift, G4 dashboard, G5 bootstrap, G6 NAT/L2, G7 raw
+> snippets, W1 store/API/discovery remainder, W3 topology UI, W4 external
+> devices, W5 bootstrap/PSK, and the signed plugin-manifest packaging.
+> Author: design pass · Date: 2026-07-08
 > Builds on: ADR-001 (plugin foundation), design-05 (network ACL), design-08
 > (real runners), design-09/10/11 (vpn-core plugin migration pattern),
 > `internal/network/nft.go`, `internal/netpolicy`, `internal/wireguard`,
@@ -572,15 +581,20 @@ The same fact mechanism covers Tailscale today (reality-reported interface →
 ## 9. Phasing (each slice = one `iter-NNN`, tested + reviewed + shippable)
 
 **Track G (netguard)**
-- **G1 — model + read (no behavior change).** SDK types (§4.2), store
-  collections + versioning, RPC read interfaces, `netguard.overview/groups`
-  views read-only over converted legacy data. Exit: converted view of every
-  existing `NFTInputs` visible; zero apply-path changes.
-- **G2 — compile parity + plan.** Netguard compiler over
-  zones/groups/bindings folding into `lattice_guard`/`lattice_policy`;
-  byte-identical legacy gate (§7.1); plan linting (control-plane, lockout,
-  selfcheck-ack); `Approval.Plugin="netguard"`. Exit: converted fixture parity
-  test green; lockout lint has a red-if-removed test.
+- **G1 — model + read (no behavior change). ✅ iter-068.** SDK types (§4.2),
+  store collections + versioning, read APIs, `netguard` views read-only over
+  converted legacy data. Exit met: converted view of every existing
+  `NFTInputs` visible; zero apply-path changes.
+- **G2 — compile parity + plan. ✅ iter-069.** Netguard compiler **lowering**
+  zones/groups/bindings into the existing `network.NFTPlan` (so
+  `GenerateNFTPlan` stays the single renderer and byte-parity is structural);
+  byte-identical legacy gate (§7.1), mutation-checked; plan linting
+  (`lockout_risk_ssh` blocking, `unverified_apply` warn); `netguard:admin`
+  write path with referential integrity and optimistic concurrency. The plan
+  rides `Approval.Plugin="nft"` — same `lattice_guard` ruleset, same
+  rollback-protected apply script — so G2 is end-to-end usable with zero
+  apply-path change. A dedicated `netguard` approval kind is only needed once
+  the plan carries artifacts the nft script does not (G6 NAT tables).
 - **G3 — reality + drift.** `--report-guard-reality`, `/api/agent/guard-reality`,
   suggestions engine, drift badge + Review & Re-apply, binding apply-state
   fields live. Exit: dmit-eb-wee scenario reproduced in a test fixture yields
@@ -597,14 +611,23 @@ The same fact mechanism covers Tailscale today (reality-reported interface →
   if not already cut in G4.
 
 **Track W (wireguard)**
-- **W1 — model + discovery.** `WGNetwork/WGMembership` (converter from
-  today's implicit mesh: one `default` mesh network from `Node.WireGuard*`
-  fields), `wg show all dump` discovery + `wireguard.discovered` view. Exit:
-  existing mesh renders identically through `BuildTopology(mesh)` (parity
-  test); live interfaces visible read-only.
-- **W2 — apply parity.** Watchdog/rollback/selfcheck WG apply template,
-  `syncconf` fast path. Exit: a deliberately broken wg0.conf on a test node
-  auto-restores within the watchdog window (evidence in the iter doc).
+- **W1 — model + topology. ✅ (partial) iter-070.** `WGNetwork`/`WGMembership`/
+  `WGExternalPeer` SDK types; `BuildTopology` generalizing `BuildMesh` with
+  mesh, hub-and-spoke, and a fail-closed `custom`; `MeshFromNodes` converter;
+  `Interface` MTU/DNS; multi-value `AllowedIPs`. Exit met: the existing mesh
+  renders **identically** through `BuildTopology(mesh)` — same interface, same
+  peers, same rendered config, for every node of the fixture fleet.
+  **Remainder (W1b):** store collections, CRUD API, `wg show all dump`
+  discovery + `wireguard.discovered` adoption view.
+- **W2 — apply parity. ✅ iter-070.** WireGuard apply now validates
+  (`wg-quick strip`), snapshots, arms a detached watchdog, commits, runs the
+  control-plane selfcheck, and refuses to report success if the watchdog fired
+  — the chain nft has had all along. `wg syncconf` fast path avoids flapping
+  established tunnels when only peers changed. The watchdog window is a single
+  shared constant across nft and wireguard. Every generated apply script is
+  `sh -n`-validated in test. **Remainder:** the live-node E2E (deliberately
+  broken wg0.conf auto-restores) needs a scratch node and stays a manual
+  verification step.
 - **W3 — topologies + status.** hub-and-spoke + custom, topology SVG with
   handshake coloring, membership apply states. Exit: 3-node hub-spoke E2E,
   spoke↔spoke via hub verified.
