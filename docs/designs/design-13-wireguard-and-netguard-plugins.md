@@ -645,3 +645,25 @@ mechanics (prerelease tags per AGENTS.md discipline).
 7. **Astra**: both plugins are dashboard-first; mobile surfaces remain
    read-only status views until the review/rollback flows have a mobile
    design (architecture.md mobile stance).
+
+---
+
+## Appendix A — plugin-host integration points (code-audited 2026-07-08)
+
+Exact seams the G/W implementation slices touch; verified against source, not
+docs (the template README's capability list is stale — the code table is
+authoritative):
+
+| Integration | Where | Note for this design |
+|---|---|---|
+| Capability→risk table | `lattice-server/internal/plugin/plugin.go:57-93` | Add `netguard:read` (read), `netguard:admin` (host), `wireguard:read` (read), `wireguard:admin` (host) here — same move iter-020 made for `netpolicy:*` |
+| Manifest validation | `plugin.go:27-42`, `DisallowUnknownFields` at `:199` | No schema changes needed; both manifests use existing fields (`ui`, `interfaces`) |
+| Signing payload | `plugin.go:244-268` | `ui`/`interfaces` are already covered by the conditional signed tail |
+| Runtime reality | `server.go:405` (only `system` runner registered); `runtime.go:283-305` (worker/wasm fall to noop, fail closed) | Both plugins are `system` tier — the only implemented tier; nothing here blocks us |
+| Artifact contract | `system_runner.go:250-373` — one fresh process per invocation, stdio JSON + fd-3 host responses, 1 MiB output caps, 64 host-calls, circuit breaker `:525-536` | Plugin subprocesses stay thin (describe/health/plan), engines in-core — same as vpn-core (`lattice-plugin-vpn-core/system-go/main.go:87-101`) |
+| RPC service registration | `server_vpncore.go:43-70` is the pattern | Register `latticenet.netguard/*`, `latticenet.wireguard/*` in-core services the same way; interface names MUST be namespaced under the plugin id (`contributions.go` enforcement) |
+| Gateway scope union | `server_plugin_invoke.go:257-288` | Interface scopes ∪ matching `ViewAction.Scopes` are enforced server-side — declare both accurately |
+| Builtin views: double registration + ownership pinning | server `contributions.go:33-46` (`pluginBuiltinViews`, pins owner plugin id, `:176-178`) + dashboard `PluginView.vue:58-71` (`BUILTIN_COMPONENTS`) | Every `netguard.*` / `wireguard.*` component key lands in BOTH registries, owner-bound, in the same slice as its Vue page |
+| Contributions discovery | `GET /api/plugin-contributions` (no scope, active-only, RBAC-filtered) | Nav appears only while the plugin is active — deactivation is IA-only by construction (§2.4) |
+| Cross-plugin RPC | `rpc.go:160-181` directed allow-list; only existing grant is sub-store→vpn-core (`server_vpncore.go:69`) | §6 deliberately avoids plugin→plugin RPC (server-owned facts instead); if a future slice wants it, it is one explicit `Allow` edge |
+| Marketplace | index is discovery-only; install = bundle on disk; revocation is a hard prerequisite for remote install (`lattice-plugin-index/docs/SECURITY.md`) | Ship both plugins via the vpn-core release mechanics (signed prerelease bundles); remote install is out of scope here |
