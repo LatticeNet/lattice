@@ -136,11 +136,17 @@ docker run --rm \
   -p 127.0.0.1:8088:8088 \
   -e LATTICE_ADMIN_PASSWORD='replace-with-a-long-random-password' \
   -e LATTICE_PUBLIC_URL='https://lattice.example.com' \
+  -e LATTICE_PLUGIN_BUNDLE_CACHE_DIR='/var/lib/lattice/plugin-bundles' \
   -e LATTICE_PLUGIN_RUNTIME_DIR='/var/lib/lattice/plugin-runtime' \
   -v "$PWD/lattice/compose/data:/var/lib/lattice" \
   -v "$PWD/lattice/compose/plugins:/plugins:ro" \
   lattice-server:local
 ```
+
+`LATTICE_PLUGIN_BUNDLE_CACHE_DIR` is required for manifest-v2 plugins. The
+loader verifies the signed archive before extracting it into a private,
+content-addressed directory under this path. Keep it separate from `/plugins`,
+which remains a read-only source of signed manifests and artifacts.
 
 `LATTICE_PLUGIN_RUNTIME_DIR` enables the Tier-2 system runner so verified
 system-plugin artifacts execute in isolated per-plugin working directories
