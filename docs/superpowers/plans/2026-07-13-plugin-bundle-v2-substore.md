@@ -243,15 +243,19 @@ Expected: asset route is not registered.
 
 - [ ] **Step 3: Implement handler and cache configuration**
 
-Register:
+Register a route that authenticates the HTML entrypoint and lifecycle/digest
+binds every subresource:
 
 ```go
-mux.HandleFunc("/api/plugins/assets/", s.withAuth("", s.handlePluginAsset))
+mux.HandleFunc("/api/plugins/assets/", s.handlePluginAsset)
 ```
 
 Resolve plugin/digest against loaded metadata, require `active`, validate path
-against inventory, and use `http.ServeContent`. Override X-Frame-Options to
-`SAMEORIGIN` only for signed HTML. Add `PluginBundleCacheDir` and
+against inventory, and use `http.ServeContent`. Require normal authentication
+for HTML. Opaque-origin frames omit cookies from external JS/CSS requests, so
+serve non-HTML files without session auth only after active/digest/inventory
+verification and rate limiting. Override X-Frame-Options to `SAMEORIGIN` only
+for signed HTML. Add `PluginBundleCacheDir` and
 `LATTICE_PLUGIN_BUNDLE_CACHE_DIR`; never write into plugin source directories.
 
 - [ ] **Step 4: Run server tests and commit**
@@ -445,8 +449,25 @@ npm --prefix ui test
 - [ ] **Step 3: Refactor runtime for testable host calls**
 
 Inject a `hostCaller`, remove `run`, cap links and responses, preserve strict URL
-validation, and keep credentials out of errors. `status` and `import` remain the
-only declared methods.
+validation, and keep credentials out of errors. Add the generic, system-only,
+trusted-signature-required `http:operator-target` capability and
+`http.operator.do` host call; do not weaken ordinary `http:egress`. `status` and
+`import` remain the only declared methods.
+
+Both methods declare `operator_target_fields: ["base_url"]`. The gateway binds
+that authenticated payload value to the invocation; the broker permits only the
+same origin beneath the bound secret path and rejects unbound direct invokes.
+
+Declare the vpn-core dependency in signed v2 manifest data:
+
+```json
+"host_access": {
+  "rpc": [{"service":"latticenet.vpn-core/nodes","methods":["export"]}]
+}
+```
+
+The server applies this method-bounded edge only while the plugin is active and
+revokes it on disable. Remove the old core-owned `latticenet.sub-store` grant.
 
 - [ ] **Step 4: Port the complete page into the plugin**
 

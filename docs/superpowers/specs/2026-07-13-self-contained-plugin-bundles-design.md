@@ -176,6 +176,12 @@ For v2, the legacy top-level `entrypoint`, `digest_sha256`, and builtin
 existing safe declarative primitive. A sandbox view references the one signed
 `ui_runtime`; it never names a dashboard component.
 
+The signed `ui_runtime.entrypoint` must be an `ui/*.html` document. It is the
+only executable HTML document served for the bundle and is authenticated by
+exact manifest path, not by a caller-controlled extension. V2 nav entries must
+use the `extensions` section; legacy plugins retain their existing section
+rules, but v2 cannot target a native Console workspace.
+
 The v2 signing payload is a versioned, typed manifest serialization with
 `signature_ed25519` omitted, prefixed by
 `LATTICE-PLUGIN-MANIFEST-V2\n`. Publishers sign only through the repository's
@@ -222,17 +228,24 @@ active plugins and are filtered by the current principal's scopes.
 
 ### 7.2 Asset serving
 
-Verified UI assets are served through a dedicated authenticated route derived
-from server-owned values:
+Verified UI assets are served through a dedicated route derived from
+server-owned values:
 
 ```text
 /api/plugins/assets/<plugin-id>/<artifact-digest>/<path>
 ```
 
-The handler serves only files from an active, currently loaded v2 bundle. It
-does not accept filesystem paths from requests, does not reuse mutable static
-storage, sets `X-Content-Type-Options: nosniff`, uses an explicit MIME allowlist,
-and returns `404` for inactive, unknown, stale-digest, or undeclared assets.
+The HTML entrypoint requires the normal authenticated operator session. A
+sandboxed opaque-origin document does not send that cookie for its external
+script/style subresources, so non-HTML assets cannot depend on session
+authentication. They remain available only while the exact plugin is active and
+the exact artifact digest and signed inventory path match. The handler does not
+accept filesystem paths from requests, does not reuse mutable static storage,
+sets `X-Content-Type-Options: nosniff`, uses an explicit MIME allowlist and API
+rate limit, revalidates file metadata and digest, and returns `404` for inactive,
+unknown, stale-digest, or undeclared assets. Adding `allow-same-origin` to make
+cookies work is prohibited because that would collapse the browser isolation
+boundary.
 
 HTML receives a route-specific policy that permits framing only by the same
 dashboard origin and permits only signed local scripts/styles/assets:
@@ -289,8 +302,10 @@ Host to plugin messages:
 - `lattice.host.dispose`
 
 `init` contains only bridge version, plugin ID/version, current plugin route,
-locale, color scheme, and approved design tokens. It does not expose principal,
-cookies, CSRF values, raw scope sets, server URLs, or dashboard stores.
+locale, color scheme, approved design tokens, and the plugin's own
+service/method names that remain callable after server-side RBAC filtering. It
+does not expose effects, scope names, principal, cookies, CSRF values, raw scope
+sets, server URLs, or dashboard stores.
 
 For `call`, the host validates:
 
@@ -308,6 +323,12 @@ The parent then calls the existing authenticated and audited
 `/api/plugins/call` endpoint. Results are capped at 1 MiB before they cross the
 bridge. Lifecycle disable or route disposal aborts in-flight calls, sends
 `dispose`, invalidates the nonce, and removes the frame.
+
+Every iframe `load` event after the initial document is a new trust boundary.
+The host disposes the old bridge session, aborts its in-flight calls, generates a
+new 256-bit nonce, navigates back to the exact verified entrypoint, and requires
+a fresh ready/init handshake. WindowProxy identity alone must never preserve a
+bridge session across reload or in-frame navigation.
 
 ## 8. Plugin UI Toolkit
 
@@ -349,10 +370,46 @@ The server may expose only generic host services through the broker:
 - capability-bound task enqueue;
 - notifications and logs;
 - guarded HTTP egress;
+- operator-target HTTP for trusted system plugins that must reach an explicitly
+  operator-entered private service;
 - explicitly allowed inter-plugin RPC.
 
 Plugin code never receives a raw store, task queue, process handle, node token,
 master key, or unrestricted server callback.
+
+Inter-plugin dependencies are plugin-owned signed manifest data, not core
+allowlist entries. Manifest v2 declares exact edges:
+
+```json
+{
+  "host_access": {
+    "rpc": [
+      {"service": "latticenet.vpn-core/nodes", "methods": ["export"]}
+    ]
+  }
+}
+```
+
+`host_access.rpc` requires `rpc:call`. The server materializes only those exact
+service/method edges while the caller plugin is active and revokes them on
+disable or failed activation. Adding a method to the provider later does not
+expand an existing consumer grant. Core services do not pre-authorize optional
+plugin IDs.
+
+Ordinary `http:egress` continues to reject loopback, private, link-local,
+metadata, multicast, and unspecified targets. It cannot opt out through a flag.
+The separate `http:operator-target` capability is host-risk, trusted-signature
+required, system-only, and uses the separate `http.operator.do` host call.
+Cleartext HTTP is loopback-only. HTTPS may address public or private services,
+but credentials, query/fragment secrets, root paths, dot segments,
+link-local/metadata targets, cross-origin redirects, and unsafe DNS dial results
+are rejected. Capability possession alone does not grant private egress: each
+interface method declares up to four top-level `operator_target_fields`. The
+server extracts and validates those values from the authenticated method payload
+before starting the runtime, binds them only to that invocation, and the broker
+allows requests only to the same origin at or below the bound secret-bearing
+path. Direct invoke and missing, substituted, or cross-origin targets fail
+closed. The audit record never includes the secret URL path.
 
 Encrypted secret host calls require explicit `secret:read` or `secret:write`
 capabilities. Both are host-risk, system-plugin-only capabilities covered by the
@@ -368,7 +425,8 @@ V2 interface methods are typed declarations rather than unqualified strings:
   "service": "latticenet.netguard/policies",
   "methods": [
     {"name": "list", "effect": "read", "scopes": ["netguard:read"]},
-    {"name": "save", "effect": "write", "scopes": ["netguard:admin"]},
+    {"name": "save", "effect": "write", "scopes": ["netguard:admin"],
+     "operator_target_fields": ["base_url"]},
     {"name": "plan", "effect": "plan", "scopes": ["netguard:admin"]}
   ]
 }
