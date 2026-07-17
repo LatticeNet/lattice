@@ -1,0 +1,11 @@
+{
+  "node_id": "hk-hub-01",
+  "updated_at": "2026-07-17T04:00:00Z",
+  "writer": "lattice-server",
+  "inbounds": [
+    {
+      "tag": "vless-31001",
+      "line_uuid": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+    }
+  ]
+}
