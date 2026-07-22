@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://latticenet.github.io/schemas/lattice-singbox-metadata-v2.schema.json",
+  "title": "lattice.singbox-metadata.v2",
+  "description": "Sidecar line metadata for sing-box nodes (/etc/sing-box/lattice-metadata.json). Never consumed by sing-box itself. See design-15.",
+  "type": "object",
+  "required": ["schema", "node_id", "updated_at", "writer", "inbounds"],
+  "additionalProperties": true,
+  "properties": {
+    "schema": {"const": "lattice.singbox-metadata.v2"},
+    "node_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "node_uuid": {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "writer": {"enum": ["lattice-server", "sb"]},
+    "inbounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tag", "line_uuid"],
+        "additionalProperties": true,
+        "properties": {
+          "tag": {"type": "string", "minLength": 1, "maxLength": 128},
+          "line_uuid": {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"},
+          "line_hash_id": {"type": "string", "pattern": "^line_[0-9a-f]{24}$"},
+          "comment": {"type": "string", "maxLength": 256},
+          "chain": {
+            "type": "object",
+            "required": ["downstream_line_uuid"],
+            "additionalProperties": false,
+            "properties": {
+              "downstream_line_uuid": {
+                "anyOf": [
+                  {"type": "null"},
+                  {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"}
+                ]
+              },
+              "downstream_node": {"type": "string", "maxLength": 128}
+            }
+          }
+        }
+      }
+    },
+    "reserved": {
+      "type": "object",
+      "required": ["in_config_key", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "in_config_key": {"const": "_lattice"},
+        "fields": {
+          "type": "object",
+          "required": ["line_uuid", "node_uuid", "line_hash_id"],
+          "additionalProperties": false,
+          "properties": {
+            "line_uuid": {"const": "string"},
+            "node_uuid": {"const": "string"},
+            "line_hash_id": {"const": "string"}
+          }
+        }
+      }
+    }
+  }
+}

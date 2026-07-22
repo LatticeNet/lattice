@@ -1,0 +1,12 @@
+{
+  "schema": "lattice.singbox-metadata.v2",
+  "node_id": "hk-hub-01",
+  "updated_at": "2026-07-17T04:00:00Z",
+  "writer": "lattice-server",
+  "inbounds": [
+    {
+      "tag": "vless-31001",
+      "line_uuid": "not-a-uuid"
+    }
+  ]
+}
