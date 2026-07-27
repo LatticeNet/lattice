@@ -21,22 +21,29 @@
 | Astra → sing-box fork / server | not machine-resolvable from `Package.swift` — see gap G4 | — | — |
 | fleet nodes → sing-box fork binary | deployed binary; version recorded in no repo file — see gap G4 | — | — |
 
-## 2. Version state (refreshed 2026-07-27 after the first signing wave + two image trains)
+## 2. Version state — SNAPSHOT at 2026-07-27T15:48Z (second signing wave)
 
-| Repo | Stable | Current line | Signed bundle digest |
+> This table is a **dated snapshot, not a live view**, and it will be wrong the next time
+> anything is signed — it went stale twice while being written. The living form of exactly
+> this data is `train.json` (`lattice.release.train.v1`, `lattice-plugin-index`), which is
+> generated per train and CI-validated. Read this section as history; read a train file for
+> truth.
+
+| Repo | Stable | Line at snapshot | Signed bundle digest |
 |---|---|---|---|
-| lattice-server | `v0.2.1` | image train **`alpha-0.2.2a4`** (deployed); integration `c9c6710` | — |
-| lattice-sdk | `v0.2.9` | integration `c3f2973`; carries the plugin SDK module (`00943f6e`) | — |
-| lattice-dashboard | — | `v0.2.2-alpha.6`; integration `8e6c206` (reconciled union) | — |
+| lattice-server | `v0.2.1` | image train `alpha-0.2.2a4` (deployed); integration `c9c6710` | — |
+| lattice-sdk | `v0.2.9` | integration tip `00943f6e` (the plugin SDK module merge); `c3f2973` — the reconciliation merge — is its ancestor | — |
+| lattice-dashboard | — | `v0.2.2-alpha.7`; integration `8e6c206`+ (reconciled union) | — |
 | lattice-node-agent | — | `v0.3.3-alpha.2` | — |
-| plugin vpn-core | index `stable: 0.7.2` | **0.8.0-alpha.6** | `d2e681a6…` |
-| plugin sub-store | — | **0.4.0-alpha.1** (embedded-engine line) | `e0524e35…` |
-| plugin wireguard | — | **0.1.0-alpha.8** | `34eb6c07…` |
-| plugin netguard | — | **0.1.0-alpha.8** | `c00334a8…` |
-| plugin template | — | **0.2.1-alpha.5** | `c4bfe8be…` |
+| plugin vpn-core | index `stable: 0.7.2` | `0.8.0-alpha.7` | `89e4d484…` |
+| plugin sub-store | — | `0.4.0-alpha.1` (embedded-engine line) | `e0524e35…` |
+| plugin wireguard | — | `0.1.0-alpha.9` | `decba2ac…` |
+| plugin netguard | — | `0.1.0-alpha.9` | `ac7e1d66…` |
+| plugin template | — | `0.2.1-alpha.6` | `0a806be8…` |
 
 Every plugin digest above is the SIGNED value at its integration tip, independently confirmed
-by that repo's CI (the double-pack byte-compare gate) after the wave.
+by that repo's CI double-pack byte-compare gate. Two signing waves reached this state on
+2026-07-27: the embedded-engine/SDK wave, then the bridge-migration wave.
 
 ## 3. Gaps — status after 2026-07-27
 
