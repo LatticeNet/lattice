@@ -1,4 +1,4 @@
-# Release pin graph — current state (2026-07-26)
+# Release pin graph — current state (refreshed 2026-07-27)
 
 > TASK-0010 slice 1 (operator ruling 2026-07-26 §1b). Every cross-repo pin as it exists today,
 > each claim with its source of truth (repo + file). Gaps are named explicitly — they are the
@@ -20,41 +20,50 @@
 | Astra → sing-box fork / server | not machine-resolvable from `Package.swift` — see gap G4 | — | — |
 | fleet nodes → sing-box fork binary | deployed binary; version recorded in no repo file — see gap G4 | — | — |
 
-## 2. Version state today (observed 2026-07-26, sources: git tags + manifests)
+## 2. Version state (refreshed 2026-07-27 after the first signing wave + two image trains)
 
-| Repo | Stable | Prerelease / dev line |
-|---|---|---|
-| lattice-server | `v0.2.1` | image train `alpha-0.2.2a2`; `integration` @ `86422a1`; binary version injected at build (source default `"dev"`) |
-| lattice-sdk | `v0.2.9` (stable-tags-only lane) | consumers pin pseudo-version @ `4a318f24` |
-| lattice-dashboard | — (no stable tag observed) | `v0.2.2-alpha.6` (= `package.json`) |
-| lattice-node-agent | — | `v0.3.3-alpha.2` |
-| plugin vpn-core | index `stable: 0.7.2` | manifest `0.8.0-alpha.5` |
-| plugin netguard / wireguard | — | `0.1.0-alpha.7` each |
-| plugin sub-store | — | `0.3.2-alpha.4` |
-| plugin template | — | `0.2.1-alpha.3` on `main`; `0.2.1-alpha.4` signed on the open `feat/execute-reference` PR |
+| Repo | Stable | Current line | Signed bundle digest |
+|---|---|---|---|
+| lattice-server | `v0.2.1` | image train **`alpha-0.2.2a4`** (deployed); integration `c9c6710` | — |
+| lattice-sdk | `v0.2.9` | integration `c3f2973`; carries the plugin SDK module (`00943f6e`) | — |
+| lattice-dashboard | — | `v0.2.2-alpha.6`; integration `8e6c206` (reconciled union) | — |
+| lattice-node-agent | — | `v0.3.3-alpha.2` | — |
+| plugin vpn-core | index `stable: 0.7.2` | **0.8.0-alpha.6** | `d2e681a6…` |
+| plugin sub-store | — | **0.4.0-alpha.1** (embedded-engine line) | `e0524e35…` |
+| plugin wireguard | — | **0.1.0-alpha.8** | `34eb6c07…` |
+| plugin netguard | — | **0.1.0-alpha.8** | `c00334a8…` |
+| plugin template | — | **0.2.1-alpha.5** | `c4bfe8be…` |
 
-## 3. Gaps blocking a coordinated train (requirements for slices 2–3)
+Every plugin digest above is the SIGNED value at its integration tip, independently confirmed
+by that repo's CI (the double-pack byte-compare gate) after the wave.
 
-- **G1 — no plugin→server minimum-version declaration.** Compatibility is implicit: a manifest
-  loads or is rejected by the running server's validator. The ruling requires this resolvable
-  from the release. Candidate homes: a signed manifest field (schema change, re-sign wave) or
-  a plugin-index per-release field (no re-sign; index is regenerated anyway). Decide in slice 2.
-- **G2 — `dashboard.ref` currently points at a line missing a security fix.** `a927c6c`
-  (dashboard `main`) lacks dashboard#9 (frame-reload boundary), which lives on `integration`
-  (`a40af9a`). The pending integration↔main reconciliation produces the union; the ref must
-  move to the merged tip before the next image tag is cut.
-- **G3 — no single artifact resolves the whole train.** Today the answer to "what versions make
-  up a deployment" is assembled from six places in this table. The release manifest (slice 2)
-  is that artifact.
-- **G4 — Astra and the sing-box fork are unpinned in writing.** The iOS client's fork pin and
-  the fleet's deployed sing-box version are tribal knowledge. Record both; the train cannot
-  promote what it cannot name.
-- **G5 — plugin-index is hand-generated.** `status: "draft"`, `generated_at` hand-run. Train
-  discipline needs index regeneration + validation as a release step (ties into TASK-0006's
-  gate).
-- **G6 — server version constant.** The binary reports an injected build version (`"dev"`
-  default in source); slice 2 must verify the injection path so the About-page check is
-  load-bearing rather than cosmetic.
+## 3. Gaps — status after 2026-07-27
+
+- **G1 — plugin→server minimum version: MECHANISM SHIPPED, NOT YET USED.** `min_server` is a
+  signed, additive manifest field (server#22, merged; index mirrors, never owns —
+  rules/01 §8.5). All five manifests currently declare it ABSENT, deliberately: the honest
+  floor is "a server containing the budget/backing work", which no released version string
+  named at signing time. First train assembly is when it gets real values.
+- **G2 — CLOSED.** `dashboard.ref` now points at the reconciled tip `8e6c206`; verified in
+  production via the image label `dashboard-revision` on `alpha-0.2.2a4`. The gap was caught
+  BY that label after `alpha-0.2.2a3` shipped the pre-reconciliation ref — the label is
+  therefore load-bearing evidence, not decoration.
+- **G3 — FORMAT SHIPPED.** `lattice.release.train.v1` (schema + zero-dependency validator +
+  CI) lives in `lattice-plugin-index`; a real `train.json` gets written at the first
+  coordinated cut.
+- **G4 — OPEN.** Astra's fork pin and the fleet's deployed sing-box version are still
+  unrecorded. Unchanged today.
+- **G5 — PARTIALLY CLOSED.** The index is still hand-generated, but train manifests are now
+  CI-validated on every push/PR; index regeneration itself remains a manual release step.
+- **G6 — SHARPENED.** The validator reports `server_version` from module metadata when run as
+  `go run …@<version>` (e.g. `v0.2.2-0.20260727095611-c9c671079ab6`) but reports `dev` when
+  run from a plain local build — so the plugin CI gate, which pins a released module version,
+  DOES name a real server, while a hand-built binary does not. Train assembly must take the
+  version from the pinned module reference, not from a local build.
+
+**Also now true (not a gap, a property to preserve)**: every plugin repo's CI runs the
+released-server manifest validator on `main`, `integration`, and PRs, so a manifest that the
+released server would reject cannot reach a merge unnoticed.
 
 ## 4. Standing law this document leans on (unchanged here)
 
