@@ -2,19 +2,20 @@
 
 > TASK-0010 slice 1 (operator ruling 2026-07-26 §1b). Every cross-repo pin as it exists today,
 > each claim with its source of truth (repo + file). Gaps are named explicitly — they are the
-> requirements list for the release-manifest format (slice 2) and the `rules/01 §8.5`
-> promotion amendment (slice 3). Nothing in this document changes behavior.
+> requirements list that slices 2 and 3 then closed (schema+CI in `lattice-plugin-index`; the
+> `rules/01 §8.5` amendment). Refreshed after the 2026-07-27 signing wave so it describes
+> reality, not the morning of the 26th. Nothing in this document changes behavior.
 
 ## 1. The graph — who pins whom, and where
 
 | Consumer → dependency | Pin mechanism | Value today | Source of truth |
 |---|---|---|---|
-| lattice-server → lattice-sdk | `sdk.ref` SHA file + go.mod pseudo-version | `4a318f24…` / `v0.2.18-0.20260722123932-4a318f246d23` | `lattice-server:sdk.ref`, `lattice-server:go.mod` (integration `86422a1`) |
-| lattice-server → lattice-dashboard | `dashboard.ref` SHA file (image embeds the built dashboard) | `a927c6c…` | `lattice-server:dashboard.ref` (integration `86422a1`) |
+| lattice-server → lattice-sdk | `sdk.ref` SHA file + go.mod pseudo-version | `4a318f24…` / `v0.2.18-0.20260722123932-4a318f246d23` | `lattice-server:sdk.ref`, `lattice-server:go.mod` (integration `c9c6710`) |
+| lattice-server → lattice-dashboard | `dashboard.ref` SHA file (image embeds the built dashboard) | `8e6c206…` (reconciled tip — was `a927c6c`, see G2) | `lattice-server:dashboard.ref` (integration `c9c6710`) |
 | lattice-node-agent → lattice-sdk | go.mod pseudo-version | `v0.2.18-…-4a318f246d23` (same commit as server's) | `lattice-node-agent:go.mod` (integration `03f730a`) |
-| ghcr image ← lattice-server | tag-triggered build: pushing `alpha-X.Y.ZaN` IS the release trigger; the image embeds both refs above | latest observed: `alpha-0.2.2a2` | `lattice-server:.github/workflows/container.yml`, git tags |
+| ghcr image ← lattice-server | tag-triggered build: pushing `alpha-X.Y.ZaN` IS the release trigger; the image embeds both refs above | latest: **`alpha-0.2.2a4`**, deployed and verified | `lattice-server:.github/workflows/container.yml`, git tags |
 | plugin-index → each plugin | `plugins.json`: per-plugin `channels` (stable/alpha) + `releases[]` carrying `manifest_url`, `artifact_url`, `artifact_sha256`, `signature_ed25519`; publisher ed25519 key pinned at index level | schema `lattice.plugin.index.v1`, `status: "draft"`, generated 2026-07-22 | `lattice-plugin-index:plugins.json` |
-| each plugin (internal) | manifest `version` = `ui/package.json` = Go const, moved together; artifact digest ↔ manifest signature | e.g. sub-store `0.3.2-alpha.4` | each plugin repo: `manifest.json`, `ui/package.json`, `system-go` const; `tools/bump.sh` |
+| each plugin (internal) | manifest `version` = `ui/package.json` = Go const, moved together; artifact digest ↔ manifest signature | e.g. sub-store `0.4.0-alpha.1` | each plugin repo: `manifest.json`, `ui/package.json`, `system-go` const; `tools/bump.sh` |
 | dashboard → server | none at build time; runtime API compatibility only. Post-deploy check: About page must show matching versions | — | workspace release law (root AGENTS.md) |
 | plugins → server | **NOTHING** — see gap G1 | — | — |
 | Astra → sing-box fork / server | not machine-resolvable from `Package.swift` — see gap G4 | — | — |
@@ -70,4 +71,7 @@ released server would reject cannot reach a merge unnoticed.
 Three tag lanes per `rules/01 §8.5` (image train `alpha-X.Y.ZaN` · prerelease semver
 `vX.Y.Z-alpha.N`, never GitHub Latest · stable semver `vX.Y.Z` on explicit operator decision);
 release order `sdk → server / dashboard / node-agent → docs site → plugins → plugin-index`;
-tag pushes are operator-only. The promotion protocol amendment is slice 3.
+tag pushes are operator-only. **The promotion protocol is no longer pending**: `rules/01 §8.5`
+carries the coordinated-train amendment (changelog row #3, co-signed 2026-07-27) — a train is a
+standalone `vX.Y.Z` defined by its CI-validated `train.json`, promoted in one operator act, and
+a plain train may contain no prerelease component.
