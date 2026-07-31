@@ -14,16 +14,28 @@ jobs:
         with: { path: lattice }
       - name: checkout lattice-sdk
         uses: actions/checkout@v6
-        with: { repository: LatticeNet/lattice-sdk, path: lattice-sdk }
+        with:
+          repository: LatticeNet/lattice-sdk
+          path: lattice-sdk
+          ref: 4a318f246d23875cdd6448d96a62bd87bd67215c
       - name: checkout lattice-server
         uses: actions/checkout@v6
-        with: { repository: LatticeNet/lattice-server, path: lattice-server }
+        with:
+          repository: LatticeNet/lattice-server
+          path: lattice-server
+          ref: ef13509e74b7564d2c4a9847f11f6b86e3bd6cfd
       - name: checkout lattice-node-agent
         uses: actions/checkout@v6
-        with: { repository: LatticeNet/lattice-node-agent, path: lattice-node-agent }
+        with:
+          repository: LatticeNet/lattice-node-agent
+          path: lattice-node-agent
+          ref: 03f730acb9653cc1a99c62c95510cafd58a4afad
       - name: checkout lattice-plugin-template
         uses: actions/checkout@v6
-        with: { repository: LatticeNet/lattice-plugin-template, path: lattice-plugin-template }
+        with:
+          repository: LatticeNet/lattice-plugin-template
+          path: lattice-plugin-template
+          ref: 793b476f346d1a8584d34c89e6d8da3f4b115d3e
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26.x'
@@ -45,6 +57,9 @@ jobs:
       - name: make build
         working-directory: lattice
         run: make build
+      - name: workspace stays clean
+        working-directory: lattice
+        run: make check-clean
       - name: gosec
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
