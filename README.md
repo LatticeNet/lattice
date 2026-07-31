@@ -170,3 +170,13 @@ Current published SDK baseline: latest `lattice-sdk` tag is `v0.2.17`;
 `v0.2.17`. The workspace `use` list includes the local SDK checkout, so
 cross-repo development exercises the current model sources without relying on a
 stale version-specific replace.
+
+Workspace CI pins each sibling checkout to an exact commit in
+`.github/workflows/ci.yml`. Update those refs and `go.work.sum` together when
+advancing the integration set, then run `make test`, `make build`, and
+`make test-check-clean` followed by `make check-clean` in the five-repository
+sibling layout. The regression covers clean, dirty, missing, and non-repository
+checkouts both separately and in one aggregate scan. CI keeps the real
+clean-tree gate as its final step, where it fails if any checkout cannot be
+inspected or has changes: a successful Go command that rewrites a tracked sum
+is not a reproducible green build.
