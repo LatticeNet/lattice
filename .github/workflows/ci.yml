@@ -57,6 +57,9 @@ jobs:
       - name: make build
         working-directory: lattice
         run: make build
+      - name: clean-tree gate regression
+        working-directory: lattice
+        run: make test-check-clean
       - name: workspace stays clean
         working-directory: lattice
         run: make check-clean

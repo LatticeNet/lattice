@@ -174,6 +174,8 @@ stale version-specific replace.
 Workspace CI pins each sibling checkout to an exact commit in
 `.github/workflows/ci.yml`. Update those refs and `go.work.sum` together when
 advancing the integration set, then run `make test`, `make build`, and
-`make check-clean` in the five-repository sibling layout. The clean-tree gate is
-intentional: a successful Go command that rewrites a tracked sum is not a
-reproducible green build.
+`make test-check-clean` followed by `make check-clean` in the five-repository
+sibling layout. The regression covers clean, dirty, missing, and non-repository
+checkouts. The real clean-tree gate then fails if any checkout cannot be
+inspected or has changes: a successful Go command that rewrites a tracked sum
+is not a reproducible green build.
