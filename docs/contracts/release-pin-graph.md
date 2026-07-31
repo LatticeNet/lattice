@@ -13,11 +13,11 @@
 | lattice-server → lattice-sdk | `sdk.ref` SHA file + go.mod pseudo-version | `4a318f24…` / `v0.2.18-0.20260722123932-4a318f246d23` | `lattice-server:sdk.ref`, `lattice-server:go.mod` (integration `c9c6710`) |
 | lattice-server → lattice-dashboard | `dashboard.ref` SHA file (image embeds the built dashboard) | `8e6c206…` (reconciled tip — was `a927c6c`, see G2) | `lattice-server:dashboard.ref` (integration `c9c6710`) |
 | lattice-node-agent → lattice-sdk | go.mod pseudo-version | `v0.2.18-…-4a318f246d23` (same commit as server's) | `lattice-node-agent:go.mod` (integration `03f730a`) |
-| ghcr image ← lattice-server | tag-triggered build: pushing `alpha-X.Y.ZaN` IS the release trigger; the image embeds both refs above | **`alpha-0.2.2a4`**, operator-recorded as deployed and verified by the snapshot | `lattice-server:.github/workflows/container.yml`, git tags |
+| ghcr image ← lattice-server | tag-triggered build: pushing `alpha-X.Y.ZaN` IS the release trigger; the image embeds both refs above | **`alpha-0.2.2a4`**, operator-recorded as deployed and verified by the snapshot | build trigger: `lattice-server:.github/workflows/container.yml` + git tags; deployment observation: `lattice-olympus:messages/archive/20260727-1012Z-zeus-deploy-verified.md` |
 | plugin-index → each plugin | `plugins.json`: per-plugin `channels` (stable/alpha) + `releases[]` carrying `manifest_url`, `artifact_url`, `artifact_sha256`, `signature_ed25519`; publisher ed25519 key pinned at index level | schema `lattice.plugin.index.v1`, `status: "draft"`, generated 2026-07-22 | `lattice-plugin-index:plugins.json` |
 | each plugin (internal) | manifest `version` = `ui/package.json` = Go const, moved together; artifact digest ↔ manifest signature | e.g. sub-store `0.4.0-alpha.1` | each plugin repo: `manifest.json`, `ui/package.json`, `system-go` const; `tools/bump.sh` |
 | dashboard → server | none at build time; runtime API compatibility only. Post-deploy check: About page must show matching versions | — | workspace release law (root AGENTS.md) |
-| plugins → server | **NOTHING** — see gap G1 | — | — |
+| plugins → server | required signed `compatibility.server` metadata + optional signed top-level `min_server` train floor | all five declare `compatibility.server`; all five omit `min_server`, so no train floor is selected/signed — see G1 | each plugin's `manifest.json`; `lattice-server:internal/plugin/plugin.go`, `internal/plugin/manifest_v2.go` |
 | Astra → sing-box fork / server | not machine-resolvable from `Package.swift` — see gap G4 | — | — |
 | fleet nodes → sing-box fork binary | deployed binary; version recorded in no repo file — see gap G4 | — | — |
 
@@ -35,7 +35,7 @@
 | lattice-server | `v0.2.1` | image train `alpha-0.2.2a4` (deployed); integration `c9c6710` | — |
 | lattice-sdk | `v0.2.17` | integration tip `00943f6e` (the plugin SDK module merge); `c3f2973` — the reconciliation merge — is its ancestor | — |
 | lattice-dashboard | — | `v0.2.2-alpha.7`; integration `8e6c206` (reconciled union) | — |
-| lattice-node-agent | — | `v0.3.3-alpha.2` | — |
+| lattice-node-agent | `v0.2.9` | `v0.3.3-alpha.2` | — |
 | plugin vpn-core | index `stable: 0.7.2` | `0.8.0-alpha.7` | `89e4d484…` |
 | plugin sub-store | — | `0.4.0-alpha.1` (embedded-engine line) | `e0524e35…` |
 | plugin wireguard | — | `0.1.0-alpha.9` | `decba2ac…` |
@@ -48,11 +48,13 @@ by that repo's CI double-pack byte-compare gate. Two signing waves reached this 
 
 ## 3. Gaps at the snapshot
 
-- **G1 — plugin→server minimum version: MECHANISM PRESENT, VALUES ABSENT.** `min_server` is a
-  signed, additive manifest field (server#22, merged; index mirrors, never owns — rules/01
-  §8.5). All five signed manifests omitted it at the snapshot. The later first train also mirrors
-  no `min_server` values because none exist in those manifests. Closing G1 requires assigning and
-  signing real compatibility floors first; train assembly cannot invent them.
+- **G1 — plugin→server minimum version: METADATA AND MECHANISM PRESENT, FLOOR ABSENT.** Every
+  signed v2 manifest carries required `compatibility.server` metadata. Separately, `min_server`
+  is the optional signed train-floor field (server#22, merged; index mirrors, never owns —
+  rules/01 §8.5). The server validator requires the compatibility metadata to be bounded and
+  non-empty; that is not evidence of a selected `min_server` floor. All five signed manifests
+  omitted `min_server` at the snapshot, and the later first train therefore mirrors none. Closing
+  G1 requires assigning and signing real floors first; train assembly cannot invent them.
 - **G2 — CLOSED.** At the snapshot, `dashboard.ref` pointed at the reconciled tip `8e6c206`,
   verified in production via the image label `dashboard-revision` on `alpha-0.2.2a4`. The gap
   was caught by that label after `alpha-0.2.2a3` shipped the pre-reconciliation ref — the label is
