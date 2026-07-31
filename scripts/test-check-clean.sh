@@ -52,4 +52,21 @@ expect_fail dirty "$dirty" 'workspace checkout is dirty:'
 expect_fail missing "$missing" 'workspace checkout cannot be inspected:'
 expect_fail non-repository "$not_repo" 'workspace checkout cannot be inspected:'
 
-printf 'check-clean regression: 4/4 passed\n'
+aggregate_repos="$clean $dirty $missing $not_repo"
+if aggregate_output=$(make -s -C "$root" check-clean "WORKSPACE_REPOS=$aggregate_repos" 2>&1); then
+	printf 'not ok - aggregate failures unexpectedly passed\n' >&2
+	exit 1
+fi
+for expected in \
+	"workspace checkout is dirty: $dirty" \
+	"workspace checkout cannot be inspected: $missing" \
+	"workspace checkout cannot be inspected: $not_repo"
+do
+	case "$aggregate_output" in
+		*"$expected"*) ;;
+		*) printf 'not ok - aggregate output omitted %s\n%s\n' "$expected" "$aggregate_output" >&2; exit 1 ;;
+	esac
+done
+printf 'ok - aggregate reports every failure\n'
+
+printf 'check-clean regression: 5/5 passed\n'

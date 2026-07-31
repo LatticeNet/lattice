@@ -60,10 +60,10 @@ jobs:
       - name: clean-tree gate regression
         working-directory: lattice
         run: make test-check-clean
-      - name: workspace stays clean
-        working-directory: lattice
-        run: make check-clean
       - name: gosec
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec ./lattice-server/... ./lattice-node-agent/...
+      - name: workspace stays clean
+        working-directory: lattice
+        run: make check-clean
