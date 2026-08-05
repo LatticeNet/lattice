@@ -92,3 +92,31 @@ The later PR implements candidates as versioned files such as
 cross-field invariants; cross-repo tag, pin, and digest truth remains unverified as recorded in
 G5. The later implementation detail does not retroactively rewrite what the snapshot-era law
 said.
+
+---
+
+## Changes since this snapshot
+
+The section above stays frozen at `2026-07-27T14:53Z` on purpose — it is an auditable record of
+what was true then, and rewriting its rows would destroy the only property that makes it useful.
+What follows is an append-only delta, newest first. Each entry names what moved and why, so a
+reader comparing the frozen table against reality is not left guessing whether it is stale or wrong.
+
+### 2026-08-05
+
+- **lattice-node-agent stable `v0.2.9` → `v0.3.3`.** The frozen row is not merely stale, it sat on
+  top of a defect: the fleet was running an **untagged `0.3.0` build**. No `v0.3.0`, `v0.3.1` or
+  `v0.3.2` tag or release ever existed — `0.3.0` was prepared, the stable lane was then rewound to
+  `v0.2.9`, and the 0.3 line continued only as `v0.3.3-alpha.N`. Because the server's
+  `target_version=latest` resolves to the newest **stable** release, every hourly policy evaluation
+  planned `0.3.0 → 0.2.9`, hit the downgrade refusal, and logged it once per node. `v0.3.3` promotes
+  the exact tree already tagged `v0.3.3-alpha.2`.
+- **lattice-sdk stable `v0.2.18` is now on `main`.** The tag pointed at `00943f6e`, which `main` did
+  not contain — a stable tag living outside the branch §8.5 says stable is cut from. `main` was
+  fast-forwarded to it. Note the consumers are unchanged and still pin the *pseudo-version*
+  `v0.2.18-0.20260722123932-4a318f246d23`, which is an ancestor of the tag: the published stable SDK
+  is therefore **ahead of** what server and node-agent build against. That gap is real and open.
+- **lattice-server image `alpha-0.2.2a4` → `alpha-0.2.2a5`** (deployed), built from integration
+  `d6399ac` = frozen `1e61030` plus `dashboard.ref → 04c4046`.
+- **plugin-index alpha channels** now mirror the deployed bundles: netguard/wireguard
+  `0.1.0-alpha.9`, vpn-core `0.8.0-alpha.7`, sub-store `0.4.0-alpha.2`.
