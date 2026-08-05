@@ -124,7 +124,7 @@ Four classes of data with different durability needs, placed against the constra
 |---|---|---|
 | `SubscriptionShare` | bolt hot store, alongside `ProxyUsers` | Read on every fetch; record-level writes; the sealing path for tokens already exists in that domain |
 | Subscription / collection definitions | plugin KV, under an explicit size cap the plugin enforces on itself | Definitions are small (hundreds of bytes to a few KB each); tens of them are affordable inside `state.json` |
-| **Last successful remote snapshot** | **bolt hot store** | **Durable, not a cache.** When a provider goes down or rotates its URL, this snapshot is the only thing that keeps clients served — the behaviour upstream implements as `ignore-failed-remote-sub`. Losing it means subscriptions go dark. |
+| **Last successful remote snapshot** | **the plugin's confined runtime working directory** (`RuntimeDir/<pluginID>`) | **Durable, not a cache.** When a provider goes down or rotates its URL, this snapshot is the only thing that keeps clients served — the behaviour upstream implements as `ignore-failed-remote-sub`. Losing it means subscriptions go dark. The home is the plugin's own directory rather than bolt because **the plugin owns fetching and cannot write bolt**; the runner gives each plugin a writable 0700 working directory (`system_runner.go:132-133`, `cmd.Dir` at `:341`). Sub-project 2, where fetching lands, must first prove by test that content written there survives a re-arm — the runner recreates the directory on start. |
 | Converted output | in-memory LRU + TTL | Derivable at any time from snapshot + operator chain; disposable by definition |
 
 The consequence worth stating: **the subscription fetch hot path never touches `state.json`.**
