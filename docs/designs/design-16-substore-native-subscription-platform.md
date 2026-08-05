@@ -174,6 +174,68 @@ error path is tempting to "handle gracefully" by returning what was produced so 
   truncating, and that semantic is preserved: a truncated subscription is a silently wrong one.
 - Unknown token, or valid token with mismatched slug → 404, indistinguishable.
 
+## 8b. Probe resistance
+
+The operator's requirement, stated after the first implementation: a request that
+cannot be served should look like the endpoint does not exist.
+
+This is not a presentation preference, it is the threat model. A response that
+distinguishes "valid token, nothing to serve" from "no such token" has told a
+prober the one fact the token exists to keep. The first implementation leaked
+that five ways: a JSON error body carrying a request id (identifies the
+software), a 429 from the rate limiter (identifies a specially-limited path), a
+405 on the wrong method, a 400 on a bad format **after** the token was resolved
+(directly reveals a valid token), and a 502 on an empty render (reveals a valid
+token with empty content).
+
+**Every non-servable request now returns one response**, with no Lattice
+fingerprint: no error body, no request-id header, no content type unless
+configured. The default is a bare 404, which a reverse proxy can replace with its
+own error page via `proxy_intercept_errors`, making `/sub/<anything>` and a path
+that never existed byte-identical. It is configurable so an operator can match
+whatever their front proxy actually returns.
+
+Two consequences of the ordering matter and are enforced by test:
+
+- **Format is validated before the token is resolved.** Validating it afterwards
+  meant a valid token with a bad format answered differently from an invalid one,
+  which is the sharpest leak of the five.
+- **Rate limiting refuses in the same voice.** The limit still applies; it just
+  does not announce itself.
+
+**Truth is relocated, not discarded.** Every rejection is still audited with its
+real reason and its share id, so the operator can diagnose exactly what a prober
+cannot learn. That split — silence on the wire, completeness in the log — is what
+makes this safe to run.
+
+### What this deliberately does not do
+
+**The server does not proxy to a decoy site.** Forwarding an unauthenticated
+request to an operator-configured upstream would make the endpoint a
+request-forwarding surface, and the disguise would still be imperfect: headers,
+TLS characteristics and timing would differ from the site being imitated. The
+masquerade belongs at the reverse proxy, which already terminates TLS and serves
+the rest of the origin, and which can do it in three lines. Lattice's job is to
+be silent; the edge's job is to be someone else.
+
+### The limit worth stating
+
+**Timing is still distinguishable.** A valid token forks a plugin and boots a
+JavaScript VM — hundreds of milliseconds to seconds — while a rejection returns
+immediately. A prober measuring response time can separate the two regardless of
+what the bytes say. Equalising it would mean delaying every rejection by the
+worst-case render time, which is a real cost for an imperfect result, so it is
+recorded here rather than papered over. The cache narrows the gap for repeated
+valid requests but does not close it for the first one.
+
+### Where masquerade does not apply
+
+The authenticated operator API tells the truth. A share that publishes nothing
+returns an empty URL and says so; a refresh that failed reports the failure. An
+operator who cannot see why their own subscription stopped working cannot run
+this system, and the API is already behind authentication, so there is nothing to
+hide from its caller.
+
 ## 9. Testing
 
 - Path/lookup: unknown token, valid token + wrong slug, disabled share, expired share — all 404;
