@@ -1,8 +1,9 @@
 # Design 17 - Managed line overlay on adopted nodes (fleet rollout + account binding)
 
-> Status: proposed 2026-08-11, from the operator directive "每个节点新增一个
-> lattice 维护的 inbound,并支持绑定账号" (option B: build the managed-line
-> capability, with extreme performance and efficiency).
+> Status: S1+S2 implemented 2026-08-12 (lattice-server `managedline.go`), from
+> the operator directive "每个节点新增一个 lattice 维护的 inbound,并支持绑定账号"
+> (option B: build the managed-line capability, with extreme performance and
+> efficiency). S2 channel decided with evidence below.
 > Builds on: design-12 (lines/users read model, plan→approve→apply),
 > design-15 (D3 dual-track user writes, D6 deferral), the 2026-08-11 fleet
 > inventory (ops-archive, operator-private).
@@ -58,7 +59,7 @@ managed later, protocol by protocol, and the overlay lines migrate with it.
 | # | Slice | Notes |
 |---|-------|-------|
 | S1 | Server rollout compiler: `POST /api/network/lines/managed-rollout` builds per-node plans (shape, port from the inventory map, REALITY material, binding) and files them as one approval batch. Validation refuses nodes whose port map is unknown. | The endpoint is a compiler, not a mutator: nothing applies without the operator's approval click. |
-| S2 | Apply mechanics for an inbound fragment on an adopted node. Decide at implementation: new node-agent task verb (`inbound.apply`) vs the plugin-ops apply channel. Contract either way: write fragment → `sing-box check` → reload → verify → rollback on any failure, audit each step. | The one genuinely new machinery piece; the atomicity contract is fixed, the channel is the choice. |
+| S2 | Apply mechanics for an inbound fragment on an adopted node. **Decided 2026-08-12: server-rendered sh script over the existing task pipeline** — the channel every adopted-track mutation already uses (`server_singbox_manage.go`, `lineusers.go`). New agent verb rejected (a fleet-wide agent rollout would gate the first line); the §9.3 plugin-operation channel rejected (it executes PLUGIN-compiled plans; the rollout is server-compiled from the projection). Contract implemented in-script: write fragment → `sing-box check` → restart → verify active → rollback on any failure, audit each step. | The one genuinely new machinery piece; the atomicity contract is fixed, the channel is the choice. |
 | S3 | Read-model + UI: the overlay line appears in Networking → Lines with a `managed` badge and the bound account; the rollout action lives on the Lines view with per-node apply status (pending/applied/failed/rolled-back). Designed per the operator's design-intelligence skill (Product path): one dominant action, honest per-node states, destructive rollback visible. | The UI is where "lattice 维护" becomes legible. |
 | S4 | Account binding via the existing users-admin `plan_add` per managed line; cdcd only in v1. | Existing machinery, no new path. |
 
