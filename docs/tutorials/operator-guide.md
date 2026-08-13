@@ -331,3 +331,31 @@ After any host-mutating change:
 - rollback file exists for nft/proxy/DNS paths where applicable.
 
 When in doubt, re-plan. Do not re-use stale approvals after changing intent.
+
+## 15. Reviewed line chains (alpha)
+
+Line-chain operations are explicit reviewed changes. Use vpn-core `Lines` to
+inspect the secret-free current/attempt state, then create a set/replace or
+remove plan. Confirm that the source and target UUIDs, consumer node, public
+target fingerprints, artifact digest, and previous target (for replacement)
+match the intended change before approval.
+
+Interpret states as follows:
+
+- `planned`: review exists; no task has changed a host.
+- `applying`: one candidate is reserved and the durable consumer task may be in
+  flight.
+- `applied_unobserved`: host result committed; scheduled inventory has not yet
+  proved the topology.
+- `converged`: runtime evidence and the source declaration agree.
+- `drifted`: the frozen applied baseline committed, but current dependencies or
+  observed evidence differ; create a fresh repair/remove plan.
+- `failed`: the candidate failed. For replace/remove, the displayed `current`
+  edge remains active and must not be treated as removed.
+
+Do not retry a failed approval. Create a fresh plan and approval. Do not use
+generic KV or task script reveal to recover credentials; those surfaces deny E3
+secrets by design. If readiness reports unresolved line-chain recovery, stop
+host changes and inspect the agent transaction diagnostics—the agent suppresses
+inventory, capability advertisement, polling, and result publication until the
+exact old or desired artifact pair is recovered.
