@@ -44,6 +44,13 @@ while showing the failed attempt separately.
   transaction. Mixed pairs suppress readiness, inventory, capability
   advertisement, polling, and result publication.
 - Exact durable result replay is accepted; conflicting replay is rejected.
+- The issued wire authority binds the semantic sidecar patch digest (`PatchSHA256`)
+  and server-issued artifact digest (`ArtifactSHA256`); output file digests are
+  agent-journal evidence only and are never used as server approval authority.
+- Durable execution begins with the exact leased task and protocol before the
+  script runs. Recovery and resolve complete the durable result before cleanup;
+  acknowledgement removes the pending outbox entry only after the server has
+  accepted the exact result replay.
 - A post-lease dependency change does not revoke frozen execution authority;
   an exact success is acknowledged once and committed as drifted.
 
@@ -70,3 +77,13 @@ not sign, tag, publish, deploy, or mutate the fleet.
 7. Ordinary metadata sync preserves the committed declaration.
 8. A reviewed remove performs the inverse one-task transaction; discovery proves
    the fragment and edge are absent.
+
+## Canonical E3 evidence
+
+The acceptance path is the official sing-box 1.13.18 lifecycle script with a
+strict runtime root and no simulated traffic, inventory, process restart, or
+task result. It proves crash recovery, exact result replay and acknowledgement,
+byte-identical retry authority, ordinary metadata preservation, and remove
+convergence. The canonical run must report the server and agent revisions used,
+the exact sing-box version, focused/race/vet results, and a clean runtime-root
+process scan before integration approval.
