@@ -1,69 +1,63 @@
 # Lattice
 
-Lattice is the umbrella repository for the LatticeNet ecosystem: a
-security-first server probe, automation, and cluster network control plane.
+Lattice is a sovereign control plane for a personal fleet: it amplifies one
+operator's judgment safely across all of their infrastructure. The work can be
+done by hand in the console or delegated to AI agents through plans; either
+way, every privileged change is a reviewed plan whose approval hashes what the
+operator was actually shown, execution is bound to that exact plan and
+artifact, nodes run an outbound-only agent that keeps its own last-line
+policy, and a hash-chained audit log records what actually happened. Where the
+system does not know, it says unknown.
 
-The code is intentionally split into independent repositories so server,
-node-agent, dashboard, SDK, plugins, and mobile companion surfaces can be
-released and maintained separately.
+This is the umbrella repository: ecosystem overview, doctrine and roadmap,
+developer handbook, compose files, and tutorials. The code is intentionally
+split into independent repositories so server, node-agent, dashboard, SDK,
+plugins, and companions can be released and secured separately.
+
+The doctrine (positioning, axioms, north star, program) is
+[`docs/PRODUCT-VISION.md`](./docs/PRODUCT-VISION.md). The public site is
+<https://latticenet.github.io>.
 
 ## Ecosystem Repositories
 
-- [`lattice-sdk`](https://github.com/LatticeNet/lattice-sdk) - shared Go protocol/domain models.
-- [`lattice-server`](https://github.com/LatticeNet/lattice-server) - deployable control plane.
-- [`lattice-node-agent`](https://github.com/LatticeNet/lattice-node-agent) - deployable outbound node agent.
-- [`lattice-dashboard`](https://github.com/LatticeNet/lattice-dashboard) - static dashboard.
-- [`lattice-plugin-template`](https://github.com/LatticeNet/lattice-plugin-template) - starter templates for system, Worker, and future Wasm plugins.
+Core:
+
+- [`lattice-sdk`](https://github.com/LatticeNet/lattice-sdk) - shared Go models and the plugin protocol contract.
+- [`lattice-server`](https://github.com/LatticeNet/lattice-server) - the control plane: state, approvals, audit, plugin host.
+- [`lattice-node-agent`](https://github.com/LatticeNet/lattice-node-agent) - outbound-only host agent with node-side capability flags.
+- [`lattice-dashboard`](https://github.com/LatticeNet/lattice-dashboard) - strict-CSP Vue operator console, bundled into the server image via `dashboard.ref`.
+
+Plugins (signed, capability-scoped, sandboxed UIs):
+
+- [`lattice-plugin-vpn-core`](https://github.com/LatticeNet/lattice-plugin-vpn-core) - sing-box proxy lines, users, and usage.
+- [`lattice-plugin-sub-store`](https://github.com/LatticeNet/lattice-plugin-sub-store) - native subscription platform: store, fetch, process, publish.
+- [`lattice-plugin-netguard`](https://github.com/LatticeNet/lattice-plugin-netguard) - nftables security groups with reviewed apply and reality reporting.
+- [`lattice-plugin-wireguard`](https://github.com/LatticeNet/lattice-plugin-wireguard) - WireGuard networks and device peers, planned before applied.
+- [`lattice-plugin-bridge`](https://github.com/LatticeNet/lattice-plugin-bridge) - the sandboxed postMessage channel between plugin UIs and the host.
+- [`lattice-plugin-template`](https://github.com/LatticeNet/lattice-plugin-template) - starter kit and packaging tools for plugin authors.
+- [`lattice-plugin-index`](https://github.com/LatticeNet/lattice-plugin-index) - signed, read-only plugin catalogue. Not a live install channel by design.
+
+Companions:
+
+- [`Astra`](https://github.com/LatticeNet/Astra) - iOS companion for phone-first review and approval.
+- [`latticenet.github.io`](https://github.com/LatticeNet/latticenet.github.io) - public website and documentation.
 - [`.github`](https://github.com/LatticeNet/.github) - organization profile.
-- [`Astra`](https://github.com/LatticeNet/Astra) - iOS companion app for the
-  Lattice mobile control surface.
 
-## Current MVP
+## What It Does Today
 
-- Go server and Go node-agent.
-- Outbound agent enrollment, heartbeat, metric/HostFacts reporting, task polling, and task result upload.
-- Machine inventory profiles for vendor/region/cost/renewal tracking, encrypted
-  console/detail links, and renewal reminders.
-- Session login, CSRF checks, TOTP 2FA, OIDC/SSO, PBKDF2 password/token hashing, PAT scopes, server allowlists, and tamper-evident audit WAL.
-- Node dashboard, task runner, KV, static bucket, Worker registry, SSO provider admin, plugin lifecycle/runtime health, network guard, saved network policy intent/SVG graph, egress-only NetPolicy apply planning, Fleet Map, approvals, and audit views.
-- nftables plan generation with explicit approval before apply, including an
-  applied `lattice_guard` Network Guard path and an egress-only NetPolicy path,
-  both with agent-side rollback/selfcheck where the server public URL is known.
-- Self-host DNS deployment intent, CoreDNS/nft planning, rollback-protected
-  apply, Cloudflare hostname publication, separate service/publish status, and
-  optional pinned CoreDNS executable install.
-- Geo-Routing configure+preview for a self-hosted DNS apex, using
-  operator-owned node locations and healthy-node selection.
-- Log ingestion/query MVP with a dedicated bounded `logs.db`, agent tailer,
-  scoped source management, and dashboard Logs panel.
-- Browser terminal MVP with scoped `terminal:open`, opt-in agent-side PTY
-  sessions, xterm rendering, node-level dashboard entrypoints, bounded
-  in-memory I/O, and audited open/close events.
-- Server-controlled node-agent update policies with manual update plans,
-  auto-plan pending approvals, SHA-256-pinned HTTPS artifacts, and delayed
-  service restart after task result reporting.
-- Proxy-core/subscription foundation: shared models, redacted proto views,
-  JSON/bbolt persistence, and encrypted Reality/user/subscription credentials
-  plus the first fail-closed sing-box `vless`+TCP+REALITY renderer, scoped
-  CRUD/read APIs that return secret-free views, a redacted reviewed plan
-  endpoint that binds the real rendered config hash, and secret-safe reviewed
-  queue/apply with encrypted task scripts, `sing-box check`, atomic config swap,
-  task-result status reconciliation, and a public plain/base64 `/sub/{token}`
-  MVP with `Subscription-Userinfo`, dedicated rate limiting, hashed-token audit,
-  duplicate-token fail-closed handling, sing-box JSON and Clash/Mihomo YAML
-  subscription formats for VLESS+REALITY+TCP, plus dashboard
-  inbounds/users/profiles management, an explicit audited rotate/copy
-  subscription URL workflow, and a baseline usage-reporting path with
-  server-side monotonic rollup plus dashboard usage/last-seen display.
-- Operator-owned NodeGeo records and a dependency-free dashboard world map.
-- Astra iOS companion app v2 for phone-first operations: Overview, Nodes,
-  Monitors, Inventory, and More tabs backed by a Swift `LatticeClient` for
-  identity/version, nodes, PATs, machine inventory, monitors/results,
-  Network & security read views with SHA-256-bound approval, notifications,
-  audit, tasks, and logs. Source is published in `LatticeNet/Astra`; signing,
-  TestFlight, and live iPhone QA remain separate release steps.
-- Static TypeScript source and dependency-free browser assets.
-- Local AES-256-GCM encrypted JSON storage plus an append-only hash-chained audit WAL. The storage interface is isolated; the planned durable engine is bbolt to preserve the pure-Go / zero-CGo constraint. The server now has an explicit JSON↔bbolt migration/export CLI plus record-level bbolt APIs for current state buckets; JSON remains the default runtime store.
+Fleet enrollment, metrics, inventory, and monitoring over an outbound-only
+agent; plan-approve-apply for everything that mutates a node (nftables
+firewall, WireGuard, self-host DNS with geo-routing, DDNS, SSH Guard hardening
+with port knocking, agent updates, proxy-core line management); a native
+subscription platform; per-node capability gates; browser terminal; log
+ingestion; KV, static, and worker publishing surfaces; TOTP/OIDC/passkey
+sign-in with scoped PATs; and a tamper-evident audit chain past one million
+entries in the reference deployment.
+
+The honest current state, including what is deliberately not enabled, is kept
+in [`docs/PRODUCT-VISION.md`](./docs/PRODUCT-VISION.md) section 4 and on the
+public site's status matrix, both of which are checked against reality rather
+than aspiration.
 
 ## Quick Start
 
@@ -144,32 +138,24 @@ root-capable service profile only for host mutation or self-update tasks.
 - [Storage migration drills](./docs/tutorials/storage-migration.md)
 - [Plugins](./docs/tutorials/plugins.md)
 - [Network guard](./docs/tutorials/network-guard.md)
-- [Development report, 2026-06-13](./docs/development-report-2026-06-13.md)
 
 ## Contributor Docs
 
+- [Product vision and north star](./docs/PRODUCT-VISION.md)
+- [Developer handbook: build, test, tag, release](./docs/handbook.md)
 - [Development workflow](./docs/development-workflow.md)
-
-## Repository Creation Order
-
-Publish `lattice-sdk` first, then `lattice-server`, `lattice-node-agent`,
-`lattice-dashboard`, `lattice-plugin-template`, `lattice`, and `.github`.
-`lattice-dashboard` is the canonical modern Vue dashboard; server images pin a
-specific dashboard commit through `lattice-server/dashboard.ref`.
+- [Roadmap log](./docs/roadmap.md)
 
 ## Shared Contract Releases
 
 `lattice-server` and `lattice-node-agent` intentionally consume shared models
-from `lattice-sdk`. When SDK contracts change, cut a new `lattice-sdk` tag first
-and then update the dependent `go.mod` files. Local multi-repo development can
-use `go.work`, but standalone builds should not depend on an untagged SDK
-`main`.
-
-Current published SDK baseline: latest `lattice-sdk` tag is `v0.2.17`;
-`lattice-server` consumes `v0.2.17`, and `lattice-node-agent` consumes
-`v0.2.17`. The workspace `use` list includes the local SDK checkout, so
-cross-repo development exercises the current model sources without relying on a
-stale version-specific replace.
+from `lattice-sdk`. When SDK contracts change, cut a new `lattice-sdk` tag
+first and then update the dependent `go.mod` files. Between milestones the
+server and node-agent may pin a Go pseudo-version of the SDK commit they were
+built against; the newest `v*` tag is what downstream consumers depend on, and
+the public site verifies its displayed SDK version against the tag list at
+build time. Local multi-repo development can use `go.work`, but standalone
+builds should not depend on an untagged SDK `main`.
 
 Workspace CI pins each sibling checkout to an exact commit in
 `.github/workflows/ci.yml`. Update those refs and `go.work.sum` together when
