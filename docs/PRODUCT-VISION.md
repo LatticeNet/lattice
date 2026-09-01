@@ -1,129 +1,176 @@
-# Lattice — Product Vision & Long-Range Plan
+# Lattice: product vision and north star
 
-> The north star. Point-in-time reviews live in `program-review-and-roadmap-2026-06.md`;
-> decisions live in `adr-*.md`; each build cycle is logged in `iterations/`; the
-> next major capabilities are fully designed in `designs/` (start at `designs/README.md`).
-> **Last updated:** 2026-06-15.
+> The doctrine. Point-in-time reviews live in `program-review-and-roadmap-2026-06.md`
+> and dated entries in `roadmap.md`; decisions live in `adr-*.md`; each build cycle is
+> logged in `iterations/`; capability designs live in `designs/`. The developer
+> handbook (build, test, tag, release) is `handbook.md`.
 >
-> **State (2026-06-15):** Identity is essentially complete (password + TOTP 2FA
-> + OIDC/SSO backend & dashboard UI). A full security/stability **audit + remediation**
-> landed (iter-016, ~25 fixes: fsync durability, WireGuard /32, plugin-KV isolation,
-> TOTP replay, session-epoch). The bbolt record-level store exists as a foundation
-> but JSON remains the runtime backend. **Five next-capability designs are written
-> and ready to build** (proxy cores+subscriptions, self-host DNS, log ingestion,
-> machine inventory+cost, per-node nft ACL + geo-map); machine inventory's MVP
-> has landed (`HostFacts` in iter-017, `MachineProfile` cost/renewal reminders
-> in iter-018), shared nft-input persistence landed in iter-019, Design 05's
-> `NetPolicy` state/API/graph/dashboard foundation landed in iter-020, and
-> egress-only nft plan/apply with dead-man rollback + agent selfcheck landed in
-> iter-021. Operator `NodeGeo` CRUD and the dashboard Fleet Map landed in
-> iter-022; dashboard policy-graph SVG landed in iter-023; Network Guard
-> rollback apply plus ingress guard composition landed in iter-024; required
-> plan-hash binding for pending high-risk approvals landed in iter-025; the
-> control-plane HTTPS-domain nft named set landed in iter-026; the agent-native
-> nft domain-set updater landed in iter-027; systemd periodic refresh landed in
-> iter-028; IPv6 control-plane parity landed in iter-029; operator-authored IPv6
-> policy remotes landed in iter-030; egress domain-valued operator remotes
-> landed in iter-031; cron.d domain refresh fallback landed in iter-032;
-> Self-host DNS `DNSDeployment` model/store/API/dashboard foundation landed in
-> iter-033; CoreDNS/nft plan generation landed in iter-034; rollback-protected
-> selfdns apply and status reconciliation landed in iter-035; Cloudflare
-> hostname publish + automatic node-IP-change publication landed in iter-036;
-> service-apply vs hostname-publish status split landed in iter-037; optional
-> pinned CoreDNS executable install landed in iter-038; proxy-core
-> model/proto/store/encryption foundation landed in iter-039; the first
-> fail-closed sing-box `vless`+TCP+REALITY renderer landed in iter-040; scoped
-> proxy CRUD/read views landed in iter-041; redacted reviewed proxy plans landed
-> in iter-042; secret-safe proxycore queue/apply with encrypted task scripts
-> landed in iter-043; plain/base64 public proxy subscriptions landed in
-> iter-044; dashboard proxy management plus explicit audited subscription URL
-> rotation/copy landed in iter-045; proxy usage reporting baseline landed in
-> iter-046; sing-box client JSON plus Clash/Mihomo YAML subscription output
-> landed in iter-047; focused dashboard proxy apply review landed in iter-048;
-> node-agent loopback HTTP/V2Ray-stats proxy usage collection landed in
-> iter-049; server-owned proxy quota/expiry notifications landed in iter-050;
-> dashboard subscription import helpers landed in iter-051; proxy collector
-> health/error surfacing landed in iter-052; xray VLESS+REALITY+TCP
-> renderer/apply landed in iter-053; the dependency-free xray stats transport
-> (`xray api statsquery`, ADR-003 — no `grpc-go`) plus collector hardening
-> (HTTP redirect refusal, `config_path` `..` rejection) landed in iter-054;
-> proxy config-drift detection with a one-click Review & Apply enforce path
-> (no auto-apply) landed in iter-055; the Design 03 **log-ingestion MVP**
-> (dedicated bounded bbolt `logs.db`, fail-closed path validation, agent tailer,
-> per-source ingest budget, dashboard Logs panel) landed in iter-056;
-> Geo-Routing configure+preview landed in iter-057; server-controlled
-> node-agent update policies (manual plan + auto-plan pending approvals) landed
-> in iter-058; public ecosystem and release-readiness work landed in
-> iter-059/iter-060 (server Docker/GHCR path, Pages site, static plugin-index
-> foundation, SDK `v0.2.0` contract hygiene, and agent-update script hardening).
-> See
-> `designs/README.md` for the remaining cross-cutting dependencies and
-> recommended build order.
+> **Last updated:** 2026-08-31. This version supersedes the 2026-06-15 vision;
+> the full positioning analysis behind it was reviewed and ratified by the
+> operator on 2026-08-31. Git history preserves the old text.
 
-## 1. North star
+## 1. What Lattice is
 
-**Lattice is a security-first, self-hostable control plane for a fleet of distributed nodes** — monitoring, networking (WireGuard mesh, Cloudflare Tunnel, DDNS), notifications, and an extensible plugin platform — built in pure Go with **zero CGo and a deliberately tiny dependency surface**.
+**Lattice is a sovereign control plane: it amplifies one operator's judgment
+safely across all of their infrastructure.**
 
-The bar is not "works." The bar is **惊艳 — a product that makes a self-hoster say "this is better than the SaaS I was paying for."** That means: trustworthy by construction, effortless to operate, genuinely extensible, and visually and interactively polished enough that people *want* to keep it open.
+The work can be done by hand in the console or delegated to AI agents through
+plans; either way the judgment stays with the operator. Every privileged change
+is a reviewed plan whose approval hashes what the operator was actually shown.
+Execution is bound to that exact plan, artifact digest, and target set. A
+hash-chained audit log records what actually happened. Nodes run an
+outbound-only agent that holds its own last-line policy, so neither a
+compromised control plane nor a misbehaving automation can quietly own the
+fleet.
 
-## 2. Product pillars
+This identity was not invented; it was noticed. The project is built and
+operated almost entirely by AI agents under one human's review, and every
+mechanism that makes Lattice unusual (typed plan bindings, capability
+admission, audit chaining, node-side vetoes, honest state) exists because the
+executor could not be blindly trusted. That is the general problem of the agent
+era, and Lattice is a working answer to it at personal-fleet scale.
 
-| Pillar | Promise | Today |
+### The four axioms
+
+Every slice, screen, and API is judged against these:
+
+1. **Nothing changes a machine without a plan.** Any state-mutating operation
+   is a reviewable plan; approval hash-binds the reviewed content, the artifact
+   digest, and the target set.
+2. **Unknown is said out loud.** The system never renders green it cannot
+   prove. `unknown / fresh / stale`, `never reported / offline / online`, and
+   drift states are first-class; every green light links to its evidence.
+3. **No single point can destroy the fleet.** Not a compromised control plane,
+   not a runaway agent, not one bad approval. The node keeps the last veto:
+   exec, root, and terminal are node-side flags; applies carry watchdogs and
+   rollback; capability gates confine what may even be asked of a node.
+4. **Hands and agents are equal operators.** Every capability has two
+   first-class entrances: a complete human path in the console, and a plan
+   surface an agent can drive. Both share the same approvals, admission checks,
+   and evidence. A feature that only an agent can operate, or that an agent
+   cannot safely operate, is unfinished.
+
+### What Lattice is not
+
+- Not a multi-tenant SaaS. One operator, one control plane, one fleet:
+  single-sovereignty is the identity, not a missing feature.
+- Not an observability platform. Monitoring exists to serve sovereignty
+  (detect, prove, alert), not to compete with Netdata.
+- Not a mesh vendor or a proxy panel. WireGuard, sing-box, and Sub-Store are
+  domain payloads managed through the trust chain, not the product itself.
+- Not a feature race. Cloudflare is the craft benchmark for coherence and
+  interaction quality; its business shape and its hold-everything trust model
+  are explicitly not the goal. The parts to surpass are sovereignty and
+  evidence.
+
+## 2. North star: unattended weeks
+
+The opposite of the current pain is not prettier screens; it is a fleet that is
+quiet without being opaque. The north star is a measurable state called the
+**unattended week**: seven consecutive days in which the operator never opens
+an SSH session to any node, the fleet keeps evolving (agent updates, hardening,
+line changes, subscription serving), every change rides plan-approve-apply,
+every anomaly reaches the operator's phone within minutes, and the week ends
+with an agent-written fleet report in which every claim links to a correlation
+id.
+
+Three sovereignty questions define acceptance:
+
+1. **Do I know what is happening?** Honesty everywhere: process-level
+   liveness, service health, real usage data, tri-state freshness. A service
+   that crashed 220,000 times must never render "ok" because its config file
+   still parses.
+2. **Can anything change without me?** Admission registries filled, plan
+   bindings everywhere, agents able to produce only plans, never facts.
+3. **If I leave for a week, does it get better or worse?** Risk-tiered
+   auto-approval with daily caps, cross-alive notification paths, rollback to
+   last known good.
+
+Tracked anchors: minutes of manual intervention per week; share of changes
+that rode plan-approve-apply; detection latency for real failures; and the
+most humbling one, "what does production run" must be answerable from exactly
+one machine-readable place.
+
+## 3. Product pillars
+
+| Pillar | Promise | State (2026-08-31) |
 |---|---|---|
-| **P1 · Trust** | Secure by default, fail-closed, auditable, nothing to misconfigure into insecurity | Strong: RBAC, rate-limit, signed plugins (fail-closed), tamper-evident audit WAL, 2FA, at-rest encryption |
-| **P2 · Identity** | Password + 2FA + SSO; the front door is frictionless and enterprise-ready | Password ✅ + TOTP 2FA ✅ + OIDC/SSO backend/UI ✅; **2FA policy + WebAuthn groundwork next** |
-| **P3 · Platform** | A real plugin system — install, verify, run, and extend safely; a marketplace of official + community plugins | Manifest + signing ✅, loader ✅, preflight verify ✅, host-API broker + server adapter ✅, lifecycle registry/API/UI ✅, runtime manager + runner contract ✅, static plugin-index foundation ✅; **plugin artifacts don't execute yet** |
-| **P4 · Scale & durability** | Survives growth and crashes; backup/restore is a non-event | JSON state + at-rest encryption + audit WAL ✅; bbolt import/export + JSON migration/rollback CLI ✅; record-level APIs for current state buckets ✅; runtime cutover pending; **default store still whole-file JSON** |
-| **P5 · Experience (惊艳)** | A dashboard that is fast, legible, real-time, and beautiful; onboarding that takes minutes | Functional zero-dep dashboard with SSO + plugin lifecycle panels; **many endpoints still have no UI; design layer immature** |
+| **Trust chain** | Plan, approve, apply with typed bindings; signed capability-scoped plugins; tamper-evident audit | Strong and real: four-point signature verification, plan-hash approvals, audit WAL with anchoring, 1M+ audit entries in production |
+| **State honesty** | Unknown over green; every light links to evidence | Partial: netguard reality and trust posture are the model; node liveness is still a boolean sweep, service liveness and usage are open gaps |
+| **Dual operation** | Hands and agents as equal operators (axiom 4) | Console is ahead; the agent surface is implicit (REST + tokens) and not yet a designed plan-only interface |
+| **Platform** | Signed plugins with brokered capabilities and sandboxed UIs | Four production plugins; wasm tier deliberately not enabled; marketplace remains read-only by design |
+| **Durability and meta-loop** | The control plane manages its own operations: deploy records, version truth, credential lifecycle, backups | Weakest pillar: version truth currently lives in five places; site drifted three weeks; release ceremony is manual toil |
+| **Experience** | Cloudflare-grade coherence: URL state, object interlinking, command palette, density, instant response | Rebuilt through August and visibly better; navigation latency, state vocabulary, and cross-screen grammar still below the bar |
 
-## 3. Honest current state (2026-06-15)
+## 4. Honest current state (2026-08-31)
 
-Delivered: control plane + node agent + SDK + dashboard + Astra mobile companion across the split LatticeNet repos; security hardening; DDNS, monitoring, notifications, WireGuard mesh, CF Tunnel; plugin manifest/signing + loader + preflight verify + host-API broker/server adapter + lifecycle registry/API + dashboard panel + runtime manager + runner contract; TOTP 2FA; tamper-evident audit WAL; node-token rotation; bounded task execution; **AES-256-GCM at-rest encryption** (ADR-002); bbolt state import/export foundation with explicit JSON migration/rollback CLI and record-level APIs for current state buckets, including secret-bearing identity/auth/DDNS/notify/OIDC/MachineProfile/DNSDeployment/proxy-core records and non-secret `NFTInputs`/`NetPolicy`/operator `NodeGeo`/`AgentUpdatePolicy`; low-trust `HostFacts` inventory telemetry from node-agent through server to dashboard; server-only MachineProfile cost/renewal reminders with encrypted console/detail links and a Machines dashboard panel; shared per-node nft input persistence for DNS/ACL single-table rendering; Design 05 `NetPolicy` state/API/graph/dashboard; the committed egress-only nft policy apply path with plan-hash approval, 60s rollback watchdog, agent `/api/health` selfcheck, result-backed applied/failed status, HTTPS-domain IPv4/IPv6 control-plane named-set support, an agent-native domain-set updater, systemd plus cron.d periodic refresh for those sets, operator-authored IPv4/IPv6 CIDR/node remotes, and egress domain-valued operator remotes backed by node-filled nft named sets; Network Guard `lattice_guard` apply with rollback and ingress-policy composition; required dashboard-computed plan hashes for pending high-risk approvals; a dependency-free dashboard Fleet Map driven by operator-owned geo facts; dashboard policy-graph SVG driven by server graph JSON; Geo-Routing configure+preview for Lattice-native GeoDNS; Self-host DNS foundation plus apply/publish (`DNSDeployment` model/store/API/dashboard with encrypted Cloudflare token storage, dependency-free CoreDNS rendering, composed nft plans, rollback-protected apply, status reconciliation, Cloudflare publish, automatic node-IP-change publication, separate service-apply vs hostname-publish status fields, and optional pinned CoreDNS direct-executable install); server-controlled node-agent update policies with manual plan and auto-plan pending approvals; and the first proxy-core/subscription product path (`ProxyInbound`, `ProxyUser`, `ProxyNodeProfile`, `ProxyUsageSnapshot`, redacted proto views, JSON/bbolt persistence, encrypted Reality/user/subscription credentials, fail-closed sing-box and xray `vless`+TCP+REALITY renderers, scoped CRUD/read views, a redacted reviewed plan endpoint with real-config SHA binding, secret-safe reviewed queue/apply backed by encrypted task scripts and task-result status reconciliation (`sing-box check` or `xray test -c` before atomic swap), the public `/sub/{token}` endpoint with plain/base64/sing-box JSON/Clash/Mihomo YAML output, `Subscription-Userinfo`, constant-time token scan, dedicated rate limiting, hashed-token audit, duplicate-token fail-closed behavior, dashboard inbounds/users/profiles management with explicit audited rotate/copy subscription URL workflow and core selection, a focused dashboard proxy apply review path, baseline usage reporting through `/api/agent/proxy-usage`, `/api/proxy/usage`, server-side monotonic diffing, an agent `-proxy-usage-file` bridge plus loopback HTTP/V2Ray-stats collector foundation, dashboard usage/last-seen display, server-owned proxy quota/expiry notifications through `internal/notify`, copy-ready dashboard import helpers for base64/plain/sing-box/Clash.Meta URLs after explicit token rotation, and proxy collector health/error surfacing from agent through server profile state to dashboard without allowing error reports to mutate accounting baselines). Astra iOS v2 adds a phone-first companion app for Overview, Nodes, Monitors, Inventory, Activity, Logs, Tasks, notifications, and PAT management, backed by a typed Swift Lattice client and simulator CI; signed/TestFlight distribution remains a release step. Minimal external Go deps are currently limited to the OIDC stack approved in ADR-001 (`oauth2`, `go-oidc`, transitive `go-jose`) plus bbolt for Phase C storage; still zero CGo — and ADR-003 keeps proxy stats collection dependency-free by reusing the on-node `xray api statsquery` CLI rather than linking `grpc-go`. Log ingestion (Design 03, iter-056) adds a **dedicated bounded bbolt `logs.db`** (separate from the JSON state store) via `internal/logstore` + an `internal/logtail` agent tailer: server-owned `LogSource` records, `log:read`/`log:admin` scopes, fail-closed path validation, cross-node ingest rejection, a per-source byte-cap + lines/sec budget (429), optional at-rest chunk encryption under the master key, and a dashboard Logs panel — zero new dependencies (bbolt was already approved). The 2026-06-13 closeout baseline is recorded in `development-report-2026-06-13.md`; iter-060 (release-readiness review) is the current delta, following iter-056 (log-ingestion MVP), iter-057 (Geo-Routing configure+preview), iter-058 (agent update control), and iter-059 (public ecosystem foundation).
+Production: `alpha-0.2.2a77` (server and dashboard pinned together), 33 nodes
+across 8+ countries, 4 plugins active, node-agent stable line at v0.3.8,
+sing-box fleet of 23 nodes and ~138 lines, audit chain beyond one million
+entries. Roughly 40 production releases shipped in the last two weeks, built
+and operated by agents under operator review.
 
-The three gaps that most separate us from 惊艳, in dependency order: **identity policy polish**, **the platform actually running plugins**, and **a storage engine that scales** — plus a **dashboard worthy of the backend**.
+What is genuinely rare (verified against source, not aspiration): the typed
+plan-approve-execute binding; the outbound-only agent with node-side capability
+flags; the signed plugin chain verified at install, load, read, and execute;
+the hash-chained audit WAL with off-box anchoring; and the honesty discipline
+where it has been applied.
 
-## 4. Phased roadmap
+What is honestly open, in leverage order: liveness and usage honesty (axiom 2
+is not yet everywhere); capability admission registries are live but empty;
+notification delivery is single-pathed; the meta-loop (deploy records, version
+truth, credential rotation, website) still runs on human memory outside the
+product; the agent surface is not yet a designed, plan-only interface; and the
+console's interaction grammar is not yet uniform.
 
-Each phase has an exit bar. Phases ship as tested, reviewed, committed slices (the cadence in §5). UX is **not** a final afterthought — it is woven in after each backend capability lands, with one dedicated reimagining phase.
+## 5. The program
 
-### Phase A — Identity completes the front door  *(in progress)*
-- **A1 · OIDC/SSO login** ✅ (item ②): provider-agnostic auth-code + PKCE + state + nonce; Google as the first configured provider; allowlist-gated `(issuer, sub)` → local user; client secret stored via the at-rest cipher. Deps: `golang.org/x/oauth2`, `github.com/coreos/go-oidc/v3` (the first external deps, blessed by ADR-001).
-- **A2 · Dashboard SSO UI** ✅: "Sign in with SSO" + admin provider config UI, including `sso_error` / `totp_challenge` redirect handling and write-only client secrets.
-- A3 · Enforce-2FA policy; WebAuthn groundwork.
-- **Exit:** an operator can sign in with Google, mapped to a scoped local identity, with no password; SSO config is admin-managed and secret-at-rest.
+Do, in leverage order:
 
-### Phase B — The platform runs plugins  *(item ③)*
-- B1 · **Host-API broker** ✅: the stable, capability-gated interface a plugin calls back into (store/kv, http-egress, notify, log) — the contract the wasm tier was deferred behind (ADR-001 D2/D5).
-- B2 · **Real execution** of `system`/`worker` plugins on top of the loader: lifecycle registry/API/UI ✅; runtime manager + runner contract ✅; Design 08 defines runner gates/order; artifact execution, concrete runner isolation, per-plugin limits, and runtime health depth still pending.
-- B3 · First official plugins as reference; static signed-index foundation exists, marketplace fetch/install of signed artifacts remains pending.
-- **Exit:** a signed plugin installs, runs, is capability-confined, and its host calls are brokered + audited. Foundation for the user's own LatticeNet/* official plugins (sing-box/xray/sub-store).
+1. **Close loops before opening surfaces.** Process-level liveness, real
+   usage, cross-alive notifications, admission registries filled, rollback to
+   last known good. A feature is done when its loop is relied on daily and its
+   evidence is visible in the product, not when its form submits.
+2. **Lattice manages Lattice.** Deploy records as first-class objects; the
+   website version matrix rebuilt from `/api/version`; token and knock-sequence
+   rotation as approvals. This kills the five-answers problem permanently.
+3. **Agents as first-class operators.** A plan-only interface surface for
+   agents, confined by admission and scopes; approval on the phone (Astra's
+   reason to exist: review and approve a plan in under a minute from anywhere);
+   risk-tiered auto-approval with daily caps for routine changes.
+4. **Coherence grammar as a checklist, not inspiration.** Every slice ships
+   with: state in the URL, objects interlinked, failures leaving a trace,
+   keyboard reachable, holding up at 1440 and 375. Grammar precedes screens.
+5. **Tell the story when it is earned.** The reference implementation is the
+   marketing: one operator, 33 nodes, agent-operated, full evidence chain.
+   Write the method up when the unattended week is real.
 
-### Phase C — Storage that scales  *(item ④, next high-leverage backend slice)*
-- C1 · **Replace the whole-file JSON store with bbolt** (pure Go, preserves zero-CGo). Import/export + JSON migration/rollback CLI ✅; record-level APIs for current state buckets ✅; local audit WAL head anchoring ✅; off-box head shipping, backup/restore, and runtime cutover still pending.
-- C2 · crash-safe migration from the JSON file, JSON export/import, retention policy for high-volume audit/monitor results.
-- **Exit:** writes are O(record) not O(state); a 10k-node/long-audit deployment stays responsive; crash-safe.
-- **Timing note:** done after A/B so it migrates a known-stable schema; the fresh at-rest boundary is re-homed deliberately, not rushed.
+Do not:
 
-### Phase D — The 惊艳 dashboard  *(P5, dedicated)*
-- A coherent design system; real-time fleet view; first-run onboarding; every backend capability surfaced with care; accessibility + performance budgets.
-- **Exit:** the dashboard is the reason people choose Lattice, not the part they tolerate.
+1. No fifth plugin until the four are excellent.
+2. No multi-tenant SaaS; finish or close the half-open multi-operator surface.
+3. No wasm runner while nothing needs it; no surface completeness for its own
+   sake (publishing consolidates or freezes).
+4. No competing with Netdata on observability or Tailscale on mesh.
+5. No manual release ceremonies forever: batch them or automate them into the
+   product.
 
-### Continuous tracks (every phase)
-- **Security review** of each slice (adversarial, separate pass). **Docs** (ADR for decisions, iteration log for cycles). **Tests** (`-race`, gofmt, dashboard). **Zero-CGo / minimal-dep** discipline — every new dependency justified in an ADR.
+## 6. Operating cadence
 
-## 5. Operating cadence (how we work)
+Unchanged and still binding: every slice moves plan, execute, review, iterate,
+each leaving a durable artifact (`iterations/iter-NNN`), with independent
+adversarial review and no self-approval. The contributor standard lives in
+`development-workflow.md`; the concrete build/test/tag/release mechanics live
+in `handbook.md`.
 
-For every slice: **Plan → Execute → Review → Iterate**, each leaving a durable artifact. The detailed contributor standard lives in `development-workflow.md`.
-1. **Plan** — write `iterations/iter-NNN-<slug>.md` (goal, scope, design, risks, test plan, exit bar) *before* code.
-2. **Execute** — TDD; small, coherent commits; `-race` + gofmt + dashboard green before claiming done.
-3. **Review** — independent adversarial review (workflow / subagent), never self-approval; fix must-fixes with regression tests.
-4. **Iterate** — record outcome + residuals in the same iteration doc; update this vision and the ADRs; pick the next slice.
+## 7. Hard constraints
 
-## 6. Hard constraints
-- **Security first**, then functionality, then usability, then performance — but performance and failure-visibility are first-class whenever the workload is hot or a failure could be silent.
-- **Pure Go, zero CGo.** Every external dependency must be justified in an ADR (so far: oauth2 + go-oidc/go-jose for OIDC; bbolt for storage when Phase C starts; wazero only if/when wasm plugins land).
-- **Fail closed.** Unsafe defaults are bugs.
-- **Multi-repo `go.work`**: build/test with `GOWORK` set (see `lattice-codebase-build-and-hardening` notes).
-
-## 7. Supersedes / reconciles
-- Older roadmap language that mentioned "SQLite WAL" is **superseded**: SQLite is CGo; the decided path is **bbolt** (pure Go) — Phase C.
+- Security first, then honesty, then usability, then performance; performance
+  is first-class on hot paths and interactive surfaces.
+- Pure Go, zero CGo; every new dependency justified in an ADR.
+- Fail closed. Unsafe defaults are bugs.
+- Alpha train discipline: `alpha-0.2.2aN` for test deployments; stable-looking
+  tags require an explicit operator decision; `latest` never selects a
+  prerelease.
+- Multi-repo `go.work`; integration is the working branch; merges are local
+  `--no-ff` followed by direct push.

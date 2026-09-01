@@ -1,5 +1,26 @@
 # Roadmap
 
+> **2026-08-31 positioning ratified, program reset.** The full analysis and its
+> ratification are recorded in the operator's vault; the resulting doctrine is
+> [`PRODUCT-VISION.md`](./PRODUCT-VISION.md) (this date's version supersedes
+> 2026-06-15). One sentence: Lattice is a sovereign control plane that
+> amplifies one operator's judgment safely across all of their infrastructure,
+> with hands and agents as equal operators. North star: the **unattended
+> week**. The near-term program, in leverage order: close the honesty loops
+> (process-level liveness, real usage, cross-alive notifications, admission
+> registries filled, rollback to known-good); pull the meta-loop into the
+> product (deploy records as objects, version truth from `/api/version`,
+> credential rotation as approvals); design the plan-only agent surface and
+> revive Astra as the approval device; enforce the coherence grammar checklist
+> on every console slice (state in URL, objects interlinked, failures leave a
+> trace, keyboard reachable, 1440 and 375). Explicit stops: no fifth plugin,
+> no multi-tenant SaaS, no wasm runner yet, no observability or mesh feature
+> races, no permanent manual release ceremony. Known production defects at
+> ratification time (dashboard navigation stalls without feedback, multi-day
+> stuck Running tasks, fleet status vocabulary drift, routine linemeta
+> approvals piling up unapproved) are tracked in `handbook.md`'s known-issues
+> section and fixed before new surface work.
+>
 > **2026-06-11 security hardening pass** delivered the items marked *(Delivered)*
 > below plus a broad set of fixes (authz bugs, rate limiting, O(1) PAT auth,
 > session persistence, nft/storage input validation, TLS/HSTS, real CPU metrics,
