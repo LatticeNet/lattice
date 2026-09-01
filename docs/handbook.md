@@ -216,6 +216,29 @@ tool-enforced constraints are:
 Signing, publishing, and production installs stay with the human operator.
 Agents prepare everything up to the seed and stop.
 
+### 6.3.1 The reopen-on-change contract (plugin repos)
+
+A signed release commit at a plugin repo's integration tip freezes the tree:
+manifest version, the Go `pluginVersion` constant, `ui/package.json`, the
+bundle digest, and the signature all agree, and CI proves it. The FIRST code
+change after that must reopen development in the same commit, or CI fails by
+design:
+
+1. `sh tools/bump.sh <next-version>` (syncs manifest, package.json, and the
+   Go constant).
+2. Blank `signature_ed25519` in the manifest: a populated signature on a tree
+   you just changed means you are about to sign something you did not build.
+3. Put the CI-canonical bundle digest into `bundle.digest_sha256` and into
+   `SIGNING-HANDOFF.md` (exactly one digest there; the version-contract tests
+   enforce all of this). The digest cannot be left empty: the released-server
+   manifest check refuses that too.
+
+On the digest: CI is the authority. A darwin build does not reproduce it, and
+neither does an arm64 Linux container; the practical loop is to push, read
+the canonical digest from the failed "package twice and compare bytes" step,
+adopt it, and push again. Subsequent commits that change built content repeat
+step 3 only.
+
 ### 6.4 Site
 
 After any release wave: update `docs/.vitepress/data/versions.ts`, run
