@@ -1,9 +1,11 @@
 # Lattice: product vision and north star
 
-> The doctrine. Point-in-time reviews live in `program-review-and-roadmap-2026-06.md`
-> and dated entries in `roadmap.md`; decisions live in `adr-*.md`; each build cycle is
-> logged in `iterations/`; capability designs live in `designs/`. The developer
-> handbook (build, test, tag, release) is `handbook.md`.
+> The doctrine. `README.md` in this directory maps the whole tree. Dated
+> program turns are in `roadmap.md`; decisions are in `adr/`; capability
+> designs and their status table are in `designs/`; the closed per-slice build
+> log is in `iterations/`; superseded documents, including the June 2026
+> program review, are in `archive/`. The developer handbook (build, test, tag,
+> release) is `handbook.md`.
 >
 > **Last updated:** 2026-08-31. This version supersedes the 2026-06-15 vision;
 > the full positioning analysis behind it was reviewed and ratified by the

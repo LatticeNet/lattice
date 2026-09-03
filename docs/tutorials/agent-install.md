@@ -19,8 +19,14 @@ artifact, verifies `SHA256SUMS`, installs `/opt/lattice/lattice-agent`, writes
 
 Example:
 
+Resolve the version rather than pasting one. `latest` on the releases API is
+the stable line, which is also what the server's `target_version=latest`
+resolves to; prereleases are opt-in by exact version string through a reviewed
+plan.
+
 ```sh
-VERSION=v0.2.8
+VERSION="$(curl -fsSL https://api.github.com/repos/LatticeNet/lattice-node-agent/releases/latest \
+  | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)"
 ARCH=amd64
 curl -fsSL --proto '=https' --tlsv1.2 -O "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/lattice-agent-linux-${ARCH}"
 curl -fsSL --proto '=https' --tlsv1.2 -O "https://github.com/LatticeNet/lattice-node-agent/releases/download/${VERSION}/SHA256SUMS"

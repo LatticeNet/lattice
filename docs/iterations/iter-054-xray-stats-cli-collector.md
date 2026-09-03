@@ -4,7 +4,7 @@
 - **Repos:** `lattice-node-agent`, `lattice-server`, `lattice`
 - **Builds on:** iter-046 usage baseline, iter-049 loopback HTTP/V2Ray collector,
   iter-052 collector health, iter-053 xray renderer/apply
-- **Decision record:** [ADR-003 — proxy usage stats transport](../adr-003-proxy-stats-transport.md)
+- **Decision record:** [ADR-003 — proxy usage stats transport](../adr/adr-003-proxy-stats-transport.md)
 - **Status:** Implemented, reviewed, verified
 
 ## Goal

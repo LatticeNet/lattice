@@ -141,6 +141,7 @@ root-capable service profile only for host mutation or self-update tasks.
 
 ## Contributor Docs
 
+- [Documentation map: what is where and where to start](./docs/README.md)
 - [Product vision and north star](./docs/PRODUCT-VISION.md)
 - [Developer handbook: build, test, tag, release](./docs/handbook.md)
 - [Development workflow](./docs/development-workflow.md)
