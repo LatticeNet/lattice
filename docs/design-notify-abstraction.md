@@ -126,6 +126,8 @@ type NotifyEvent struct {
     Fields       map[string]string `json:"fields,omitempty"` // bounded, template-visible
     DedupeKey    string            `json:"dedupe_key"`
     CorrelationID string           `json:"correlation_id,omitempty"` // request, task or approval id
+    CausationID  string            `json:"causation_id,omitempty"`   // delivery id that caused this emit
+    Depth        int               `json:"depth,omitempty"`          // hops from the originating event; loop guard
     OccurredAt   time.Time         `json:"occurred_at"`
     ReceivedAt   time.Time         `json:"received_at"`
 }
@@ -204,7 +206,7 @@ every untyped emitter:
 | type | severity | subject | emitter today |
 | --- | --- | --- | --- |
 | node.offline | warning | node | server_inventory.go:833 (typed generic today) |
-| node.online | info | node | recordNodeOnline audit only, no notify today |
+| node.online | info | node | new notification, slice C; `recordNodeOnline` (`server_inventory.go:839-847`) is audit only today |
 | monitor.down | warning | monitor | server.go:5176 |
 | monitor.recovered | info | monitor | server.go:5170 |
 | service.down | critical | node | server_singbox_liveness.go:136 |
@@ -377,9 +379,31 @@ the console suggests 30 a minute for phone channels.
 
 Severity override: a rule may pin the severity its channels see (for
 example send `ssh.login` as info to Discord but do not send it to Bark at
-all). The channel derives Bark level from the effective severity unless the
-channel's own `level` is set, in which case the channel wins; that keeps
-today's channel-level configuration meaningful.
+all).
+
+The channel derives its Bark level from the effective severity, and the
+channel's own `level` becomes a floor rather than a pin. This is a change of
+meaning for a field that exists and is in use, so it is stated rather than
+slipped in. `buildChannel` accepts and validates `config.level` against
+`notify.BarkLevels` today (`internal/server/server.go:4543-4547`), the
+console offers it as a select on the Bark form
+(`lattice-dashboard/src/views/platform/notificationsModel.ts:44-51`), and
+`Bark.Send` puts it on every push (`internal/notify/notify.go:145`). If the
+channel kept winning, the whole severity mapping would be dead for any
+operator who filled that field in: `ssh.compromise_suspected` and
+`service.down` would arrive as `active`, would not break through a focus
+mode, and section 1 would still be describing the live defect after slices A
+to C shipped. The headline benefit would be off by default with nothing in
+the console saying so.
+
+As a floor the field keeps its intent and stops being a ceiling. An operator
+who set `timeSensitive` because they wanted this channel to interrupt still
+gets `timeSensitive` for an `info` event, and a `critical` event still
+arrives as `critical`. Concretely the effective level is the higher of the
+severity mapping and the configured level on the ordering `passive`,
+`active`, `timeSensitive`, `critical`. The console field's label and hint
+change to say so, and a channel that carries a level shows a one-time note
+naming the new meaning. The alternative, keeping the pin, is decision D7.
 
 With zero rules the planner keeps sending every event to every enabled
 channel, but the console shows a standing banner naming that state, and the
@@ -474,9 +498,58 @@ failures settle immediately with the upstream status in `reason`. No retry
 for plugin subscriber targets beyond one re-invoke (section 7), because a
 plugin handler that fails twice is a plugin bug, not a network condition.
 
+Restart. The drainer's schedule is durable in `next_attempt_at` and nowhere
+else, and boot reconciles the outbox before the drainer starts. Without that
+rule an image upgrade or an OOM kill during an incident leaves rows frozen
+at `planned` with no `settled_at`, the operator cannot tell whether those
+pushes went out, and nothing retries them because the in-memory schedule
+died with the process. That is the receipt surface being silently wrong at
+the exact moment it is being read, which defeats the point of the outbox.
+
+The reconciliation, in one pass at startup over rows that are `planned` or
+carry a `next_attempt_at`:
+
+- A row whose `created_at` is inside the retry horizon (the 2 min tail of
+  the schedule plus 13 min of slack, so 15 min) is re-queued with `attempts`
+  incremented and `reason` set to `redriven after restart`. Redrive is
+  at-least-once, so the send may have reached the channel before the crash
+  and the operator may see a duplicate; for an alert that is the right side
+  to err on, and the reason string is what tells a duplicate apart from a
+  genuine repeat.
+- A row older than the horizon settles `failed` with reason
+  `interrupted by restart, not retried`. A 40 minute old `service.down` push
+  is stale enough that delivering it would misinform rather than inform, and
+  a terminal outcome is what makes the row answerable.
+- A subscriber-target row is never redriven, only settled `failed` with the
+  same reason. Section 7.3 already caps subscriber retries at one; a
+  restart is not a second one.
+
+No row is left `planned` after boot, and the horizon is a D5 default like
+the retry schedule itself.
+
 Channel health. Each channel gains `LastOKAt`, `LastFailureKind`,
-`LastStatusCode` and `ConsecutiveFailures` in its stored record (not in
-config, so not encrypted and returned by `notifyChannelView`).
+`LastStatusCode` and `ConsecutiveFailures`, and where those live matters as
+much as what they hold. They do not go on `model.NotifyChannel`.
+
+That record is in the JSON state (`store/store.go:86`) and is not cleared in
+`jsonPersistStateFrom` (`store/store.go:1064-1098`), and its only writer is
+`UpsertNotifyChannel` (`store/store.go:5234-5243`), which calls `Save` and
+so `persistState`: a full re-encrypt, indent, atomic write and fsync of the
+whole state under the store mutex. Health is written on the success path as
+well as the failure path, because `last_ok_at` moves on every delivery, so
+placing it on that record costs one full-state write per channel per send.
+The same 30-node offline sweep against three enabled channels would add 90
+of them on top of the event and delivery writes, and the retry drainer would
+repeat the burst at 5 s, 30 s and 2 min. That is the incident-time stall
+this section exists to remove, arriving through a second door.
+
+So health is its own `notify_channel_health` bucket on the record-level bolt
+path, keyed by channel id, updated by the same settle path that is already
+writing the delivery record. A send therefore costs record writes and zero
+full-state writes, and the two writes it does cost are adjacent. Health is
+never part of the channel's stored config, so it is neither encrypted nor at
+risk of being returned as a secret; `notifyChannelView` joins the health
+record in for the console at read time.
 
 The stored failure is a server-classified enum plus a status code, never the
 transport error string. This is a hard rule, not a preference. As section 1
@@ -546,8 +619,9 @@ the two routes it already guards. The same rule holds during the
 routes under the old scope name. Events and deliveries are fleet-wide
 objects with no node to confine them to, exactly as a webhook is; a filtered
 per-node view is a separate design if the operator ever wants one, and it
-would have to filter on `subject` rather than being bolted onto this route. An outbound webhook channel receives the full
-envelope:
+would have to filter on `subject` rather than being bolted onto this route.
+
+An outbound webhook channel receives the full envelope:
 
 ```json
 {
@@ -587,6 +661,32 @@ it with a capability family and a manifest block.
   it is host-risk: a subscriber to `ssh.compromise_suspected` learns node
   ids, usernames and source addresses, which is fleet data a plugin would
   otherwise need `node:read` to see.
+
+Declaring `notify:subscribe` and being able to receive an event are two
+different things, and the design states the gap rather than leaving the
+operator to infer it from a wall of failed deliveries. Delivery runs through
+`RuntimeManager.InvokeConstrained` (section 7.3), which requires the
+plugin's runner to implement `Invoker`; when it does not, the call returns
+`plugin %q runner %q does not support invocation`
+(`internal/plugin/runtime.go:1077-1081`). The server registers exactly one
+runner, `Runners: map[string]plugin.Runner{plugin.TypeSystem: sysRunner}`
+(`internal/server/server.go:617`), and every other plugin type falls back to
+`noopRunner` (`runtime.go:286`, `1103-1118`), which is not an `Invoker`. So
+subscription works for system plugins today and for nothing else, whatever
+the trust policy allows a manifest to declare.
+
+The rule that follows: a manifest may declare `notify.subscribes` for a
+plugin whose runner cannot invoke, and it verifies and signs normally, but
+no subscribe grant is minted for it. The plugin page shows those
+subscriptions as unsupported and names the runner, and the console never
+offers an approval that would deliver nothing. The moment a runner capable
+of invocation is registered for that type, the grants become pending with no
+manifest change and no re-sign. Without this rule the failure mode is the
+worst one on offer: the operator reads and approves a grant, every delivery
+fails immediately with a host-side error the plugin cannot fix or diagnose,
+the deliveries list fills with failed rows attributed to the plugin, and the
+20-failure auto-suspend in section 7.3 revokes what the operator just
+approved.
 
 `notify:send` remains accepted by the loader and broker as an alias of
 `notify:emit` for one release cycle, mapped in one place
@@ -649,28 +749,42 @@ The `notify` block is decoded strictly like the rest of the manifest
   subscribe; subscription is a runtime concern.
 - A manifest that declares `notify` without the matching capability, or the
   capability without the block, fails `VerifyManifest`.
-- The `notify` block is covered by the signature. `SigningPayload`
-  (`internal/plugin/plugin.go:328`) is an explicit field-by-field
-  construction and the repo's convention is that every manifest field is in
-  it: the `Dependencies` block carries the comment "Covered by the v2
-  signing payload like every other field" (`plugin.go:49-52`). Adding
-  `Notify` to both `Manifest` structs without adding it to `SigningPayload`
-  produces a green test suite, because the coverage test is a hand-written
-  mutation map (`internal/plugin/manifest_v2_test.go:259-301`), and the
-  result would be a signed plugin whose notify block anyone with write
-  access to the installed manifest, or a tampering mirror between publisher
-  and install, can rewrite. That matters more here than for other blocks
-  because the layer-2 grants are derived from this block's contents and
-  voided on manifest change: outside the signature, the control that feeds
-  them is forgeable. An attacker could append
-  `subscribes: [{"types": ["ssh.compromise_suspected", "ssh.login"], ...}]`
-  to a plugin that already declares `notify:subscribe`, `VerifyManifest`
-  would still pass, and the operator would see what looks like a normal
-  pending grant. So the implementation must add the block to
-  `SigningPayload` in the same commit that adds the field, and add a
-  `"notify"` entry to the mutation map in
-  `TestSigningPayloadV2CoversTypedManifest` that changes a declared emit
-  name and a subscribed type. This is a slice D acceptance item.
+- The `notify` block must be inside the signature, and on a v2 manifest that
+  is a property of where the field is declared rather than a line to add to
+  `SigningPayload`. `SigningPayload` has two branches
+  (`internal/plugin/plugin.go:328-366`). The v2 branch is
+  `json.Marshal(unsigned)` over the whole struct with only
+  `SignatureEd25519` cleared (`plugin.go:328-334`), so a `Notify` field on
+  `Manifest` is covered the moment it exists. Every shipped manifest is v2:
+  `"schema": "lattice.plugin.manifest.v2"` is line 2 of the sub-store,
+  vpn-core, wireguard, netguard and template manifests. There is no v2 code
+  path that skips a struct field, so the tampering story does not exist for
+  any plugin in the fleet.
+
+  What can still go wrong on v2 is declaring the block somewhere the
+  marshaller does not see it: a side-car struct, or a `json:"-"` tag added
+  later to keep the block out of an API response. The mutation map earns its
+  entry as a regression guard against exactly that, not as a check on a
+  branch that can omit a field. Add a `"notify"` case to
+  `TestSigningPayloadV2CoversTypedManifest`
+  (`internal/plugin/manifest_v2_test.go:259-301`) that changes a declared
+  emit name and a subscribed type; it fails if `Notify` ever leaves the
+  marshalled struct.
+- The v1 branch is the field-by-field construction (`plugin.go:335-366`),
+  and there the block genuinely would be outside the payload. The repo's
+  convention for a field added late to that branch is a conditional append,
+  stated twice in the comments beside it: `UI` and `Interfaces` extend the
+  payload only when one of them is set (`plugin.go:352-356`) and
+  `Dependencies` only when non-empty (`plugin.go:362-365`), so that
+  manifests signed before the field existed keep verifying. `Notify` takes
+  the same shape, appended only when the block is non-empty. An
+  unconditional append changes the payload of every already-signed v1
+  manifest, each of which then fails `VerifyManifest` at load with a
+  signature error and cannot start until it is re-signed with the operator
+  key. No shipped plugin is v1 today, which makes this a rule for the code
+  rather than a migration, and it is worth writing down because the obvious
+  reading of "every field is in the payload" produces the unconditional
+  version.
 
 ### 7.3 Host methods
 
@@ -852,8 +966,10 @@ lists it as decision D4 and the migration does not depend on it (the alias
 makes the split additive). `refuseConfinedFleetWrite` stays on every write
 and `refuseConfinedNotifyRead` on every fleet-wide read.
 
-The split is not a server-route change. `notify:send` is hard-coded in four
-more places and the slice is not done until all of them move together:
+The split is not a server-route change. `notify:send` is hard-coded in five
+more places and the slice is not done until all of them move together. Four
+are the operator-scope side; the fifth is the capability side, where the
+same string appears for a different reason and would otherwise be missed:
 
 - `rbac.KnownScopes` (`internal/rbac/rbac.go:102-156`) is the authoritative
   allowlist the user-management API validates assignments against, and it
@@ -871,6 +987,19 @@ more places and the slice is not done until all of them move together:
 - The Astra iOS client requests `notify:send` in its token scope set
   (`Astra/AstraApp/App/AccountView.swift:270`), so it keeps working only
   while the alias stands and must be updated before the alias is removed.
+- The plugin index validates plugin capabilities against a closed set that
+  contains `notify:send` and nothing else from this family
+  (`lattice-plugin-index/scripts/validate-index.mjs:10-42`), and
+  `validateCapabilities` rejects any capability outside it (line 90). This
+  is the capability side, not the scope side, and it gates publication
+  rather than the running fleet: `notify:emit` and `notify:subscribe` must
+  be added there before a re-signed bundle declaring them can be published.
+  The file's own header comment records that this omission has already cost
+  a release once: it names `subscription:serve`, `wireguard:read` and
+  `wireguard:admin` as capabilities the server accepted while the index
+  rejected the plugins already running in production. The index change is
+  independent of decision D4, because it follows the capability rename in
+  section 7.1 whether or not the operator scopes are ever split.
 
 `ValidScope` already accepts a domain wildcard whose prefix matches a known
 scope (`rbac.go:161-177`), so `notify:*` becomes grantable the moment the
@@ -995,11 +1124,32 @@ sub-store runtime        broker (plugin)         lattice-server               vp
 ```
 
 The second half shows why subscription is host-risk and grant-gated: the
-envelope carries the node id and label, and the plugin acts on it. It also
-shows the loop guard: a subscriber's own emit produces a new event with a
-new dedupe key and a depth counter in `CorrelationID`; the server refuses to
-deliver an event to the plugin whose emit produced it and caps the chain at
-three hops, so two plugins subscribed to each other's types cannot ping-pong.
+envelope carries the node id and label, and the plugin acts on it.
+
+It also shows the loop guard, which needs its own field rather than a reuse
+of an existing one. `CorrelationID` is defined in section 3 as the request,
+task or approval id, and the audit path already fills it from the request id
+(`plugin_host.go:297`, `requestIDFromContext` at `plugin_host.go:328-334`).
+Packing a hop count into it would collide with that meaning and, worse,
+would have nowhere to live when the originating emit happened inside an
+operator request that already stamped a correlation id: the counter would
+never be read and the cycle would never trip. So the event carries `Depth`
+and `CausationID` as their own fields, `CorrelationID` keeps its meaning and
+is propagated unchanged from cause to effect so the whole chain reads as one
+trail in the audit stream, and `CausationID` names the delivery that
+triggered the emit so the console can walk one hop back.
+
+Neither field is a parameter of `notify.emit`. A plugin cannot set or reset
+them. `Depth` is taken from the `notify.deliver` invocation the emit happened
+inside and incremented by one; an emit outside any delivery is depth 0. An
+emit that would produce depth 3 is refused with an audited deny naming the
+causing delivery, so the chain is at most three hops from each originating
+event and the volume of a cycle is bounded by the rate of the originating
+event rather than by the 60 invocations a minute the rate limiter allows.
+The refusal to deliver an event back to the plugin whose emit produced it
+stays, because it removes the trivial self-loop cheaply, but it is not the
+guard: a two-plugin cycle passes that check every time and is stopped only
+by the depth.
 
 ## 10. Migration
 
@@ -1016,6 +1166,22 @@ do not change; `node.offline`, `auth.2fa_limit` and `substore.sync_failed`
 stop being `generic`, which is the one visible change and is called out in
 the release note. SDK pin bump for the model addition only.
 
+`node.online` is deliberately not in this slice, although the catalogue
+lists it. It is a new notification, not a retyped one: `recordNodeOnline`
+writes an audit event and nothing else today
+(`server_inventory.go:839-847`). Under the preserved zero-rules fan-out
+every enabled channel would receive it, and section 5 exempts transition
+types from suppression by construction, so no rule setting short of a rate
+limit could mute it. A node with a flaky link crossing the liveness
+threshold every few minutes would put an alternating offline and online
+stream on the operator's phone that did not exist before the upgrade. The
+emitter therefore lands in slice C, where suppression is what needs it (the
+pair rule clears a `node.offline` window) and where `min_severity` exists to
+mute it: `node.online` is `info`, so any rule with a floor of `notice` or
+above drops it, which is the first rule most operators write. Slice A's
+release note says the catalogue lists a type the server does not emit yet;
+slice C's says the emitter is now live and names the two levers.
+
 Slice B, outbox, retries, channel health, receipts. Generalise the webhook
 ring into the outbox and re-point the webhook deliveries route. Add the
 retry drainer, channel health fields, `GET /api/notify/events` and
@@ -1024,7 +1190,10 @@ retry drainer, channel health fields, `GET /api/notify/events` and
 
 Slice C, rule extensions. Severity, min_severity, source and subject
 filters, suppression, rate limit, severity override, trailing glob. Console
-rule editor. Zero-rules banner.
+rule editor. Zero-rules banner. The `node.online` emitter lands here, with
+the suppression pairing it exists to serve, and the release note warns that
+a flapping node now produces an alternating pair and names `min_severity`
+and the rate limit as the levers.
 
 Slice D, plugin emit through rules (SDK contract change). `notify:emit`,
 manifest `notify.emits`, the block added to `SigningPayload` and to the
@@ -1051,9 +1220,16 @@ order is therefore:
    `SigningPayload`, and let it reach the control plane.
 2. Publish `pluginsign` from that release, per the standing rule that a
    plugin is signed with an already-released tool.
-3. Re-sign the sub-store bundle with the `notify` block, set `MinServer` on
+3. Land the `notify:emit` and `notify:subscribe` entries in the plugin
+   index's `capabilitySet` (`lattice-plugin-index/scripts/validate-index.mjs`)
+   and merge that change. This is before the re-sign, not after: the index
+   validator runs on the index pull request, so a bundle re-signed with the
+   new capability cannot be published until the set knows the name, and
+   fixing it afterwards costs a second signing round with the operator key.
+4. Re-sign the sub-store bundle with the `notify` block, set `MinServer` on
    the new manifest to the version from step 1 so a downgrade refuses with a
-   version number instead of an unknown-field decode error, and re-pin.
+   version number instead of an unknown-field decode error, publish the
+   index entry, and re-pin.
 
 The sub-store manifest and pin therefore land in the same slice but not in
 the same release as the server change, and the release note says so.
@@ -1082,6 +1258,11 @@ the rules editor.
 - D2: `notify:subscribe` classified host-risk with the egress-style
   exemption (signed third-party may declare). Alternative: system-only.
   Chosen exemption because the payload is bounded and the grant is per type.
+  The exemption is forward-looking rather than immediately useful: only the
+  system runner implements `Invoker` today (`server.go:617`), so a signed
+  wasm plugin may declare the capability but is minted no grant until a wasm
+  runner exists (section 7.1). What the operator is approving here is the
+  policy, not a live delivery path.
 - D3: the migration grant auto-approves `plugin.<id>.message` for plugins
   already holding `notify:send` at upgrade. Alternative: leave them pending
   and let Sub-Store's failure notification go silent until approved.
@@ -1091,11 +1272,15 @@ the rules editor.
   alias goes. What the operator is approving is a five-repository change,
   not a route rename: `rbac.KnownScopes`, the server routes, the dashboard
   navigation and scope documentation, and the Astra token scope set. The
+  plugin index's `capabilitySet` also carries the string, but on the
+  capability side, so it moves with slice D whatever the operator decides
+  here. The
   cheap lever for existing tokens is the `notify:*` domain wildcard
   `ValidScope` already accepts, which works as soon as the scopes are known
   and lets the alias window be short.
 - D5: outbox bounds (500 events, 1000 deliveries), the per-source floor of
-  50 deliveries, and the retry schedule (5 s, 30 s, 2 min). Defaults, not
+  50 deliveries, the retry schedule (5 s, 30 s, 2 min) and the 15 min
+  restart redrive horizon that follows it. Defaults, not
   contract, and none of them measured against a running fleet yet. The floor
   is the one number with a compatibility meaning: it preserves the guarantee
   `maxNotifyWebhookDeliveries` gives today, so lowering it is a visible
@@ -1103,6 +1288,17 @@ the rules editor.
 - D6: whether token-raised events (`POST /api/notify/events`) ship in slice
   E or wait until a concrete external system needs it. Inbound webhooks cover
   the known cases today.
+- D7: the Bark channel's configured `level` becomes a floor under the
+  severity mapping rather than a pin over it (section 5). Alternative: keep
+  today's precedence, where a channel with a level set ignores severity
+  entirely. Rejected because it silently disables the one field section 3
+  calls the mapping every channel understands, and because the operator who
+  filled the form in was asking for more interruption, not for less. The
+  cost of the floor is that a channel deliberately pinned to `passive` will
+  now raise its voice for a critical event; an operator who wants that
+  channel quiet uses a rule with a `min_severity` or a severity override
+  instead of the channel field. This is a visible behaviour change on an
+  existing setting, which is why it is a decision and not a fix.
 
 ## 12. Acceptance checklist
 
@@ -1112,14 +1308,17 @@ Slice A
 - [ ] `GET /api/notify/catalogue` lists every type in section 3 with severity and subject kind; a unit test fails when a server emitter uses a type absent from the catalogue.
 - [ ] A rule with `event_types: ["node.offline"]` receives the offline sweep event; before this slice the same rule receives nothing (regression test written first).
 - [ ] Existing rules and webhook templates render identically for `event_type`, `title`, `body`, `data.<k>`.
+- [ ] Slice A adds no notification that did not exist before it: with zero rules and one enabled channel, a full offline-and-recovery cycle on a node produces exactly one send (`node.offline`), the same count as before the slice, and `node.online` reaches no channel because the emitter is not in this slice.
 
 Slice B
 
 - [ ] `GET /api/notify/deliveries` shows one row per (event, target) with outcome; a Bark send against a server answering 502 shows attempts 3 and outcome failed with reason `upstream status 502`; a 401 shows attempts 1.
 - [ ] `/api/notify/webhooks/deliveries` returns the same shape from the outbox, filtered by source. The retention guarantee is restated, not claimed unchanged: with 1200 deliveries from other sources in the outbox, a webhook that fired 50 times still shows all 50 rows (the per-source floor), and the console states "at least the last 50 attempts per source" where it used to say nothing.
 - [ ] A channel with three consecutive permanent failures shows `consecutive_failures: 3` and a `last_failure_kind` in the channel view, and one `notify.channel_failing` event exists.
+- [ ] Restart leaves no row unanswered: a store seeded with a `planned` row created 1 min ago, a `planned` row created 40 min ago, a `failed` row with a `next_attempt_at` in the future, and a `planned` subscriber-target row is reconciled at boot into a redriven row with `attempts` incremented and reason `redriven after restart`, two settled `failed` rows with reason `interrupted by restart, not retried`, and one re-queued retry that the drainer picks up. `GET /api/notify/deliveries` returns zero rows with outcome `planned` after boot completes.
 - [ ] Secret redaction, tested directly rather than by absence: `redactSendError` is fed a `*url.Error` wrapping a Telegram endpoint built with a fake bot token, and the token substring appears in neither the returned kind nor the status; a fleet-wide grep of the state file after a forced Telegram, Discord, Bark and generic-webhook failure finds no channel credential and no upstream response body; the same failure returned through `notify.emit` to a plugin carries only the kind and status.
-- [ ] Storage is on the record-level bolt path: `notify_events` and `notify_deliveries` are cleared in `jsonPersistStateFrom` beside the existing exclusions, and a test that drives an offline sweep marking 30 nodes against three channels and one rule asserts `testPersistCalls` does not grow with the number of events.
+- [ ] Storage is on the record-level bolt path: `notify_events`, `notify_deliveries` and `notify_channel_health` are cleared in `jsonPersistStateFrom` beside the existing exclusions. A test drives an offline sweep marking 30 nodes against three enabled channels and one matching rule, with every send succeeding so the `last_ok_at` path is exercised, and asserts `testPersistCalls` is unchanged from before the sweep: not merely flat in the number of events, but zero full-state writes for events, deliveries, settles, retries and channel health together. A second run with every send failing asserts the same, so the failure path does not write the state either.
+- [ ] No health field is added to `model.NotifyChannel`: `UpsertNotifyChannel` is never called on the send or settle path (test asserts it), and the channel view still composes health by joining the health bucket.
 - [ ] `POST /api/notify/test {channel_id}` sends without the caller supplying config, and `config` is absent from every response body (existing secret-free invariant test extended).
 
 Slice C
@@ -1127,8 +1326,9 @@ Slice C
 - [ ] Two events with the same dedupe key inside a rule's `suppress` window produce one `sent` and one `suppressed` delivery.
 - [ ] Paired transitions are never suppressed: a rule with `suppress: 10m` receiving service.down at 12:00, service.recovered at 12:02, service.down at 12:05 and service.recovered at 12:08 sends all four, and the last message reflects the live state. The same holds for monitor.down/recovered and node.offline/online.
 - [ ] A rule with `min_severity: warning` does not send `ssh.login` (notice) and does send `ssh.compromise_suspected` (critical).
-- [ ] Bark receives `level: critical` for a critical event on a channel with no `level` configured, and the channel's configured level when set.
+- [ ] Bark level comes from severity, with the channel field as a floor (D7): a critical event reaches a channel with no `level` as `critical`, reaches a channel configured `active` as `critical`, and an `info` event on that same channel arrives as `active`. No configured level can lower a critical event below `critical`. The console form's label and hint state the floor meaning and a channel carrying a level shows the one-time note.
 - [ ] Console rule editor offers catalogue types, glob entry, severity, suppress and rate limit; the zero-rules banner appears and disappears.
+- [ ] `node.online` starts here and is mutable: a node flapping five times produces ten sends with zero rules, none with a rule whose `min_severity` is `notice`, and a bounded count under a rate limit. The release note carries the same warning.
 
 Slice D
 
@@ -1137,11 +1337,12 @@ Slice D
 - [ ] A plugin emit reaches only channels selected by a matching rule; with a rule `source_kinds: ["plugin"]` to Discord and no other match, Bark receives nothing (this is the test that proves `pluginHost.Send` no longer fans out).
 - [ ] The sub-store plugin built against the previous SDK, calling `notify.send`, still delivers through the migration grant and shows type `plugin.latticenet.sub-store.message`.
 - [ ] Upgrading a plugin whose manifest renames an emit voids the old grant and mints a pending one; unchanged entries stay approved.
-- [ ] The `notify` block is inside the signature: `TestSigningPayloadV2CoversTypedManifest` gains a `notify` mutation entry that changes a declared emit name and a subscribed type, and it fails when `SigningPayload` is reverted to skip the block. A manifest with an appended `subscribes` entry and the original signature fails `VerifyManifest`.
+- [ ] The `notify` block is inside the signature, tested on both branches. v2: `TestSigningPayloadV2CoversTypedManifest` gains a `notify` mutation entry that changes a declared emit name and a subscribed type, and it fails if `Notify` is moved off the marshalled `Manifest` or tagged `json:"-"`. v1: the append is conditional, so a v1 manifest with no notify block produces a byte-identical `SigningPayload` before and after the change (golden test), and a v1 manifest signed before this shipped still passes `VerifyManifest`. A manifest with an appended `subscribes` entry and the original signature fails `VerifyManifest`.
 - [ ] Re-publishing under an unchanged version string with a changed notify block voids the affected grants: the same `0.13.0-alpha` with `sync_failed` moved from warning to critical and a new subscribed type mints pending grants and does not deliver until approved.
 - [ ] A manifest whose `plugin.<id>.<name>` composite exceeds 64 bytes is refused by `VerifyManifest` with the name, the computed length and the ceiling in the message, and no grant is minted for it.
 - [ ] The scope split lands in all five places or not at all: `rbac.KnownScopes` contains `notify:emit`, `notify:read` and `notify:admin` (a user-management assignment of `notify:admin` succeeds); `notify:*` is grantable through `ValidScope`; the dashboard sidebar shows Notifications and Webhooks for a token holding only `notify:read` plus `notify:admin`; `lib/scopes.ts` documents the three scopes; the Astra token scope set is updated. Tested with a token that carries none of the alias.
 - [ ] Release ordering is honoured: the server carrying the `notify` field ships first, the sub-store bundle is re-signed with a `pluginsign` from that release, `MinServer` is set on the new manifest, and installing that bundle on the previous server image refuses with the version rather than `unknown field "notify"`.
+- [ ] The plugin index accepts the new capabilities before the re-sign: `notify:emit` and `notify:subscribe` are in `capabilitySet` (`lattice-plugin-index/scripts/validate-index.mjs`), `node scripts/validate-index.mjs plugins.json` passes on an entry declaring `notify:emit`, and the same run before the change fails with `capability is unknown: notify:emit`. No bundle is signed until that merge has landed.
 
 Slice E
 
@@ -1149,9 +1350,10 @@ Slice E
 - [ ] A subscriber that exits non-zero is retried once after 30 s, then the delivery settles failed; 61 queued events for one plugin drop the oldest with reason `subscriber backlog`.
 - [ ] Ten consecutive failed deliveries do not open the runner circuit breaker: an operator-initiated call to the same plugin succeeds immediately afterwards, and `ErrCircuitOpen` appears nowhere in the audit. Twenty consecutive failures auto-suspend the grant instead, with an audited reason.
 - [ ] A delivery is invoked as action `notify.deliver` under the fixed budget, not as `call` under a derived one: a subscriber that sleeps past the 5 s timeout is cut off, and a burst of 60 deliveries does not delay an operator call to the same plugin past one delivery's budget.
-- [ ] Two plugins subscribed to each other's emits stop after three hops; audit shows the refused fourth hop.
+- [ ] Two plugins subscribed to each other's emits stop after three hops, including when the originating emit arrives inside an operator request that already carries a `CorrelationID`: the chain still stops, the audit shows the refused fourth hop naming the causing delivery, and the whole chain shares one correlation id. A plugin passing `depth` or `causation_id` in the `notify.emit` params is refused by the strict decoder, and a burst of originating events produces at most three hops each rather than a cycle running at the invocation rate limit.
 - [ ] A schedule with `daily_at_utc: "08:00"` emits `schedule.<name>` once per day (clock-injected test) and the Bark delivery row exists.
 - [ ] An inbound webhook's fields reach a subscriber only when `share_fields_with_plugins` is true.
+- [ ] A signed plugin whose type has no invoking runner gets no subscribe grant: a wasm manifest declaring `notify.subscribes` verifies, loads and shows its subscriptions as unsupported naming the runner, `POST /api/notify/grants/approve` has nothing to approve for it, and no delivery row is ever planned against it. Registering an invoking runner for that type mints the grants as pending with no manifest change.
 
 Cross-cutting
 
@@ -1161,4 +1363,4 @@ Cross-cutting
 - [ ] Dashboard renders /platform/notifications at 1440 and 375 with the deliveries list, grants tab and a rule with every new field, driven against a local server with one Bark channel pointed at a stub.
 - [ ] PROGRAM.md notifications section and the vault note
   `设计与方案/2026_09_04_通知抽象与SDK能力设计.md` point at this document and
-  record D1 to D6 once decided.
+  record D1 to D7 once decided.
