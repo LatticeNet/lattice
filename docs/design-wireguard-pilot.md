@@ -148,7 +148,7 @@ record:
 | `internal/network/nft.go:138` | `NormalizeNFTPlan` fills `WireGuardCIDR` with 10.66.0.0/24 when a raw nft plan has none |
 | `internal/netguard/convert.go:21` | `defaultWireGuardCIDR` used when converting a legacy `NFTInputs` record into a NetGuard group |
 | `internal/server/server_netguard.go:422` and `:561` | `resolveNodeZonesFrom` gives the builtin `wireguard` zone that cidr per node, and the builtin zone table declares it |
-| `internal/wireguard/wireguard.go:77` and `internal/wireguard/topology.go:53` | `ensureCIDR(address, 24)` pins the interface address to a /24, so the prefix length is also hard-coded |
+| `internal/wireguard/wireguard.go:77` and `internal/wireguard/topology.go:54` | `ensureCIDR(address, 24)` pins the interface address to a /24, so the prefix length is also hard-coded |
 
 Against keeping it: the two `HOME` nodes and the two Aaitr VDS gateways sit in
 front of LANs whose addressing Lattice does not see; if any of them uses
