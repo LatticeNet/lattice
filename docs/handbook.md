@@ -18,7 +18,7 @@ Every command here was verified against the workflows and scripts it names.
 | `lattice-node-agent` | Outbound-only host agent | `integration` | GitHub release with binaries on tag `v*` |
 | `lattice-plugin-{vpn-core,sub-store,netguard,wireguard}` | The four official plugins | `integration` | manual signed-bundle ceremony (section 6.3) |
 | `lattice-plugin-bridge` | npm package `@latticenet/plugin-bridge` | `integration` | publish workflow on tag `v*` (prerelease under dist-tag `alpha`) |
-| `lattice-plugin-index` | Signed, read-only plugin catalogue (`plugins.json`) | `integration` | data merged to the branch; index is still `status: draft` |
+| `lattice-plugin-index` | Signed, read-only plugin catalogue (`plugins.json`) | `main` | data merged to the branch; index is still `status: draft` |
 | `lattice-plugin-template` | Plugin starter kit and `pluginpack` | `integration` | tagged examples |
 | `latticenet.github.io` | Public site and docs (VitePress) | `main` | GitHub Pages on push |
 | `Astra` | iOS companion | `main` | manual device-side steps; no tags yet |
