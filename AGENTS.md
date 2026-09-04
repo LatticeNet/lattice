@@ -4,10 +4,20 @@ This repository coordinates the Lattice server, dashboard, SDK, node-agent, and
 plugins. During the current exploration phase, treat all work as alpha unless
 the user explicitly approves a stable release.
 
+Start at [`docs/README.md`](./docs/README.md): it maps the documentation tree
+and says which file answers which question. The doctrine is
+[`docs/PRODUCT-VISION.md`](./docs/PRODUCT-VISION.md) and the mechanics are
+[`docs/handbook.md`](./docs/handbook.md). The rules below are the release
+discipline that overrides convenience.
+
 ## Version And Release Discipline
 
-- Server/dashboard deployment images use `alpha-0.2.1aN`. Increment only the
-  trailing alpha number for test deployments, for example `alpha-0.2.1a12`.
+- Server and dashboard deploy as one image on a single alpha train. Increment
+  only the trailing number; never fork a new train without an operator
+  decision. This file states the rule, not the number: the current train and
+  the deployed tag live in the production truth section of the operator's
+  program log at the workspace root, verified against `/api/version`. Do not
+  restate a version here, in a design, or in a tutorial.
 - Do not publish stable-looking SDK, node-agent, plugin, or docs releases for
   exploration work. Use prerelease semver tags such as `v0.3.3-alpha.1`,
   `v0.3.3-beta.1`, or `v0.3.3-rc.1`.

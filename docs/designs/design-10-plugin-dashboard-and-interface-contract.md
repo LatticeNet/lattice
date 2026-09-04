@@ -2,8 +2,14 @@
 
 ## Status
 
-Draft for review. Extends design-08 (real runners), design-09 (vpn-core/sub-store
-plugins). Motivated by a direct operator question: *if vpn-core / sub-store are
+**Superseded 2026-07-13 by the self-contained plugin bundle design** (archived
+at `../archive/superpowers/specs/2026-07-13-self-contained-plugin-bundles-design.md`).
+The declarative builtin-view model specified here was replaced by signed v2
+bundles with sandboxed iframe UIs and a versioned postMessage bridge. The
+interface-registration reasoning still holds; the rendering model does not.
+
+Original status: draft for review. Extends design-08 (real runners), design-09
+(vpn-core/sub-store plugins). Motivated by a direct operator question: *if vpn-core / sub-store are
 plugins, how do they show up in the dashboard, and shouldn't a plugin have (a) a
 dashboard UI-injection spec and (b) a way to register the functional interfaces
 it exposes?* Yes to both — this is the contract for it.

@@ -54,7 +54,8 @@ raises an operator alert.
 - **R2 (was M3) — TOTP replay within the ~90s window.** A valid code is accepted
   for its step ±1 (~90s); the server does not yet record the last-consumed step per
   user. Exploiting it requires observing a live code *and* the password within the
-  window. Fix (planned): persist `LastTOTPStep` and reject steps ≤ last accepted.
+  window. **CLOSED 2026-06-13:** the server persists the last consumed step per
+  user and rejects steps at or below it (compare-and-set).
 - **R3 — secret at rest — CLOSED 2026-06-12.** `totp_secret` is still part of the
   server state model, but ADR-002 routes it through the AES-256-GCM envelope
   encryption boundary before persistence. It is never serialised to any API

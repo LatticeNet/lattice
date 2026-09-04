@@ -276,15 +276,14 @@ first line says why, trailers carry constraints and test evidence). Suspected
 vulnerabilities go through GitHub private security advisories on the affected
 repo, never public issues.
 
-## 9. Known issues snapshot (2026-09-01)
+## 9. Known issues
 
-The live ledger is the operator's program log; this snapshot exists so
-contributors do not rediscover known problems: navigation away from the
-approvals and tasks views can stall for seconds without feedback; tasks can
-stick in Running after multi-day agent gaps; node status vocabulary differs
-between Overview and the Nodes list; some views render full 64-hex digests as
-link text; routine metadata approvals lack risk-tiered auto-approval; three
-production plugin builds (vpn-core 0.8.0-alpha.15, netguard 0.1.0-alpha.14,
-wireguard 0.1.0-alpha.13) predate their tags and releases, pending a
-re-tagging ceremony; the plugin index is still `draft` and behind the
-deployed versions.
+Read them before you start, so you do not spend an afternoon rediscovering one.
+There is exactly one list, the numbered known-issues section of the operator's
+program log at the workspace root, and each entry says what is broken, what the
+current understanding of the cause is, and whether a fix is in flight.
+
+This handbook used to carry a copy of that list. The copy went stale within a
+day, which is the same failure that the single-source rule for version numbers
+exists to prevent, so it was removed on 2026-09-03. If you want a known issue
+recorded, add it to the program log, not here.

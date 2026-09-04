@@ -106,9 +106,14 @@ The lifecycle API is deliberately conservative:
 - The current default runner is `noop`: it receives a capability-scoped broker
   and a deadline-bearing context, then reports health without executing artifact
   code.
-- Lifecycle/runtime transitions do not execute plugin artifact code yet.
-  Subprocess/wasm isolation, rate limits, and concrete runner implementations
-  remain Phase B work.
+- Artifact execution is off by default and stays that way unless an operator
+  turns it on. Setting `LATTICE_PLUGIN_RUNTIME_DIR` enables an opt-in system
+  runner that executes signature-verified system plugin artifacts; see
+  `docker-server.md`. The wasm tier is deliberately not built.
+- The four official plugins ship as signed v2 bundles whose UIs run in a
+  sandboxed iframe and talk to the host through the versioned postMessage
+  bridge, not as dashboard builtin components. The rationale is in
+  `../archive/superpowers/specs/2026-07-13-self-contained-plugin-bundles-design.md`.
 
 ## System Plugins
 
