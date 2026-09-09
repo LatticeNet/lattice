@@ -13,7 +13,7 @@ Every command here was verified against the workflows and scripts it names.
 |---|---|---|---|
 | `lattice` | Umbrella: doctrine, designs, iterations, handbook, `go.work`, Makefile | `integration` (default branch `main` tracks it) | docs only |
 | `lattice-sdk` | Shared Go models and the plugin protocol contract | `integration` | git tag `vX.Y.Z`, consumed by go.mod |
-| `lattice-server` | Control plane server, plugin host, signer tooling | `integration` | container image `ghcr.io/latticenet/lattice-server:alpha-0.2.2aN` on tag push |
+| `lattice-server` | Control plane server, plugin host, signer tooling | `integration` | container image on tag push: `v*` publishes GHCR `X.Y.Z`, `alpha-0.2.2aN` publishes that exact tag |
 | `lattice-dashboard` | Vue 3 operator console | `integration` | never ships alone; baked into the server image via `dashboard.ref` |
 | `lattice-node-agent` | Outbound-only host agent | `integration` | GitHub release with binaries on tag `v*` |
 | `lattice-plugin-{vpn-core,sub-store,netguard,wireguard}` | The four official plugins | `integration` | manual signed-bundle ceremony (section 6.3) |
@@ -119,11 +119,11 @@ Astra: `swift run AstraCoreCheck`, then an unsigned simulator build.
 
 | Repo | Convention | Example |
 |---|---|---|
-| lattice-server | `alpha-0.2.2aN`, one train, only the trailing number moves | `alpha-0.2.2a77` |
-| lattice-dashboard | `v0.2.2-alpha.N` tags exist, but the shipping pin is `dashboard.ref` | ref `874d37c1` |
-| lattice-node-agent | semver, prerelease suffixes `-alpha.N` / `-beta.N` / `-rc.N` | `v0.3.8` |
+| lattice-server | `vX.Y.Z` for a stable cut (GHCR `X.Y.Z`); `alpha-0.2.2aN` while exploring a train | `v0.2.1` / `alpha-0.2.2a77` |
+| lattice-dashboard | `vX.Y.Z` tags exist at the baked commit, but the shipping pin is `dashboard.ref` | ref `874d37c1` |
+| lattice-node-agent | semver; prerelease suffixes `-alpha.N` / `-beta.N` / `-rc.N` | `v0.3.8` |
 | lattice-sdk | plain `vX.Y.Z`; the tag is the release | `v0.2.23` |
-| plugins, bridge, index, template | `vX.Y.Z-alpha.N` prereleases | `v0.13.0-alpha.27` |
+| plugins, bridge, index, template | `vX.Y.Z` stable or `vX.Y.Z-alpha.N` prereleases | `v0.3.1` / `v0.13.0-alpha.27` |
 
 Rules that do not bend:
 
@@ -177,10 +177,24 @@ Who pins whom, and where. The full snapshot lives in
 ### 6.1 Server image
 
 Verify `dashboard.ref` is the dashboard commit you mean to ship and
-`sdk.ref` agrees with `go.mod`; push an annotated `alpha-0.2.2aN` tag; the
-container workflow builds the multi-arch image in about 12 to 14 minutes;
-deploy; confirm About shows the pair; update the operator program log and the
+`sdk.ref` agrees with `go.mod`; push an annotated tag (`vX.Y.Z` for a
+stable cut, `alpha-0.2.2aN` on the exploration train); the container
+workflow builds the multi-arch image in about 12 to 14 minutes; deploy;
+confirm About shows the pair; update the operator program log and the
 site matrix in the same sitting.
+
+Deploy scripts check their pre-state and exit without side effects when it
+does not hold (the switch script's first real line is `grep -q ":$OLD"
+docker-compose.yml || exit`). This is load-bearing, not tidiness: an agent
+harness delivers a command at least once, not exactly once. On 2026-09-07 the
+same switch command was dispatched twice, 106 s apart, after a request-context
+rebuild, and the pre-state check is what made the second run a no-op
+(`PROGRAM.md`, FINDING AB). `ssh` and `sshk` are off the Cursor auto-run
+allowlist, so a production switch should surface an approval card; the
+script guard is still what makes a duplicate dispatch a no-op. Write every
+production-changing command so that a repeat is harmless, and when a result
+looks wrong, re-read production state before acting on it; the result you
+hold may not be the first run's.
 
 ### 6.2 Node agent
 
@@ -205,9 +219,11 @@ tool-enforced constraints are:
    never a local checkout. The 32-byte Ed25519 seed lives outside every repo
    (`~/.config/lattice/plugin-signing/`, mode 0600) and stays with the human
    operator. The resulting diff touches `signature_ed25519` and nothing else.
-4. Tag, then `gh release create` with `--verify-tag --prerelease
-   --latest=false` carrying exactly two assets: `manifest.json` and the
-   artifact. Re-download and verify the sha256 before touching production.
+4. Tag, then `gh release create` with `--verify-tag`. Prerelease tags take
+   `--prerelease --latest=false`. A plain `vX.Y.Z` is Latest; that is the
+   operator's stable decision, not a CI byproduct. Carry exactly two assets:
+   `manifest.json` and the artifact. Re-download and verify the sha256
+   before touching production.
 5. Update `plugins.json` from the downloaded assets, then install on the host
    per runbook section 5.2: stage outside `plugins/`, back up, swap
    atomically, restart, and accept only `plugin loader: 4 loaded, 0
