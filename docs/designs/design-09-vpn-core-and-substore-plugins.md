@@ -2,8 +2,14 @@
 
 ## Status
 
-Draft for review. Supersedes nothing; extends design-01 (proxy cores) and
-design-08 (real plugin runners). No code written yet.
+**Superseded 2026-06-29 by design-12, and again 2026-07-13 by design-14.** The
+status line below is the one this document was written with and was never
+updated; vpn-core has been a production plugin since 2026-06-29 and owns its own
+pages. Read this for the phased reasoning that got there, not for current state.
+`README.md` in this directory carries the status table.
+
+Original status: draft for review. Supersedes nothing; extends design-01 (proxy
+cores) and design-08 (real plugin runners). No code written yet.
 
 This document is the framework/system design for a large change requested by the
 operator:

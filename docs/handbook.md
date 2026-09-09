@@ -18,10 +18,11 @@ Every command here was verified against the workflows and scripts it names.
 | `lattice-node-agent` | Outbound-only host agent | `integration` | GitHub release with binaries on tag `v*` |
 | `lattice-plugin-{vpn-core,sub-store,netguard,wireguard}` | The four official plugins | `integration` | manual signed-bundle ceremony (section 6.3) |
 | `lattice-plugin-bridge` | npm package `@latticenet/plugin-bridge` | `integration` | publish workflow on tag `v*` (prerelease under dist-tag `alpha`) |
-| `lattice-plugin-index` | Signed, read-only plugin catalogue (`plugins.json`) | `integration` | data merged to the branch; index is still `status: draft` |
+| `lattice-plugin-index` | Signed, read-only plugin catalogue (`plugins.json`) | `main` | data merged to the branch; index is still `status: draft` |
 | `lattice-plugin-template` | Plugin starter kit and `pluginpack` | `integration` | tagged examples |
 | `latticenet.github.io` | Public site and docs (VitePress) | `main` | GitHub Pages on push |
 | `Astra` | iOS companion | `main` | manual device-side steps; no tags yet |
+| `sing-box` (checkout `lr00rl/sing-box`) | Personal fork of the proxy core used by vpn-core | `main` | not a LatticeNet repo; tags follow the fork |
 
 ## 2. Branch discipline
 
@@ -29,6 +30,8 @@ Branch from `origin/integration`, open a PR to `integration`, wait for CI,
 then a maintainer merges locally with `merge --no-ff` and pushes directly.
 GitHub-side merge commits are disallowed. Never commit to `integration`
 directly. The umbrella `main` is only ever fast-forwarded to `integration`.
+`lattice-plugin-index`, `latticenet.github.io`, and `Astra` work on `main`
+instead.
 
 ## 3. Building and testing each component
 
@@ -292,15 +295,14 @@ first line says why, trailers carry constraints and test evidence). Suspected
 vulnerabilities go through GitHub private security advisories on the affected
 repo, never public issues.
 
-## 9. Known issues snapshot (2026-09-01)
+## 9. Known issues
 
-The live ledger is the operator's program log; this snapshot exists so
-contributors do not rediscover known problems: navigation away from the
-approvals and tasks views can stall for seconds without feedback; tasks can
-stick in Running after multi-day agent gaps; node status vocabulary differs
-between Overview and the Nodes list; some views render full 64-hex digests as
-link text; routine metadata approvals lack risk-tiered auto-approval; three
-production plugin builds (vpn-core 0.8.0-alpha.15, netguard 0.1.0-alpha.14,
-wireguard 0.1.0-alpha.13) predate their tags and releases, pending a
-re-tagging ceremony; the plugin index is still `draft` and behind the
-deployed versions.
+Read them before you start, so you do not spend an afternoon rediscovering one.
+There is exactly one list, the numbered known-issues section of the operator's
+program log at the workspace root, and each entry says what is broken, what the
+current understanding of the cause is, and whether a fix is in flight.
+
+This handbook used to carry a copy of that list. The copy went stale within a
+day, which is the same failure that the single-source rule for version numbers
+exists to prevent, so it was removed on 2026-09-03. If you want a known issue
+recorded, add it to the program log, not here.

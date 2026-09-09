@@ -1,6 +1,14 @@
 # Design 16 — Sub-Store as a native Lattice subscription platform
 
-> Status: design, sub-project 1 specified.
+> Status: **shipped.** The native subscription platform runs in
+> `lattice-plugin-sub-store` in production. The line below is the status this
+> document was written with and was never updated; the implementation plan it
+> points at is archived at
+> `../archive/plans/2026-08-05-design-16-sub1-implementation.md` with its
+> checkboxes still unticked, which is a record-keeping gap rather than
+> unfinished work. `README.md` in this directory carries the status table.
+>
+> Original status: design, sub-project 1 specified.
 > Supersedes the scope decision in `lattice-olympus:plan/design-substore-embed.md §7` open
 > question 2 ("conversion + subscription management only"), which answered *conversion only*.
 > The operator's goal is now explicit: **shut the standalone Sub-Store down** and have Lattice be
