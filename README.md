@@ -39,7 +39,7 @@ Plugins (signed, capability-scoped, sandboxed UIs):
 
 Companions:
 
-- [`Astra`](https://github.com/LatticeNet/Astra) - iOS companion for phone-first review and approval.
+- [`Astra`](https://github.com/LatticeNet/Astra) - iOS companion: the phone approval and attention device for the same control plane, not a second console.
 - [`latticenet.github.io`](https://github.com/LatticeNet/latticenet.github.io) - public website and documentation.
 - [`.github`](https://github.com/LatticeNet/.github) - organization profile.
 

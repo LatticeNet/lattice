@@ -50,6 +50,11 @@ and carries its date.
   contract, written 2026-09-02 against the shipped surfaces. Sub-Store,
   vpn-core Lines, SSH Guard, Terminal, NetGuard, Logs and Trace, and the Nodes
   filter. This is the design to implement against for those screens.
+- [`designs/design-21-astra-approval-device.md`](./designs/design-21-astra-approval-device.md):
+  Astra as the phone approval and attention device for the same control plane,
+  not a second console. The 2026-06 five-tab mini-console is the shipped
+  chassis this design replaces. KI-14 in the program log updates only when a
+  slice ships.
 - [`designs/`](./designs/): one design per capability, numbered.
   [`designs/README.md`](./designs/README.md) is a status table saying, for each
   design, whether it shipped, shipped in part, or was never built. Read the

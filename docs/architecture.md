@@ -7,7 +7,7 @@ Lattice is split into separately deployable projects:
 - `lattice-dashboard` - Vue static frontend.
 - `lattice-sdk` - shared protocol/domain model package.
 - `lattice-plugin-template` - starter extension templates.
-- `Astra` - iOS companion app for mobile-first fleet operations.
+- `Astra` - iOS companion: the phone approval and attention device, not a second console. See [`designs/design-21-astra-approval-device.md`](./designs/design-21-astra-approval-device.md).
 
 ## Control Plane
 
@@ -22,25 +22,33 @@ independent static host.
 
 ## Mobile Companion
 
-`Astra` is the Lattice iOS companion app. The Xcode project and scheme keep the
-historical `Astra` name, while the installed app presents as `Lattice`.
+`Astra` is the Lattice iOS companion. The Xcode project and scheme keep the
+historical `Astra` name; the installed app presents as `Lattice`. It is the
+phone approval and attention device for the same control plane as the Vue
+console, not a second console. Doctrine: review and approve a plan in under a
+minute from anywhere ([`PRODUCT-VISION.md`](./PRODUCT-VISION.md) section 5).
+The numbered design is
+[`designs/design-21-astra-approval-device.md`](./designs/design-21-astra-approval-device.md).
 
-The v2 app turns the old read-only node monitor into a phone-first operator
-surface:
+The phone reviews host Approval objects. Plugin iframes, Terminal, Store,
+Publishing, DNS, policy authoring, knock reveal, and credential rotation stay
+on the web. The node agent never talks to the phone. Server notify (typed
+`approval.pending` plus a Bark click URL) is the alerter; Astra is the
+reviewer.
 
-- Overview, Nodes, Monitors, Inventory, and More tabs.
-- `Sources/AstraCore/LatticeModels.swift` mirrors server and SDK response
-  shapes for mobile-safe operations.
-- `Sources/AstraCore/LatticeAPI.swift` provides a typed `LatticeClient` for
-  identity/version, nodes, PATs, machine inventory, monitors/results,
-  notifications, audit, tasks, and logs.
-- `Sources/AstraCore/LatticeAnalytics.swift` derives fleet health, metric
-  history, inventory cost/renewal summaries, monitor uptime, and formatting.
+The 2026-06 v2 surface (Overview, Nodes, Monitors, Inventory, More) is the
+shipped chassis and the wrong one for this job: approvals sit under More, the
+app runs a second alerting engine (`BackgroundRefresh` plus `MonitorEngine`
+plus a client-side Bark sender), and `AstraCore` does not implement the live
+approval contract (list without plan, get-by-id, `plan_sha256`, reject,
+dismiss, `waiting`). The replacement IA is Inbox, Fleet, and More, with a
+hash-bound Review sheet gated by Face ID.
 
-Astra is intentionally not a full dashboard replacement. Heavy mutation planes
-such as NetPolicy, proxy core apply, DNS, storage, plugins, OIDC provider
-admin, and 2FA enrollment remain in the Web dashboard until their mobile
-review and rollback flows are designed.
+`Sources/AstraCore/` remains the SwiftPM contract layer (no SwiftUI), checked
+by `AstraCoreCheck`. Additive JSON fields decode with `decodeIfPresent`;
+unknown required approval fields fail closed on Review. Compatibility is
+checked against `GET /api/version` on launch. Production versions stay in the
+operator's program log.
 
 ## Node Agent
 
@@ -76,7 +84,7 @@ Dangerous operations use this flow:
 
 1. Server creates a plan.
 2. Operator reviews the diff/plan.
-3. Operator approves with the dashboard-computed `sha256(plan)`.
+3. Operator approves with the client-computed `sha256(plan)` (console or Astra).
 4. Server queues a bounded validation/apply task.
 5. Agent returns result.
 6. Audit log records each step.
