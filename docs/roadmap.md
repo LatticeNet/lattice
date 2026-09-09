@@ -1,5 +1,11 @@
 # Roadmap
 
+> **2026-09-09 first stable cut.** The operator tagged the exploration train
+> as the first stable set and switched the live compose image onto it. Numbers
+> stay in the program log. The same sitting collapsed the workspace-root
+> document pile: doctrine and designs live in this tree, program state and
+> the runbook stay at the workspace desk, dated fleet notes stay in the vault.
+>
 > **2026-08-31 positioning ratified, program reset.** The full analysis and its
 > ratification are recorded in the operator's vault; the resulting doctrine is
 > [`PRODUCT-VISION.md`](./PRODUCT-VISION.md) (this date's version supersedes
@@ -18,8 +24,8 @@
 > races, no permanent manual release ceremony. Known production defects at
 > ratification time (dashboard navigation stalls without feedback, multi-day
 > stuck Running tasks, fleet status vocabulary drift, routine linemeta
-> approvals piling up unapproved) are tracked in `handbook.md`'s known-issues
-> section and fixed before new surface work.
+> approvals piling up unapproved) are tracked in the operator's program log
+> and fixed before new surface work.
 >
 > **2026-06-11 security hardening pass** delivered the items marked *(Delivered)*
 > below plus a broad set of fixes (authz bugs, rate limiting, O(1) PAT auth,

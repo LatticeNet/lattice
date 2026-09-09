@@ -46,13 +46,26 @@ and carries its date.
 
 ## What is planned
 
+- [`DESIGN-PROGRAM-2026-09.md`](./DESIGN-PROGRAM-2026-09.md): the M5 console
+  contract, written 2026-09-02 against the shipped surfaces. Sub-Store,
+  vpn-core Lines, SSH Guard, Terminal, NetGuard, Logs and Trace, and the Nodes
+  filter. This is the design to implement against for those screens.
 - [`designs/`](./designs/): one design per capability, numbered.
   [`designs/README.md`](./designs/README.md) is a status table saying, for each
   design, whether it shipped, shipped in part, or was never built. Read the
   table before the designs; several design files still carry a status line from
-  the day they were written.
+  the day they were written. Two later designs sit next to this folder rather
+  than inside it because they were written as operator briefs:
+  [`design-notify-abstraction.md`](./design-notify-abstraction.md) and
+  [`design-wireguard-pilot.md`](./design-wireguard-pilot.md).
 - [`roadmap.md`](./roadmap.md): the dated log of program-level turns. It records
   when the direction changed and why. It is not a feature backlog.
+
+The operator's working desk is the sibling workspace root above this
+repository: `AGENTS.md` (what each checkout is), `PROGRAM.md` (program state
+and the only place production versions are stated), and `RELEASE-RUNBOOK.md`
+(the Chinese release ritual). Dated fleet notes stay in the vault. Do not copy
+those files into this tree.
 
 ## What happened, and when
 

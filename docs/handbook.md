@@ -22,6 +22,7 @@ Every command here was verified against the workflows and scripts it names.
 | `lattice-plugin-template` | Plugin starter kit and `pluginpack` | `integration` | tagged examples |
 | `latticenet.github.io` | Public site and docs (VitePress) | `main` | GitHub Pages on push |
 | `Astra` | iOS companion | `main` | manual device-side steps; no tags yet |
+| `sing-box` (checkout `lr00rl/sing-box`) | Personal fork of the proxy core used by vpn-core | `main` | not a LatticeNet repo; tags follow the fork |
 
 ## 2. Branch discipline
 
@@ -29,6 +30,8 @@ Branch from `origin/integration`, open a PR to `integration`, wait for CI,
 then a maintainer merges locally with `merge --no-ff` and pushes directly.
 GitHub-side merge commits are disallowed. Never commit to `integration`
 directly. The umbrella `main` is only ever fast-forwarded to `integration`.
+`lattice-plugin-index`, `latticenet.github.io`, and `Astra` work on `main`
+instead.
 
 ## 3. Building and testing each component
 
