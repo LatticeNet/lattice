@@ -102,9 +102,11 @@ stays the signature element on every layer.
 5. **Read model.** `GET /api/expiring?within=60d` returns one sorted list
    across machine renewals, VPN users, shares and TLS monitors:
    `{kind, id, title, due_at, days, state (upcoming|due|overdue|auto),
-   cost_cents, currency, href}` plus totals per currency. `inventory:read`
-   rows need that scope; rows the session cannot read are omitted and counted
-   (`hidden: N`), never silently dropped.
+   cost_cents, currency, href}` plus totals per currency. Each kind needs
+   the read scope of its own list endpoint. A kind the session cannot read
+   at all is named in `hidden_kinds`, so the page says what it is not
+   showing; no row count is given, because counting rows a confined session
+   cannot read would tell it the size of the fleet.
 
 ### Console
 
