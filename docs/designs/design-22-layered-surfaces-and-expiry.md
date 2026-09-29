@@ -264,8 +264,10 @@ contributes provider expiry to `/api/expiring` and to notifications.
 +------------------------------------------------------------------------------+
 ```
 
-- **Headline figure is egress:** bytes on exit and direct lines, which is
-  what left the fleet and what a provider bills. Entry bytes on relay hubs
+- **Headline figure is egress:** bytes on exit, direct and shared lines
+  (a shared line is a chain target that also serves direct users), counted
+  once at the node where they leave the fleet, which is what a provider
+  bills. Entry bytes on relay hubs
   are the same traffic counted a second time; the page says so in one
   sentence instead of a "double counted" tile.
 - **The picture is the daily series:** stacked bars per day, top six exits
@@ -345,8 +347,8 @@ totals it would have stacked), so plugin and server can ship in either order.
   inside its offsets, and several fires in one run arrive as one message.
 - `/api/expiring` lists machine renewals, VPN users, shares and TLS monitors
   in date order, and counts the rows a scope hides.
-- Usage's headline equals the sum of exit and direct line bytes for the
-  period.
+- Usage's headline equals the sum of exit, direct and shared line bytes
+  for the period.
 - Evidence with zero records shows coverage and the capture action, not a
   filter form above an empty table.
 - Each surface is rendered and driven at 1440 and 375, light and dark, with
