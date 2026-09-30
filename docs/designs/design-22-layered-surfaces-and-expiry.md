@@ -348,10 +348,58 @@ totals it would have stacked), so plugin and server can ship in either order.
 - A reminder fires for a machine created with defaults and a renewal date
   inside its offsets, and several fires in one run arrive as one message.
 - `/api/expiring` lists machine renewals, VPN users, shares and TLS monitors
-  in date order, and counts the rows a scope hides.
+  in date order, and names the kinds a scope hides.
 - Usage's headline equals the sum of exit, direct and shared line bytes
   for the period.
 - Evidence with zero records shows coverage and the capture action, not a
   filter form above an empty table.
 - Each surface is rendered and driven at 1440 and 375, light and dark, with
   the empty, failing and dense fixtures, and reviewed by the design reviewer.
+
+## 10. As built (2026-09-29)
+
+The build followed this design with these additions and departures, each
+decided during review:
+
+- **Plugin page state in the console address.** A plugin page's layer, open
+  object, grouping, search and period must survive a reload and be
+  shareable, and the content-addressed frame URL cannot carry a query. The
+  bridge gained two additive messages: `lattice.host.init` carries
+  `pageState` (the plugin route's query), and `lattice.plugin.state` asks
+  the host to replace that query (history replace on the same path, no
+  frame reload). Both sides apply the same rules: at most 16 keys, keys
+  `^[a-z][a-z0-9_]{0,23}$`, string values up to 256 characters, 60 writes a
+  minute, nothing before init, and the reserved console keys (`redirect`,
+  `next`, `code`, `state`, `token`, `sso_error`, `totp_challenge`, `mfa`)
+  never cross. The host holds a write during a pending navigation and drops
+  it if the operator changed the query meanwhile, and a query-only change
+  keeps the console's scroll position. Old hosts and plugins ignore the
+  new fields.
+- **Chart palette for plugins.** The console now publishes `--chart-1` to
+  `--chart-5` with the other design tokens. Usage stacks the five largest
+  exits (not six) in that palette, ordered so the one close pair (teal and
+  cyan in light) never touch; tints of the accent measured 1.1 to 1.2:1
+  between neighbours.
+- **Expiring.** Row counts hidden by scope became `hidden_kinds` (a count
+  leaked fleet size to confined sessions). Subtitles carry data only so the
+  console localises them. Proxy expiry, quota and enabled now read the
+  vpn-core identity, which fixed expiry alerts that never fired for users
+  edited in vpn-core; expired alerts fire only within 7 days of the date,
+  and several alerts of one kind in a run become one digest.
+- **Evidence.** The address keeps the HTTP contract's keys (`node_id`,
+  `close_reason`, ...) plus `q`, `source` and `conn`, so a URL still maps to
+  one API call. Per-node connection counts do not exist on the server, so
+  the coverage table's "held" figure is raw log lines. The raw log pages at
+  200 lines with "load older"; the free-form limit input is gone.
+- **Lines and Usage.** Information items (no line is managed) stay in the
+  Attention list but not in its badge or the overview strip. The line panel
+  has no per-line daily chart (the series is per node and role) and no page
+  of its own. Usage opens on 7 days.
+- **Sub-Store.** Files has no "last render" column (the runtime records no
+  render time). The client of a file is read from its name. The panel says
+  how clients reach a record no share names directly.
+- **Known gaps.** The route map at rest is a dense bundle between hubs and
+  exits (hover lights one path; nothing does on touch), and at 375 it
+  scrolls sideways inside its panel. Provider expiry from Sub-Store does not
+  yet feed `/api/expiring` or notifications, and machine transfer allowance
+  is not built; both are phase 2.
