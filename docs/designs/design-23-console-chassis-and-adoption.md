@@ -434,12 +434,30 @@ says why, so a later change can tell a decision from an accident.
   page. Count pills use per-tone inks (`--count-ink`, `--count-ink-warning`,
   `--count-ink-destructive`) measured at 5.1:1 or better on every tab
   ground, because the shared muted and tone text steps fell under 4.5:1 on
-  the raised segment.
+  the raised segment. Below 400 px the segments tighten their padding, so
+  four layers fit a 375 screen; more than four scroll in the strip.
 - The base layer gives buttons, fields, select triggers and the sheet close
   44 px on coarse pointers, including controls a caller sized h-6 to h-8.
   Every page was rendered at 375 with touch and none clipped or overflowed;
   rows only grew. Icons inside fields centre with a translate, never a fixed
   top offset.
+- ProofLine filter links become 44 px flex items on coarse pointers, so the
+  metadata line grows on a phone. They are the one-tap way to the broken
+  rows on Nodes and DDNS. An invisible pseudo-element pad was rejected
+  because it paints above the non-positioned controls under the line and
+  takes their taps. Table selection checkboxes keep their 16 px box and take
+  the base layer's centred `touch-target` pad, but the scroller edge, the
+  header row and the neighbouring sticky cell clip it to about 40 px; a
+  44 px checkbox column is open (wave 3).
+- The query bar placeholder keeps the 4.5:1 text minimum: its example tokens
+  are the field's only syntax hint. In dark mode it sits at 80% of the muted
+  grey (4.9:1 on the page, 4.6:1 on a card), a visible step below entered
+  text, so an empty field does not read as an applied filter.
+- A multi-select filter is drawn as bordered chips (SSH Guard, Upcoming,
+  Nodes), never as the filled track the segmented layer row uses. The
+  active chip shows its state with the primary border and a 10% tint and
+  keeps foreground ink: primary text on that tint measured 4.16:1 in light
+  with the default teal, and the accent palette is the operator's choice.
 - Below 768 px toasts rise from the bottom and lift above an open sheet's or
   dialog's footer, so they never hide Approve, Reject or Delete. At 1440 a
   toast can still cover a non-modal sheet's header for its lifetime; that is
