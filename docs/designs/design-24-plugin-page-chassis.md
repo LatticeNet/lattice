@@ -1,6 +1,6 @@
 # Plugin chassis: the shared page skeleton for plugin frames
 
-Status: design, read-only lane. No code in this change.
+Status: shipped (landed in the design index 2026-10-02). The chassis lives in plugin-bridge `src/chassis` (4e2fc19), and NetGuard, WireGuard and Sub-Store adopted it in design 23 wave 1; vpn-core's adoption and the bridge fixes are design 23 wave 3. Written 2026-09-04 as a read-only design.
 Date: 2026-09-04.
 Reference build: console c097c5b (a91 live), plugin bridge 5f9900b, vpn-core UI as on integration 1111c88 (identical `ui/src` to the local checkout read here), Sub-Store dd03faf (0.13.0-alpha.32), NetGuard 4bba35d, WireGuard 476c92a.
 

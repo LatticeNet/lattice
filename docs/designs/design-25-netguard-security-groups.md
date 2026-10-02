@@ -1,8 +1,8 @@
 # NetGuard security groups: per-node rules, discovery, and source restrictions
 
-Status: design. Read-only lane, no code in this change.
+Status: proposed, not built (landed in the design index 2026-10-02). Section 4's finding is live and is being fixed on its own: the lockout lint ignored drop and reject rules while the group editor already offers deny, so a plan dropping SSH ahead of the public accept passed with no finding (lattice-server branch fix/adopted-remove-lockout-identity-delete). Written 2026-09-05 as a read-only design.
 Date: 2026-09-05.
-Reference: lattice-server internal/netguard and internal/network as read here, lattice-sdk model/model.go, lattice-plugin-netguard 0.1.0-alpha.15, chassis spec docs/design-plugin-chassis.md section 6.2.
+Reference: lattice-server internal/netguard and internal/network as read here, lattice-sdk model/model.go, lattice-plugin-netguard 0.1.0-alpha.15, chassis spec design-24-plugin-page-chassis.md section 6.2.
 
 ## 1. What the operator asked for, and what already exists
 
