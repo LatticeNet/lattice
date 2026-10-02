@@ -421,3 +421,94 @@ isolated precheck.
 - Audit's proof line states whether the scan completed.
 - Every changed page is rendered at 1440 and 375, light and dark, with
   production-shaped fixtures, and reviewed by the design reviewer.
+
+## 9. As built (2026-10-02)
+
+What shipped differs from the sections above in these places. Each entry
+says why, so a later change can tell a decision from an accident.
+
+### Chassis
+
+- LayerTabs is an underline row from 620 px up and a segmented control
+  below; it reveals the current layer by scrolling its own strip, never the
+  page. Count pills use per-tone inks (`--count-ink`, `--count-ink-warning`,
+  `--count-ink-destructive`) measured at 5.1:1 or better on every tab
+  ground, because the shared muted and tone text steps fell under 4.5:1 on
+  the raised segment.
+- The base layer gives buttons, fields, select triggers and the sheet close
+  44 px on coarse pointers, including controls a caller sized h-6 to h-8.
+  Every page was rendered at 375 with touch and none clipped or overflowed;
+  rows only grew. Icons inside fields centre with a translate, never a fixed
+  top offset.
+- Below 768 px toasts rise from the bottom and lift above an open sheet's or
+  dialog's footer, so they never hide Approve, Reject or Delete. At 1440 a
+  toast can still cover a non-modal sheet's header for its lifetime; that is
+  open.
+- ConfirmDialog returns focus to the control that opened it; after a row
+  menu item's confirm, focus goes back to that row's menu button, and after
+  a delete to the neighbouring row.
+- The pinned first column of a scroll table stays within 38vw at 375, the
+  selection checkbox included.
+
+### Destructive classes (3.8)
+
+- Batch approve and task rerun are run actions that reach nodes, but they ask
+  for no typed name. Batch approve goes through a preview that names every
+  plan, node and digest, the server refuses a plan that changed since the
+  preview, and a single plan is approved only from its sheet after review.
+  Rerun shows a preview of what will run and where. The preview is the
+  gate; typing a name on every routine approval would train the operator to
+  type without reading.
+- Bulk node Disable asks for the count typed from five nodes up, or when it
+  would disable every online node.
+- Deleting an applied geo routing gets the "leaves config on a node" class
+  and names the DNS nodes that keep answering. The server never sets
+  `last_applied_at` yet, so in production the confirm falls back to the
+  inside-Lattice class until it does (wave 3).
+
+### Pages
+
+- Tasks rows carry no script first line: the script is step-up gated. Rows
+  show the failure reason (exit code plus `stderr_head`), targets with a pass
+  count, and the origin or approving plan instead.
+- Approvals History has no actor filter, because the server listing has none;
+  the QueryBar names `actor:` as unsupported and keeps the text.
+- Stale agent updates the control plane already rejected are listed folded
+  under Needs you, are not counted as waiting, and can be dismissed together.
+- Trust posture left Home for Settings, Capability Gates.
+- Monitoring reads the latest results of up to 50 monitors every 30 s to say
+  what each one is doing, because GET /api/monitors carries no latest-result
+  field; a server field is the upgrade path.
+- DDNS keeps grouping by state, not by node: the operator's question is which
+  profiles fail, and one node rarely carries more than one profile.
+- Notifications stays a card page rather than moving onto ObjectSheet; that is
+  a page rewrite left for later.
+
+### Plugins
+
+- Sub-Store pages its Files fifty at a time, as vpn-core pages identities,
+  instead of grouping by family.
+- The plugins carry local copies of RowMenu, the page-state model, the clock
+  and two layout overrides (pagination at phone width and the segmented layer
+  tabs). They go when plugin-bridge ships the chassis variants and the
+  non-modal side panel in wave 3.
+- NetGuard keeps Drift and the drift attention item after a failed overview
+  read, because drift comes from the reality roster, not from the intent read
+  that failed; every port judgement the failed read decides shows as unknown.
+- WireGuard reads on open and on Refresh only and no longer reports a frame
+  height; the console host ignores that message.
+
+### Server
+
+- Line-user approvals had never reached a node since alpha-0.2.2a2: approving
+  one stored it approved, queued nothing and failed. a102 routes it to the core
+  apply path, refuses approve without queueing the apply, and pins the exact
+  `sb user add` and `sb user del` it runs.
+- An expired or over-quota identity is refused when a line plan adds it, at
+  planning and again at approval, on adopted lines too. Nobody is removed from
+  an adopted line; Lattice only stops granting what its own alerts deny.
+- Plans that name identities (line-user, managed-line, proxycore) are listed to
+  and decided by principals who may read identities only.
+- Agent liveness and guard reality reports write the state file only when a
+  durable fact changes, or every 15 minutes per node, instead of on every
+  report.
