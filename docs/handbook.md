@@ -59,12 +59,16 @@ Server:
 gofmt -l .                                   # CI stops here if non-empty
 sh scripts/check-docker-defaults.sh
 go vet ./...
-go test -race -cover -timeout 25m ./...
+go test -race -cover -timeout 40m ./...
 ```
 
-The `-timeout 25m` is load-bearing: `internal/server` exceeds the ten-minute
-default under `-race` and the aggregate timeout dump looks like a deadlock.
-Judge races by `grep -c 'DATA RACE'`, not by the exit code alone.
+The `-timeout 40m` is load-bearing: `internal/server` exceeds the ten-minute
+default under `-race` (about 1250 s locally on 2026-10-04, over 25 minutes on
+a busy machine) and the aggregate timeout dump looks like a deadlock. Judge
+races by `grep -c 'DATA RACE'`, not by the exit code alone. CI does not run
+this single command: it tests every other package in one job and splits
+`internal/server` into four parallel shards, each running every fourth
+top-level test under `-race -cover -timeout 25m`.
 
 Dashboard:
 
@@ -267,7 +271,7 @@ quietly misinforming readers.
 
 ## 7. Self-help before reporting
 
-- Server race suite "deadlocks": you forgot `-timeout 25m`. Grep for
+- Server race suite "deadlocks": you forgot `-timeout 40m`. Grep for
   `DATA RACE` before believing a timeout dump.
 - Plugin UI `npm ci` returns 401: `GITHUB_TOKEN` is missing; `@latticenet`
   packages come from GitHub Packages.
