@@ -47,10 +47,11 @@ the design was ratified but the build is not confirmed complete here;
 | 23 | [One chassis for every page](design-23-console-chassis-and-adoption.md) | 2026-09-30 | accepted, build in progress | wave 1 (chassis, defects, server reads, three plugins) first; waves 2 and 3 follow its delivery table |
 | 24 | [Plugin page chassis](design-24-plugin-page-chassis.md) | 2026-09-04 | shipped | plugin-bridge `src/chassis` (4e2fc19); NetGuard, WireGuard and Sub-Store adopted it in design 23 wave 1, vpn-core follows in wave 3 |
 | 25 | [NetGuard security groups](design-25-netguard-security-groups.md) | 2026-09-05 | proposed | not built; its lockout-lint finding is fixed separately |
+| 26 | [Evidence retention, selective collection and an encrypted archive](design-26-evidence-retention.md) | 2026-10-04 | proposed | not built; it is the log-storage decision `PROGRAM.md` KI-10 waits on, and its section 14 lists the operator's open decisions |
 
 Two different designs carry the number 18. That was a mistake and it is left in
 place because both filenames are cited elsewhere; distinguish them by their
-slug, not their number. Number 21 is held by the Astra approval-device proposal on its own unmerged branch. The next unused number is 23.
+slug, not their number. Number 21 is the Astra approval-device proposal, whose design is in this folder while its code waits on unmerged branches. The next unused number is 27.
 
 ## Shared architecture
 
