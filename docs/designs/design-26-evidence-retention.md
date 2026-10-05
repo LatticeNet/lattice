@@ -1,6 +1,6 @@
 # Design 26: evidence retention, selective collection and an encrypted archive
 
-Status: proposed, not built. Written 2026-10-04 as a read-only design. It is also the log-storage decision that `PROGRAM.md` KI-10 waits on ("Trace policies all off pending the log-storage decision").
+Status: accepted, not built. Written 2026-10-04 as a read-only design; the operator accepted all ten decisions in section 14 as recommended on 2026-10-05. It is also the log-storage decision that `PROGRAM.md` KI-10 waits on ("Trace policies all off pending the log-storage decision").
 Date: 2026-10-04.
 Reference: lattice-server `integration` at 1843d69, lattice-node-agent `integration` at 89b7cbc, lattice-dashboard `integration` at 137bd73, lattice-sdk at the server's pin (29dacb5). The connection-trace design these stores came from is archived at the workspace root as `_archive/2026-08/SINGBOX-TRACE-DESIGN.md`; code comments still cite it. The control plane's own history is a separate store, `metrics.db`, proposed in the open lattice-server#159; this design shares its tier vocabulary and the host's disk budget with it, and nothing else.
 
@@ -380,15 +380,19 @@ Each slice ships alone and leaves the system honest.
 
 Server slices run the full checks in the handbook, including `-race` on `internal/server` and `internal/store`. Console slices run the rendered pass at 1440 and 375 in both themes and zh-CN.
 
-## 14. Open decisions for the operator
+## 14. Decisions (operator, 2026-10-05)
 
-1. Which nodes record first, and whether raw lines stay capture-only (recommended: records only, raw lines through captures).
-2. The local budget: 1 GiB for `trace.db` and 2 GiB worst case for all evidence (recommended), or less while hkg's free space is in doubt (9.7 GB in the brief, 63 GB in `PROGRAM.md`); or resize the volume, which is a spending decision.
-3. The detail horizon: 7 days (recommended) or 14 days as today, at about twice the sampling pressure.
-4. Sampling: the automatic governor with per-node pins (recommended) or fixed rates the operator sets.
-5. Whether long tiers keep users, and for how long: per-user daily counts for 400 days (recommended), for 5 years, or no user in any tier past 14 days.
-6. Whether to turn the archive on, the bucket name, and its retention: 400 days (recommended, about $0.11 a month at C) or 5 years (about $0.52 a month at C). Creating the bucket and token is the operator's.
-7. Who can read the archive: the control plane and the operator (recommended, restores on demand), or the operator only (archived detail is read offline with `age -d`; nothing on hkg can read it after upload).
-8. Bucket lock: none (recommended, deletion on request stays possible) or a lock for the retention period (a compromised control plane cannot delete evidence, and neither can the operator).
-9. Whether turning records on for a node should need an approval rather than an audit event (recommended: audit only, as captures are today; the archive is the plan).
-10. Adding `filippo.io/age` through ADR-005 (recommended) or an in-house format.
+The operator accepted every recommendation below on 2026-10-05. The alternatives are kept so a later change of mind starts from the same trade-off.
+
+1. A few nodes record first, records only; raw lines stay capture-only. (Alternative: raw lines on with records.)
+2. The local budget is 1 GiB for `trace.db` and 2 GiB worst case for all evidence. hkg had 63 GB free on 2026-10-05 after the backup cleanup, so no volume resize. (Alternatives: less, or a paid resize.)
+3. The detail horizon is 7 days. (Alternative: 14 days, at about twice the sampling pressure.)
+4. Sampling is the automatic governor with per-node pins. (Alternative: fixed rates the operator sets.)
+5. Long tiers keep per-user daily counts for 400 days; per-user detail ends at 14 days. (Alternatives: 5 years, or no user in any tier past 14 days.)
+6. The archive is turned on once nodes record, in its own bucket (not `lattice-backups`), with 400 days' retention, about $0.11 a month at C. (Alternative: 5 years, about $0.52 a month at C.)
+7. The control plane and the operator can both read the archive (two recipients; restores on demand). (Alternative: the operator only, read offline with `age -d`.)
+8. No bucket lock; deletion on request stays possible. (Alternative: a lock for the retention period.)
+9. Turning records on for a node is an audit event, not an approval, as captures are today; the archive is the plan. (Alternative: an approval.)
+10. `filippo.io/age` comes in through ADR-005. (Alternative: an in-house format.)
+
+R0 still needs the nodes: the first ones are chosen from measured traffic when R0 starts, and named in `PROGRAM.md`.
