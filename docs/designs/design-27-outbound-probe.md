@@ -1,6 +1,6 @@
 # Design 27: outbound probe, a long-lived test engine for pasted outbounds
 
-Status: proposed, nothing built. Written 2026-10-08 as a read-only design for the operator's decision.
+Status: proposed, nothing built. Written 2026-10-08 as a read-only design for the operator's decision; the engine choice was settled the same day by a side-by-side benchmark (section "Engine benchmark").
 Date: 2026-10-08.
 Reference: lattice-server `integration` at 90c0eeb (alpha-0.2.2a121), lattice-plugin-vpn-core `integration` at 382be4f (0.11.0-alpha.3), upstream SagerNet/sing-box tag `v1.13.19` (the tag `LatticeNet/sing-box-core` builds for the fleet), MetaCubeX/mihomo branch `Meta` as of 2026-10-08.
 
@@ -10,7 +10,7 @@ The operator wants to paste a valid sing-box outbound into vpn-core and learn wh
 
 The proposal is a separate, long-lived program, `lattice-probe`, that embeds sing-box as a Go library. It runs one sing-box instance with no inbounds and creates each pasted outbound inside that instance at runtime, measures it, and removes it. No config file is written, nothing reloads, and the production sing-box on hkg is never involved. lattice-server talks to it over a unix socket and exposes one vpn-core route; vpn-core gets a Probe page and, later, a Test action on every line.
 
-mihomo is the better library for "build one proxy and test it" and supports more protocols, but its input is a Clash proxy map, not sing-box JSON, and it implements the protocols separately. It belongs in the same program as a second engine for Clash Meta clients, after the sing-box engine ships. Copying protocol code out of either project is not recommended.
+The operator accepts either config syntax and asked for the engine that tests correctly with the least time and resources. Both cores were embedded and measured side by side. They are equally correct and equally fast per test, but sing-box is 40 percent smaller, peaks at less than half the memory under 32 concurrent tests, and leaks nothing, while mihomo strands one QUIC connection on every TUIC test because its TUIC adapter has no `Close`. The probe is built on sing-box alone; a mihomo engine is added only if a protocol sing-box lacks is actually needed. Copying protocol code out of either project is not recommended.
 
 ## What the operator asked (2026-10-08)
 
@@ -24,6 +24,8 @@ Paste a legal sing-box outbound, test whether the link is usable and the latency
 4. **mihomo builds a single proxy from a map.** `adapter/parser.go:11` `ParseProxy(mapping map[string]any)` covers ss, ssr, socks5, http, vmess, vless, snell, trojan, hysteria, hysteria2, wireguard, tuic, shadowquic, ssh, mieru, anytls, sudoku, masque, trusttunnel, openvpn, tailscale and more; `adapter/adapter.go:166` `(*Proxy).URLTest(ctx, url, expectedStatus)`. It depends on MetaCubeX forks of the sing libraries (`metacubex/sing`, `sing-quic`, `sing-vmess`, …), not on sagernet's.
 5. **Licences.** sing-box and mihomo are GPL-3.0. lattice-server, lattice-node-agent and lattice-plugin-vpn-core are MIT. Linking either core into an MIT binary would make that binary a GPL work.
 6. **Clients.** Sub-Store's client formats are led by sing-box and Clash Meta (mihomo); Surge, Stash, Loon and Shadowrocket follow. A test that passes in one core does not prove the other accepts the same link.
+7. **Neither core's built-in URL test fits.** The benchmark found both `urltest.URLTest` (sing-box) and `Proxy.URLTest` (mihomo) send HEAD and return whole milliseconds, and they time different spans (sing-box leaves the dial out for vmess and vless). The probe uses its own `httptrace` timing for cold and warm delay.
+8. **Go version.** A module declaring `go 1.24` keeps the pre-1.25 default and ignores the container's CPU limit (GOMAXPROCS came out as 4 under `--cpus 2`). `lattice-probe` declares `go 1.26`.
 
 ## Options
 
@@ -118,7 +120,7 @@ Errors say which stage failed (`decode`, `create`, `server`, `handshake`, `targe
 
 ### Deployment on hkg
 
-A container `lattice-probe` beside `lattice-server` in the same compose file, sharing only the socket directory. Limits: 256 MiB memory, 0.5 CPU, `pids` 256, read-only root, no capabilities. It runs on its own network, not the compose network that reaches lattice-server's port, so a pasted outbound cannot be aimed at the control plane. The image is built in the probe repository's CI and pinned by digest in the compose file, the way lattice-server's image is. The server reads `/v1/health` (engine name, core version, uptime) and shows it on Platform > System.
+A container `lattice-probe` beside `lattice-server` in the same compose file, sharing only the socket directory. Limits: 128 MiB memory (the benchmark peaked at 34 MiB with 32 tests in flight), 0.5 CPU, `pids` 256, read-only root, no capabilities. It runs on its own network, not the compose network that reaches lattice-server's port, so a pasted outbound cannot be aimed at the control plane. The image is built in the probe repository's CI and pinned by digest in the compose file, the way lattice-server's image is. The server reads `/v1/health` (engine name, core version, uptime) and shows it on Platform > System.
 
 ### lattice-server and vpn-core
 
@@ -133,29 +135,48 @@ vpn-core gets a Probe layer: a JSON editor that validates against the sing-box o
 - **Abuse.** Per principal: at most 4 concurrent tests and 120 per hour by default; throughput tests off unless asked, capped at 25 MB each.
 - **Scope.** `vpn:probe` is separate from the scopes that change nodes, because a probe changes nothing but does spend the host's bandwidth and reveals reachability.
 
-## Performance targets for the spike
+## Engine benchmark (2026-10-08)
 
-These are expectations to measure, not measurements: probe start under 300 ms; `Create` plus `Remove` of one outbound under 5 ms; idle memory under 60 MiB, under 150 MiB with 32 tests in flight; probe overhead on cold delay within 10 ms of the same outbound in a stock sing-box client on the same host. Slice P0 measures all four and the design is revised if any misses by more than a factor of two.
+Both cores were embedded the way the probe would use them and driven by one shared harness against an upstream sing-box `v1.13.19` server in the same container: shadowsocks `2022-blake3-aes-128-gcm`, vmess over websocket, vless with Reality, trojan with TLS, hysteria2 and TUIC v5, with a local 204 target. Container `golang:1.26.4-bookworm`, `--cpus 2 --memory 4g` to resemble hkg, GOMAXPROCS 2, loopback only, generated credentials. sing-box `v1.13.19` with tags `with_quic,with_utls,with_wireguard`; mihomo `v1.19.32`, the latest release tag (2026-09-30), no build tags. Measured on arm64 (Apple M3 under Colima); hkg may be amd64, so absolute numbers will differ there, the comparison should not.
 
-## mihomo evaluation
+| Measure | sing-box | mihomo |
+|---|---|---|
+| Stripped binary | 26.1 MB | 43.3 MB |
+| Process start to ready (median of 10) | 47 ms | 55 ms |
+| Idle RSS after start | 18.7 MiB | 20.3 MiB |
+| Create and remove one outbound | tens of microseconds | tens of microseconds |
+| Cold and warm delay, 200 runs per protocol | tie on 5 of 6 protocols (p50 within about 0.1 ms) | tie |
+| CPU per test | about 0.5 ms; lower than mihomo on vmess, vless/Reality and trojan in all 3 runs (by up to 0.12 ms) | about 0.5 ms |
+| 32 workers x 50 mixed tests, 7 runs | 1689 to 2520 tests/s, all 1600 ok | 1828 to 2188 tests/s, all 1600 ok |
+| Peak RSS under that load | 34 MiB | 84 to 86 MiB (45 to 47 without TUIC) |
+| Goroutines left afterwards | 8 | 1333 |
+| After 2000 full tests | flat: 8 goroutines, 10 fds, heap under 0.8 MB | 1718 goroutines, 350 fds, 29 MB heap |
 
-For: `ParseProxy` plus `Proxy.URLTest` is the most direct "one proxy, one test" API in any Go core; it covers protocols sing-box does not (ssr, snell, mieru, sudoku, masque, trusttunnel, openvpn, among others); it is actively maintained (34.7k stars, pushed 2026-10-08); and Clash Meta clients, which Sub-Store serves, run exactly this code.
+The mihomo growth comes from TUIC alone: `adapter/outbound/tuic.go` at `v1.19.32` defines no `Close`, so `Close()` falls through to `Base.Close`, which returns nil. Each test leaves one QUIC connection behind (one UDP fd, five goroutines, about 82 KiB of heap), and 45 s with a GC every 5 s reclaimed none of it. The other five protocols were flat in both cores. A long-lived probe that creates an outbound per test would grow without bound on TUIC lines.
 
-Against, for this request: its input is a Clash proxy map, so testing a sing-box outbound would first need a sing-box-to-Clash translation, which loses or reshapes transport options, uTLS fingerprints, Reality settings and multiplex padding; and its protocols are separate implementations on MetaCubeX forks of the sing libraries, so a pass in mihomo says little about a sing-box client and the reverse.
+Correctness was identical. Both passed every valid config in every suite and failed fast on every wrong credential, with no timeouts: shadowsocks and vmess with a connection reset in about 1 ms; vless with a wrong UUID, trojan and TUIC with a bare EOF in 1 to 11 ms (the probe can only say "handshake failed" for these, whichever core); hysteria2 with "authentication failed, status code: 404"; a wrong Reality short_id against a public handshake site in 64 to 96 ms in both, worded differently.
 
-Conclusion: the sing-box engine answers the operator's request exactly; a mihomo engine is worth adding to the same program, behind the same API, for Clash proxies and for "will this link work in Clash Verge or FlClash". Both libraries can link into one binary because their module paths differ, but two binaries that share the socket protocol keep each engine pinned to the client version it stands for and halve the image each host pulls. Lifting protocol code out of either project would freeze it at the day of the copy, while Reality, uTLS and QUIC transports change often, and the copy would still be GPL; importing the module at a pinned tag gives the same code with a one-line upgrade.
+Not measured yet: UDP relay, throughput, the server-reachable check, real network round trips, amd64, and behaviour under the container's 0.5 CPU limit. Slice P0 measures these on hkg's architecture.
+
+The benchmark programs, raw JSON and full tables are kept with the operator's workspace (`~/.cache/lattice-probe-bench/RESULTS.md`) and move into `lattice-probe` with P0.
+
+## mihomo, re-evaluated on performance and resources
+
+The operator accepts Clash syntax, so the input format no longer counts against mihomo; the comparison is speed, correctness and resources. On speed and correctness the two are equal. On resources sing-box wins on every measure that matters for a program that stays running: smaller binary, less than half the peak memory under load, and no leak, against mihomo's unbounded growth on TUIC. mihomo's remaining advantage is protocol breadth (ssr, snell, mieru, sudoku, masque, trusttunnel, openvpn and others sing-box does not have) and being the exact code inside Clash Meta clients.
+
+So the probe ships with the sing-box engine only. A mihomo engine is added, as a second binary behind the same socket API, only when the operator needs to test a protocol sing-box lacks or to reproduce a Clash Meta client's behaviour; before that the TUIC leak must be fixed upstream (a `Close` that closes the QUIC client) or contained by recycling that engine's process after a bounded number of tests. Linking both into one binary would put 43 MB of mostly duplicated protocol code into every probe for the sake of a few protocols, against the operator's resource goal. Lifting protocol code out of either project would freeze it at the day of the copy, while Reality, uTLS and QUIC transports change often, and the copy would still be GPL; importing the module at a pinned tag gives the same code with a one-line upgrade.
 
 ## Slices
 
-- **P0, spike (about a day).** `lattice-probe` with the sing-box engine and the socket API, a CLI that tests one outbound file, and the four measurements in "Performance targets". No server or UI change.
+- **P0, engine (about a day).** `lattice-probe` with the sing-box engine and the socket API, a CLI that tests one outbound file, and the measurements the benchmark left open (UDP, throughput, the server-reachable check, amd64, the 0.5 CPU limit, real round trips to a fleet node). No server or UI change.
 - **P1, control-plane probe.** The container on hkg, the server route and scope, the audit event, the vpn-core Probe layer, and System showing probe health. Deploys as a server release plus a vpn-core plugin release.
 - **P2, lines.** A Test action on every Lines row using the client outbound from the line's share link, batch "test these lines" with NDJSON results, and a results history keyed by config hash with the last result shown on the row.
 - **P3, vantage points.** The same binary run by the agent on a chosen node, started on demand and stopped after ten idle minutes, so a line meant for China can be tested from `cd-hs-sh`, the node the latency probes already use. The request gains `from: "control-plane" | "node:<id>"`.
-- **P4, mihomo engine.** A second binary behind the same API, taking Clash proxy maps, with a Probe layer switch for the engine.
+- **P4, mihomo engine, only on demand.** A second binary behind the same API, taking Clash proxy maps, built only when a protocol sing-box lacks is needed, and only after its TUIC leak is fixed or its process is recycled after a bounded number of tests.
 
 ## Decisions for the operator
 
-1. Create `LatticeNet/lattice-probe` as a GPL-3.0 repository, keeping GPL code out of the MIT repositories. Recommended.
+1. Create `LatticeNet/lattice-probe` as a GPL-3.0 repository with the sing-box engine only, keeping GPL code out of the MIT repositories. Recommended.
 2. Default vantage point for P1 is the control plane (hkg); node vantage arrives in P3. Recommended, with the caveat that a pass from Hong Kong does not prove a line works from mainland China.
 3. Results history in P2 keeps the last 30 results per config hash for 90 days and never the config. Recommended.
 4. Throughput tests stay off by default and are capped at 25 MB. Recommended.
