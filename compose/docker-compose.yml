@@ -35,7 +35,7 @@ services:
   # only the socket directory with the server and sits on its own network, so
   # an outbound aimed at the control plane cannot reach the server's port.
   lattice-probe:
-    image: ghcr.io/latticenet/lattice-probe:v0.1.0
+    image: ghcr.io/latticenet/lattice-probe:0.1.0-alpha.1
     container_name: lattice-probe
     restart: unless-stopped
     user: "65532:65532"
