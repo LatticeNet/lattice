@@ -13,14 +13,66 @@ services:
       LATTICE_PLUGIN_TRUST: /plugins/.trust.json
       LATTICE_PLUGIN_BUNDLE_CACHE_DIR: /var/lib/lattice/plugin-bundles
       LATTICE_PLUGIN_RUNTIME_DIR: /var/lib/lattice/plugin-runtime
+      LATTICE_PROBE_SOCKET: /run/lattice-probe/probe.sock
     ports:
       - "127.0.0.1:8088:8088"
     volumes:
       - ./data:/var/lib/lattice
       - ./plugins:/plugins:ro
+      - type: volume
+        source: probe-run
+        target: /run/lattice-probe
+        volume:
+          nocopy: true
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8088/api/health >/dev/null 2>&1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # The outbound probe behind vpn-core's Probe page (design 27). It shares
+  # only the socket directory with the server and sits on its own network, so
+  # an outbound aimed at the control plane cannot reach the server's port.
+  lattice-probe:
+    image: ghcr.io/latticenet/lattice-probe:0.1.0-alpha.1
+    container_name: lattice-probe
+    restart: unless-stopped
+    user: "65532:65532"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # 32 concurrent runs, each downloading 25 MB, peaked at 50 MiB RSS on a
+    # loopback lab. The limit leaves room for QUIC windows on long paths,
+    # which a lab cannot reproduce, and GOMEMLIMIT makes the Go runtime
+    # collect harder before the kernel would kill the probe.
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 256
+    environment:
+      LATTICE_PROBE_SOCKET: /run/lattice-probe/probe.sock
+      GOMEMLIMIT: 192MiB
+    volumes:
+      - type: volume
+        source: probe-run
+        target: /run/lattice-probe
+        volume:
+          nocopy: true
+    networks:
+      - probe
+
+volumes:
+  # A small tmpfs owned by the probe's uid and gid, so its ownership is set
+  # here: neither the order the two containers start in nor what either
+  # image has at /run/lattice-probe decides it (nocopy on both mounts).
+  probe-run:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1m,uid=65532,gid=65532,mode=0770
+
+networks:
+  probe:
+    driver: bridge

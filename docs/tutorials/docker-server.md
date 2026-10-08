@@ -102,6 +102,29 @@ The server verifies every bundle at startup against the configured trust policy.
 Lifecycle state is stored in `state.json`; the bundle bytes remain in
 `LATTICE_PLUGIN_DIR`.
 
+## Outbound probe
+
+The compose file also starts `lattice-probe`, the program behind vpn-core's
+Probe page (design 27). It tests a pasted sing-box outbound: whether the server
+answers, the delay to fixed test URLs, the exit address, and UDP. It runs as
+`65532:65532` with a read-only root, no capabilities, 256 MiB of memory and
+half a CPU, on a network of its own. `GOMEMLIMIT=192MiB` makes its Go runtime
+collect harder as it nears the limit instead of being killed at it.
+
+The two containers share only the named volume `probe-run`, mounted at
+`/run/lattice-probe`. The volume is a 1 MiB tmpfs that the compose file creates
+owned by `65532:65532` with mode `0770`, and both mounts set `nocopy`, so its
+ownership does not depend on which container starts first or on what either
+image has at that path. The probe listens on `probe.sock` there with mode
+`0660`, and the server reaches it through group `65532`, which the server image
+gives its `lattice` user. The server finds the socket through
+`LATTICE_PROBE_SOCKET`.
+
+Platform > System shows whether the probe answers and, when it does not, why.
+Running a test needs the `vpn:probe` scope; no proxy or vpn-core grant implies
+it. Leaving the probe out of the file only makes the Probe page report the
+probe as unavailable; the server runs the same either way.
+
 ## Building the image locally
 
 `lattice-server`, `lattice-sdk`, and `lattice-dashboard` are separate
