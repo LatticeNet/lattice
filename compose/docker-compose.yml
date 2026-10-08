@@ -19,7 +19,11 @@ services:
     volumes:
       - ./data:/var/lib/lattice
       - ./plugins:/plugins:ro
-      - probe-run:/run/lattice-probe
+      - type: volume
+        source: probe-run
+        target: /run/lattice-probe
+        volume:
+          nocopy: true
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8088/api/health >/dev/null 2>&1"]
       interval: 30s
@@ -40,18 +44,34 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    mem_limit: 128m
+    # 32 concurrent runs, each downloading 25 MB, peaked at 50 MiB RSS on a
+    # loopback lab. The limit leaves room for QUIC windows on long paths,
+    # which a lab cannot reproduce, and GOMEMLIMIT makes the Go runtime
+    # collect harder before the kernel would kill the probe.
+    mem_limit: 256m
     cpus: 0.5
     pids_limit: 256
     environment:
       LATTICE_PROBE_SOCKET: /run/lattice-probe/probe.sock
+      GOMEMLIMIT: 192MiB
     volumes:
-      - probe-run:/run/lattice-probe
+      - type: volume
+        source: probe-run
+        target: /run/lattice-probe
+        volume:
+          nocopy: true
     networks:
       - probe
 
 volumes:
+  # A small tmpfs owned by the probe's uid and gid, so its ownership is set
+  # here: neither the order the two containers start in nor what either
+  # image has at /run/lattice-probe decides it (nocopy on both mounts).
   probe-run:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=1m,uid=65532,gid=65532,mode=0770
 
 networks:
   probe:
