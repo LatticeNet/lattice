@@ -237,6 +237,16 @@ Upstream Sub-Store is AGPL-3.0; the plugin repository is MIT and today ships the
 
 Seven slices, each independently shippable behind the unchanged `fetch`, `render`, `convert` contracts, each sized for one workflow of about ten agents. S0 closes the sandbox on the current plugin and lands the platform wave (catalogue, identities list, share model fields, contract extensions, `kv.delete`, `task.schedule`, per-method budgets, cache sizing, raw and request bounds) plus the conformance harness. S1 lands the Go model, parsers, operators, the store split with archive-on-delete, the first native producers and the capability wave manifest. S2 lands fleet sources, structured filters, validate-and-bind, `depends_on`, DDNS, chain and probe fields, the migration path, and removes the warm runtime. S3 lands the script isolate, shim, modules, files and mihomo configs. S4 lands source ergonomics, flow info, secrets, notifications and Resolve Domain. S5 lands shares, artifacts, backup, the recycle bin UI, logs, settings and the operator surface. S6 removes the bundle and the legacy paths and publishes the conformance numbers. Signings: the hotfix is a digest-only re-sign; the vpn-core manifest is signed once at S0; the plugin manifest changes in every slice from S1 to S6, because each adds methods or services whose budgets and scopes are signed per method, so the programme has six manifest-changing plugin signings. Pre-declaring every future method in one wave would cut that to one but would sign unimplemented surface, and is rejected. The ordered plan with lanes, contracts, acceptance tests and checklist coverage is the companion slice document.
 
+### S0 scope as landed (2026-10-09)
+
+An acceptance audit of S0 against its slice plan moved four items to the slice that gives them a surface or a dependency, and recorded one deliberate deviation.
+
+- The opt-in usage and probe exclusion rules, with their hysteresis, move to S2 with the structured filters that let an operator opt in. The probe rule also needs design 27's P2 results history, which does not exist yet, so the catalogue's probe block stays null until P2 writes it.
+- Age encryption on the artifact render path lands with artifacts in S5. S0 ships the shared encrypt function and the share serve path, placeholders included.
+- The stdio host frame stays at 4 MiB until S1 raises it on the SDK, the server and the plugin together. Until then an HTTP body that reaches a plugin is limited to about 3 MiB after base64, below both the 8 MiB fetch budget and the 4 MiB raw subscription bound.
+- The conformance harness opens no golden-update pull request against the plugin yet, because that needs a token that can write to a second repository. A re-pin runs the harness and the goldens are moved by hand until such a token exists.
+- Deviation: `task.schedule` runs call the plugin method directly on the runtime service path, not through the operator task queue, so a scheduled method never runs under an operator's principal or borrows an operator's scopes. The 64-schedule limit, the five-minute floor and one run in flight per schedule id hold as specified.
+
 ## Decisions for the operator
 
 1. Acknowledge the interim licence posture: the AGPL bundle ships inside the MIT artifact under a third-party notice until S6 removes it. Recommended.
