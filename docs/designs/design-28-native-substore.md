@@ -250,6 +250,13 @@ An acceptance audit of S0 against its slice plan moved four items to the slice t
 - The capability-wave manifest is prepared in S1, with the binary that serves it, not in S0. The vpn-core manifest that declares the line catalogue and the identity list is S0's one plugin signing, after the server release that serves them.
 - Deviation: `task.schedule` runs call the plugin method directly on the runtime service path, not through the operator task queue, so a scheduled method never runs under an operator's principal or borrows an operator's scopes. The 64-schedule limit, the five-minute floor and one run in flight per schedule id hold as specified.
 
+### S1 decisions (2026-10-09)
+
+- The divergence allowlist gains one normalise kind, `drop_entries_with_keys`, and the `external` entry gains a second step with it. Rule H3 drops a node of any type that carries `exec`, `args`, `local-port`, `local-address` or `local_address`, and the schema could match a field's value but not a key's presence, so two hostile corpus cases could never pass for an implementation of H3. The list stays closed at four entries. The new kind applies only at parse stage, where every array element is a node, and may not name a node identity key or a document container, so one entry still cannot hide a whole node list or document. This is the reviewed extension the conformance section requires.
+- The S1 host frame raise depends on an SDK fix found while building it: the SDK refused every invoke frame over 1 MiB whatever limit the runtime set, and the worker then exited, so a render whose request passed 1 MiB failed on the current plugin as well (`PROGRAM.md` KI-24). The SDK now bounds a frame by the runtime's own limit, and the plugin picks the fix up with its S1 SDK pin.
+- The UI lane merges the three record tables (sources, combinations, files) into one Records table with a kind filter; the plan's "card list" did not exist. String extraction for zh-CN, en and ru touches every screen, so it runs as its own lane after the table lands, and the Playwright and axe gate runs in English first and in all three locales once the strings move.
+- Plugins keep building with Go 1.26.4 until their next signed release: a symbol-level `govulncheck` against that toolchain finds no reachable standard library advisory in any of the four plugins, which talk to the host over stdio. Each moves to the server's Go version when it is next signed, sub-store first with S1.
+
 ## Decisions for the operator
 
 1. Acknowledge the interim licence posture: the AGPL bundle ships inside the MIT artifact under a third-party notice until S6 removes it. Recommended.
