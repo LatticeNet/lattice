@@ -239,12 +239,15 @@ Seven slices, each independently shippable behind the unchanged `fetch`, `render
 
 ### S0 scope as landed (2026-10-09)
 
-An acceptance audit of S0 against its slice plan moved four items to the slice that gives them a surface or a dependency, and recorded one deliberate deviation.
+An acceptance audit of S0 against its slice plan moved four items to the slice that gives them a surface or a dependency, and recorded the deviations below.
 
 - The opt-in usage and probe exclusion rules, with their hysteresis, move to S2 with the structured filters that let an operator opt in. The probe rule also needs design 27's P2 results history, which does not exist yet, so the catalogue's probe block stays null until P2 writes it.
 - Age encryption on the artifact render path lands with artifacts in S5. S0 ships the shared encrypt function and the share serve path, placeholders included.
 - The stdio host frame stays at 4 MiB until S1 raises it on the SDK, the server and the plugin together. Until then an HTTP body that reaches a plugin is limited to about 3 MiB after base64, below both the 8 MiB fetch budget and the 4 MiB raw subscription bound.
 - The conformance harness opens no golden-update pull request against the plugin yet, because that needs a token that can write to a second repository. A re-pin runs the harness and the goldens are moved by hand until such a token exists.
+- The sandbox hotfix differs from the plan in three recorded ways. The guest root is a path that does not exist and cannot be created, rather than an empty mode-0500 directory, so nothing exists to be written. The native `qjs:std` and `qjs:os` modules stay registered: their globals are deleted, but a dynamic import still resolves and its file and environment calls return null or an error code instead of throwing, which reaches nothing either way. The timer globals are kept rather than replaced with an engine-controlled `setTimeout`, because user scripts run only on per-call runtimes that are discarded after the call. The embedded core also swallows a Script Operator's error and passes its nodes through unchanged, so a failing script is not reported; the native chain compiler reports a failed step instead.
+- The hotfix and its proof-of-concept test reached the public repository shortly before the fixed release was installed, because the release bundle is built by CI from pushed code. A future security fix to a public plugin repository is built and signed from a local commit, installed, and pushed afterwards.
+- The capability-wave manifest is prepared in S1, with the binary that serves it, not in S0. The vpn-core manifest that declares the line catalogue and the identity list is S0's one plugin signing, after the server release that serves them.
 - Deviation: `task.schedule` runs call the plugin method directly on the runtime service path, not through the operator task queue, so a scheduled method never runs under an operator's principal or borrows an operator's scopes. The 64-schedule limit, the five-minute floor and one run in flight per schedule id hold as specified.
 
 ## Decisions for the operator

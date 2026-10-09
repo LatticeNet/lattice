@@ -48,6 +48,8 @@ the design was ratified but the build is not confirmed complete here;
 | 24 | [Plugin page chassis](design-24-plugin-page-chassis.md) | 2026-09-04 | shipped | plugin-bridge `src/chassis` (4e2fc19); NetGuard, WireGuard and Sub-Store adopted it in design 23 wave 1, vpn-core follows in wave 3 |
 | 25 | [NetGuard security groups](design-25-netguard-security-groups.md) | 2026-09-05 | proposed | not built; its lockout-lint finding is fixed separately |
 | 26 | [Evidence retention, selective collection and an encrypted archive](design-26-evidence-retention.md) | 2026-10-04 | accepted 2026-10-05 | R1 built (a118, agent 0.3.10-alpha.4); R0 and R2 to R4 not built; the log-storage decision `PROGRAM.md` KI-10 waits on |
+| 27 | [Outbound probe](design-27-outbound-probe.md) | 2026-10-08 | accepted, P0 and P1 shipped | lattice-probe beside lattice-server since alpha-0.2.2a122, the vpn-core Probe layer in 0.11.0-alpha.4; P2 (Lines-row tests and history) and P3 (node vantage) not built |
+| 28 | [Native Sub-Store](design-28-native-substore.md) | 2026-10-08 | accepted, S0 landed server side | S0 server work on lattice-server integration with its scope recorded under "S0 scope as landed"; S1 to S6 follow its slice list; the program log records each release |
 
 Two different designs carry the number 18. That was a mistake and it is left in
 place because both filenames are cited elsewhere; distinguish them by their
