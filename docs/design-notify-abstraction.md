@@ -1452,7 +1452,10 @@ carry both fields. Other channel kinds are unchanged in this slice.
 The icons are PNGs generated once from the pinned lucide SVGs by a script in
 `lattice-server/scripts/notify-icons/`, committed under
 `internal/server/notifyicons/` and embedded. Each is a full-bleed square in
-the tone's fill with a white glyph, so iOS's mask and both iOS themes read it.
+the tone's fill with the glyph in the ink the console pairs with that fill, so
+iOS's mask and both iOS themes read it: white on critical, notice, recovered
+and quiet, and the dark `--warning-foreground` on warning, where white
+measures about 2.2:1.
 `/notify-icons/` serves only the embedded set, needs no session, sends a long
 immutable cache header, and answers 404 for anything else. A file name carries
 no data about the fleet.
