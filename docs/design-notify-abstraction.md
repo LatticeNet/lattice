@@ -1364,3 +1364,164 @@ Cross-cutting
 - [ ] PROGRAM.md notifications section and the vault note
   `设计与方案/2026_09_04_通知抽象与SDK能力设计.md` point at this document and
   record D1 to D7 once decided.
+
+## 13. Slice P: the presentation catalogue (2026-10-15)
+
+Operator request, 2026-10-15: every notification looks the same, on the phone
+and in the console, so telling a node going down from a routine SSH login
+takes reading the text. Today a Bark push carries one group per channel
+(`lattice` by default, `internal/notify/notify.go:144`) and no icon, so iOS
+stacks every Lattice push under one heading with the Bark icon; the console's
+only list of notifications, the Sent log on `/platform/notifications`, renders
+every row as a monospace `event_type` badge plus a title, and only the
+delivery outcome is coloured. The operator chose one catalogue that drives
+both surfaces.
+
+Slice P lands the catalogue of section 3 early, for presentation only. It is
+the same file and the same endpoint section 3 names, so slice A extends it
+instead of replacing it. It changes no routing: `notifyEventSeverity`
+(`internal/server/incidents.go`) and `notifyCriticalEventTypes`
+(`internal/server/notify_channel_fallback.go`) keep deciding which channels
+and Bark levels an event gets, and a test pins the two together (below) until
+slice A makes the catalogue's severity the routing input.
+
+### 13.1 The catalogue
+
+`internal/server/notify_catalogue.go` holds one static table. Each entry:
+
+| field | meaning |
+| --- | --- |
+| `type` | the event type, exact |
+| `category` | one of `nodes`, `services`, `monitors`, `agents`, `ssh`, `auth`, `quota`, `inventory`, `notify`, `plugins`, `webhooks`, `general` |
+| `severity` | section 3's closed set: `info`, `notice`, `warning`, `critical` |
+| `recovery` | true when the type ends a condition another type opened |
+| `icon` | a lucide icon name (kebab case), the glyph on both surfaces |
+| `description` | one English line; the console's fallback label |
+
+Lookup order: exact type; then `plugin.<id>.message` maps to `plugins`; then
+an operator-defined inbound webhook type maps to `webhooks`; anything else
+maps to the `generic` entry. Lookup never fails.
+
+| type | category | severity | recovery | icon |
+| --- | --- | --- | --- | --- |
+| node.offline | nodes | critical | | server-off |
+| node.online | nodes | info | yes | server |
+| service.down | services | critical | | power-off |
+| service.recovered | services | info | yes | power |
+| monitor.down | monitors | warning | | activity |
+| monitor.recovered | monitors | info | yes | heart-pulse |
+| agent.stalled | agents | warning | | hourglass |
+| agent.recovered | agents | info | yes | bot |
+| ssh.login | ssh | notice | | key-round |
+| ssh.compromise_suspected | ssh | critical | | shield-alert |
+| auth.2fa_limit | auth | warning | | lock-keyhole |
+| proxy.quota | quota | notice | | gauge |
+| proxy.expiry | quota | notice | | calendar-clock |
+| inventory.renewal | inventory | notice | | receipt |
+| notify.channel_failing | notify | warning | | bell-off |
+| notify.channel_ok | notify | info | yes | bell-ring |
+| notify.test | notify | info | | flask-conical |
+| plugin.<id>.message | plugins | info | | puzzle |
+| operator webhook types | webhooks | info | | webhook |
+| generic | general | info | | bell |
+
+Two deliberate differences from the section 3 table: `node.offline` is
+`critical`, because today's routing already treats it as critical and the
+console must not show a calmer colour than the page it caused; recoveries are
+`info` with `recovery` set rather than a severity of their own, so slice A's
+closed set stays four values.
+
+`GET /api/notify/catalogue` (scope `notify:admin`, refused for confined tokens
+like every route under `/api/notify/`) returns `categories` (id and English
+label), `types` (every exact entry), `patterns` (the plugin pattern) and
+`webhook_types` (operator-defined types, each with the `webhooks` entry's
+fields). Rows of `GET /api/notify/deliveries` gain `category`, `severity`,
+`recovery` and `icon`, computed from `event_type` at read time, so nothing is
+migrated and a catalogue change applies to history.
+
+### 13.2 Phone (Bark)
+
+Each push sets `group` to the category label (`Nodes`, `SSH`, `Plugins`, ...)
+so iOS stacks a node outage apart from a login. A channel whose configured
+group is non-empty and not the default `lattice` keeps it: the operator chose
+that. Each push sets `icon` to
+`<public URL>/notify-icons/<icon>-<tone>.png` when the server's public URL is
+set, and sends no icon otherwise. Both the JSON push and the GET fallback
+carry both fields. Other channel kinds are unchanged in this slice.
+
+The icons are PNGs generated once from the pinned lucide SVGs by a script in
+`lattice-server/scripts/notify-icons/`, committed under
+`internal/server/notifyicons/` and embedded. Each is a full-bleed square in
+the tone's fill with a white glyph, so iOS's mask and both iOS themes read it.
+`/notify-icons/` serves only the embedded set, needs no session, sends a long
+immutable cache header, and answers 404 for anything else. A file name carries
+no data about the fleet.
+
+### 13.3 Console
+
+Tone comes from the catalogue, never from the category: colour says how bad,
+the glyph says what. Five tones, all existing semantic tokens in
+`lattice-dashboard/src/style/app.css`, no new hue (the design program's rule
+that semantic colour is the only saturated colour on a page):
+
+| tone | when | disc | glyph ink |
+| --- | --- | --- | --- |
+| critical | severity critical | `--destructive` soft fill | `--destructive` |
+| warning | severity warning | `--warning` soft fill | `--warning-text` |
+| notice | severity notice | `--info` soft fill | `--info-text` |
+| quiet | severity info, not a recovery | muted fill | `--muted-foreground` |
+| recovered | recovery | `--success` soft fill | `--success-text` |
+
+The Sent log's message cell becomes:
+
+```
+1440, table row
+| 14:02:11 | (disc) Node offline                          | Bark primary | Sent |
+|          |        hk-1 missed three heartbeats          |              |      |
+|          |        Critical . node.offline . via server  |              |      |
+
+375, card
+ (disc)  Node offline                              Sent
+         hk-1 missed three heartbeats
+         Critical . node.offline . via server . 14:02
+         Bark . primary
+```
+
+The disc is 28 px with a 16 px glyph. The first line is the readable label
+(`en` and `zh-CN` strings per type, falling back to the catalogue
+description), then the title, then a muted meta line: the severity word only
+for critical and warning (so the distinction does not rest on colour alone),
+the raw `event_type` in mono (kept, because rules are written against it),
+and the origin. Every row starts with a screen-reader-only severity lead, as
+`IncidentList.vue` already does. The detail sheet's header shows the same
+disc and label. The event filter and the rule form take their options from
+the catalogue, grouped by category with the glyph, replacing the hard-coded
+list that misses `agent.stalled`, `agent.recovered` and `generic`. The glyph
+map is an explicit allow-list of imports; an unknown icon name renders `bell`.
+
+The signature element: the disc a push shows on the phone is the disc its row
+shows in the Sent log, same glyph and same tone, so a push and its record are
+recognisably one object.
+
+Rejected while reading the plan back against the request: a colour per
+category (decoration, and it would compete with severity for the one
+saturated colour); a severity badge on every row (badges that only restate a
+colour, against the design program's proof-line rule); one icon per category
+on the phone (an outage and its recovery would look alike); an in-app inbox
+(not asked; the Sent log is the list).
+
+### 13.4 Acceptance
+
+- [ ] Every event type the server can emit has a catalogue entry: a table test enumerates the emitter constants, every `classifyNotifyEvent` output and the incident types, and fails when one is missing.
+- [ ] Lookup: `plugin.latticenet.sub-store.message` maps to `plugins`; an operator webhook type maps to `webhooks`; `no.such.type` maps to `generic`.
+- [ ] Drift: the non-recovery types with catalogue severity `critical` are exactly the non-recovery types `notifyEventSeverity` treats as critical; the test names both lists on failure.
+- [ ] Routing is unchanged: the existing routing, fallback and Bark level tests pass without edits.
+- [ ] `GET /api/notify/deliveries` rows carry `category`, `severity`, `recovery` and `icon`; `GET /api/notify/catalogue` returns the four lists and refuses a confined token with an audited deny.
+- [ ] Bark: a push for `node.offline` sends group `Nodes` and the `server-off-critical` icon URL, on the JSON path and on the GET fallback; a channel configured with group `ops` keeps `ops`; with no public URL no icon is sent.
+- [ ] `/notify-icons/`: every (icon, tone) pair the catalogue can produce exists and decodes as a PNG; an unknown name and a path with `..` answer 404; no session is needed; the cache header is immutable.
+- [ ] Console: model tests cover tone mapping, label fallback, the unknown-icon fallback and filter options from the catalogue; `pnpm type-check`, `pnpm test:navigation` and `pnpm build` pass.
+- [ ] Console rendered and looked at, 1440 and 375, light and dark, with rows for every tone, a long title, an unknown type, a plugin type and a webhook type; design review passed.
+- [ ] Ships with the next server image (the dashboard is baked into it); switching production is the operator's decision.
+
+Out of this slice: severity-driven routing (slice A), Discord, Telegram and
+webhook styling, and an in-app inbox.
