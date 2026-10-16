@@ -20,10 +20,13 @@ The work can be done by hand in the console or delegated to AI agents through
 plans; either way the judgment stays with the operator. Every privileged change
 is a reviewed plan whose approval hashes what the operator was actually shown.
 Execution is bound to that exact plan, artifact digest, and target set. A
-hash-chained audit log records what actually happened. Nodes run an
-outbound-only agent that holds its own last-line policy, so neither a
-compromised control plane nor a misbehaving automation can quietly own the
-fleet.
+hash-chained audit log records what actually happened. Nodes run an agent
+whose control channel is outbound-only and that holds its own last-line
+policy, so neither a compromised control plane nor a misbehaving automation
+can quietly own the fleet. The one inbound socket an agent may open is the
+measurement beacon of design 29: off by default, enabled per node by an
+approved plan, authenticated, silent to anything unsigned, and vetoable on
+the node.
 
 This identity was not invented; it was noticed. The project is built and
 operated almost entirely by AI agents under one human's review, and every
