@@ -1,6 +1,6 @@
 # Design 27: outbound probe, a long-lived test engine for pasted outbounds
 
-Status: proposed, nothing built. Written 2026-10-08 as a read-only design for the operator's decision; the engine choice was settled the same day by a side-by-side benchmark (section "Engine benchmark").
+Status: accepted; P0 and P1 shipped (lattice-probe beside lattice-server, the host service `latticenet.vpn-core/probe` at `vpn:probe`, vpn-core's Probe layer, and System's probe health; the live versions are recorded only in `PROGRAM.md`). Saved targets were added to the design on 2026-10-16 (section "Saved targets") and are in review in lattice-probe, lattice-server and lattice-plugin-vpn-core. P2, P3 and P4 are not built. Written 2026-10-08 as a read-only design for the operator's decision; the engine choice was settled the same day by a side-by-side benchmark (section "Engine benchmark").
 Date: 2026-10-08.
 Reference: lattice-server `integration` at 90c0eeb (alpha-0.2.2a121), lattice-plugin-vpn-core `integration` at 382be4f (0.11.0-alpha.3), upstream SagerNet/sing-box tag `v1.13.19` (the tag `LatticeNet/sing-box-core` builds for the fleet), MetaCubeX/mihomo branch `Meta` as of 2026-10-08.
 
@@ -83,7 +83,7 @@ A semaphore bounds concurrent tests (default 32); each test has an overall deadl
 
 Many protocols return a connection before talking to the server (vless and vmess send the handshake with the first write), so a bare "dial time" means different things per protocol. Cold and warm delay measured on the HTTP request are comparable across all of them, and the server-reachable probe covers the transport level.
 
-Targets come from a fixed list the operator can extend in settings: `https://www.gstatic.com/generate_204`, `https://cp.cloudflare.com/generate_204`, `https://www.apple.com/library/test/success.html`. A request names targets from that list; it cannot supply a free URL (see Security).
+Targets come from two lists: the probe's built-in targets (`https://www.gstatic.com/generate_204`, `https://cp.cloudflare.com/generate_204`, `https://www.apple.com/library/test/success.html`), and the targets the operator saves in lattice-server (section "Saved targets"). A run names targets by id from either list. It never carries a URL of its own: for a saved id the server sends the stored definition, and the probe checks that definition again before it fetches anything (see Security).
 
 ### API between lattice-server and lattice-probe
 
@@ -128,10 +128,69 @@ lattice-server gains one route, `POST /api/vpncore/probe`, beside the existing v
 
 vpn-core gets a Probe layer: a JSON editor that validates against the sing-box option schema, a target picker, samples, UDP and throughput switches, and a result card with the table above. The same request runs from a Test action on a Lines row (slice P2), where vpn-core builds the client outbound from the line's share link, so the test sees what a subscribed client sees.
 
+### Saved targets (amended 2026-10-16)
+
+The operator asked on 2026-10-16 for targets of their own on the Probe page: a URL, the expected status and similar options. The three built-in targets answer "does this line reach the internet"; a saved target answers "does this line reach the service I care about".
+
+**Where the list lives.** lattice-server keeps up to 32 saved targets in its JSON state (the migrate round trip carries them in the bolt meta bucket). One saved target:
+
+```json
+{"id": "custom-home-nas", "label": "Home NAS health", "url": "https://nas.example.net:8443/health",
+ "method": "GET", "expect_status": "200-299,301", "body_contains": "ok",
+ "created_at": "2026-10-16T08:00:00Z", "updated_at": "2026-10-16T08:00:00Z", "version": 1}
+```
+
+The id is `custom-` plus a slug of the label, suffixed `-2`, `-3` on a collision, and never changes. lattice-probe reserves the `custom-` prefix, so a built-in id and a saved id can never be the same. `expect_status` is a set of statuses and ranges within 100 to 599, stored sorted and merged. `body_contains` is optional text the first 64 KiB of the body must contain.
+
+**Who may read and change it.** The probe service's `targets` method (`vpn:probe`) answers the built-in targets and then the saved ones, each marked `source: "builtin"` or `"custom"`, plus whether the running probe can measure saved ones:
+
+```json
+{"targets": [{"id": "gstatic-204", "source": "builtin", "url": "…", "method": "GET", "expect": 204, "expect_status": "204"},
+             {"id": "custom-home-nas", "source": "custom", "label": "Home NAS health", "…": "…", "version": 1}],
+ "custom": {"supported": true, "limit": 32}}
+```
+
+`target_create`, `target_update` and `target_delete` need `vpncore:admin` as well as `vpn:probe`; core checks both whatever the manifest declares. Update and delete name the version they read and are refused with 409 when it moved. Each change is audited as `vpncore.probe_target.create`, `.update` or `.delete` with the id and the host only. Holding `vpn:probe` alone lets an operator run saved targets, not choose where they point.
+
+**How a run uses it.** The run request still names targets by id. For each saved id, lattice-server adds the stored definition to the request it forwards, in a field the probe reads:
+
+```json
+"targets": ["gstatic-204", "custom-home-nas"],
+"custom_targets": [{"id": "custom-home-nas", "url": "https://nas.example.net:8443/health", "method": "GET",
+                    "expect_status": "200-299,301", "body_contains": "ok"}]
+```
+
+The server refuses a run that brings `custom_targets` of its own, and any top-level field that differs from one of the probe's request fields only by letter case or Unicode folding, because the probe's decoder would match `Custom_Targets` or `cuſtom_targets` to the same field; the probe refuses such fields too. A run that names built-in targets only is forwarded byte for byte, as before. The run's audit record adds, for each saved target, its id, host[:port] and a 12-hex hash of its definition, never the URL's path or query, so a later edit is visible against earlier runs without the URL entering the audit.
+
+**What the probe checks, again, before use.** lattice-probe trusts no definition because the server sent it:
+
+| Field | Rule |
+|---|---|
+| id | `custom-` plus 1 to 33 of `[a-z0-9-]`, unique in the request, never a built-in id, and named in `targets` |
+| url | at most 2 KiB of printable ASCII; https only (http only behind `LATTICE_PROBE_ALLOW_HTTP_TARGETS`, off in production); absolute; no credentials; no fragment |
+| port | the scheme's own, or an explicit one from 1024 to 65535 |
+| address literal | the same address policy as servers: global unicast, not in `LATTICE_PROBE_DENY_PREFIXES`, IPv4-mapped, NAT64 and 6to4 forms judged by the address they carry, no IPv6 zone |
+| host name | fully qualified ASCII with valid labels; not single-label (`localhost`); no trailing dot; no numeric last label, which lenient resolvers read as an address (`127.1`, `0x7f.1`); not under a special-use or local-only suffix (`localhost`, `local`, `internal`, `test`, `invalid`, `example`, `onion`, `alt`, `arpa`, `lan`, `home`, `corp`, `intranet`, `localdomain`) |
+| resolution hint | the probe resolves each host name before the run, distinct names side by side under one five-second deadline, and refuses the run when a name does not resolve or any address it gives fails the address policy; the refusal names no resolved address |
+| method | `GET` or `HEAD` |
+| expect_status | 1 to 16 statuses or ranges, each within 100 to 599 |
+| body_contains | at most 256 bytes of UTF-8 without control characters, GET only; searched only in the first 64 KiB and only under an expected status; the answer says `body_match` true or false and never returns body bytes |
+| count | at most 16 targets per run, built-in and saved together |
+
+Redirects stay off, a body is read at most to 1 MiB, and the existing per-operator limits, timeouts and in-flight ceiling apply unchanged.
+
+**Why a run still cannot carry an unchecked URL.** Three reasons, in order of weight. First, authority: running tests and deciding what the probe fetches are different grants. An operator who may only run tests would otherwise choose the destination by editing one request, and `vpncore:admin` would decide nothing. Second, the probe is the last place that can refuse. It cannot know whether the server that sent a definition checked it, is a version that checks the same things, or is compromised, so it applies its own rules every time, and a URL in a run would have no reviewed definition behind it at all. Third, accountability: a saved target has an id, a version and an audited change history, and every run records which definition it used by hash. A URL typed into one request would leave only that request.
+
+**What the checks do not cover.** A target is fetched through the outbound under test with the host name unresolved, so the proxy resolves it at the far end and may get another answer than the probe's hint, by DNS rebinding or a split-horizon resolver near the proxy. The URL rules hold regardless; the hint only catches names that point into a local network for everyone. What a target can reach is the tested proxy's network, never the control plane's: the probe dials only the proxy server, under the guard. `body_match` is a one-bit answer per run, limited to answers with an expected status and to the per-operator hourly budget.
+
+**Compatibility.** The probe lists `capabilities: ["custom_targets"]` in its health answer. lattice-server reads it before sending definitions: against an older probe, saved targets are listed with the reason they cannot run, and a run that names one is refused with 409 `probe_outdated` while built-in targets still run. An older console against a newer server sees saved targets as plain targets and can run them by id. A newer console against an older server gets no `custom` field and shows the built-in targets alone. Release order: lattice-probe, then lattice-server, then lattice-plugin-vpn-core, whose manifest declares the three edit methods.
+
+**Later reuse.** Design 29 (the Monitoring redesign, being written) may reuse these target definitions for scheduled checks. Nothing here builds that.
+
 ## Security
 
 - **Credentials.** A pasted outbound carries passwords and UUIDs. It travels only in the request body over TLS to the server and over the local socket to the probe; it is never written to the store, the audit WAL, task records or logs. Results are kept by config hash (slice P2), so a repeated test can be compared without keeping the secret.
-- **SSRF.** The probe refuses outbound types that are not proxies (`direct`, `block`, `dns`, `selector`, `urltest`), refuses `detour` to any tag the request did not define, and refuses a `server` that is or resolves to loopback, private, link-local, CGNAT or the hkg host's own addresses, unless the operator sets an explicit allowlist. The engine knows the non-global ranges itself; the host's own public addresses are global, so they reach it through `LATTICE_PROBE_DENY_PREFIXES`, which the compose file sets to the control plane's public addresses. The deny list is checked before the allowlist and also matches an IPv4 address embedded in an IPv4-mapped, NAT64 or 6to4 IPv6 address, so an allowlist can never reopen it. Without it, a run from the probe's bridge network could reach ports the host firewall hides only from outside. Targets come only from the configured list. The container network keeps it away from lattice-server's port even if a check is wrong.
+- **SSRF.** The probe refuses outbound types that are not proxies (`direct`, `block`, `dns`, `selector`, `urltest`), refuses `detour` to any tag the request did not define, and refuses a `server` that is or resolves to loopback, private, link-local, CGNAT or the hkg host's own addresses, unless the operator sets an explicit allowlist. The engine knows the non-global ranges itself; the host's own public addresses are global, so they reach it through `LATTICE_PROBE_DENY_PREFIXES`, which the compose file sets to the control plane's public addresses. The deny list is checked before the allowlist and also matches an IPv4 address embedded in an IPv4-mapped, NAT64 or 6to4 IPv6 address, so an allowlist can never reopen it. Without it, a run from the probe's bridge network could reach ports the host firewall hides only from outside. Targets are the probe's built-in list or the definitions lattice-server sends for saved targets a run names by id; the probe applies its own URL rules to every definition, whoever sent it (section "Saved targets"). The container network keeps it away from lattice-server's port even if a check is wrong.
 - **Who can reach the socket.** The socket is mode `0660` for uid and gid 65532, and lattice-server's process carries 65532 as a supplementary group. Plugin processes are lattice-server's children and inherit that uid, mount namespace and group, so a plugin process can open the socket directly and skip the `vpn:probe` scope check, the per-operator limits and the audit. The probe's own address policy and in-flight ceiling still apply, and a plugin process already reads everything lattice-server's uid reads, so this adds no reach; it closes when plugin processes get their own uid or a mount namespace without the socket directory.
 - **Abuse.** Per principal: at most 4 concurrent tests and 120 per hour by default; throughput tests off unless asked, capped at 25 MB each.
 - **Scope.** `vpn:probe` is separate from the scopes that change nodes, because a probe changes nothing but does spend the host's bandwidth and reveals reachability.
