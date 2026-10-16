@@ -158,6 +158,77 @@ Saving a check or the path set is an audited configuration change, as monitor co
 - The SDK `MonitorResult` and the stored row gain sent, lost and a bounded per-packet RTT list (at most 10).
 - A node-agent prerelease, rolled out through the normal approved update path.
 
+### D11. M2a wire contract
+
+Added 2026-10-16 with the SDK change that carries it (lattice-sdk `feature/20261016_monitoring-paths-m2a`). The agent, the server and the console build against this section. Every field is additive and omitted from JSON until set, so a deployed agent decodes the monitor list it always did and an older server ignores what a newer agent reports. The shared rules (status sets, header rules, origins, destination refusal, probe methods) are functions in `model/monitor_checks.go`, so the server and the agents apply one implementation.
+
+**Capability facts.** The agent adds two top-level keys to the body of every `POST /api/agent/hello` and every heartbeat (`/api/agent/metrics`), beside `capabilities`:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `probe_methods` | list of strings | The monitor kinds this agent runs on this host now: `tcp`, `http`, `icmp` (and `beacon` from M2b). An M2a agent always lists `tcp` and `http`. |
+| `probe_refusals` | object, kind to reason code | Kinds the agent implements but the host refuses, for example `{"icmp": "icmp_not_permitted"}` when `net.ipv4.ping_group_range` excludes the agent's group. A refused kind is not in `probe_methods`. |
+
+The server replaces both on every hello and heartbeat and stores them on the node as `Node.ProbeMethods` and `Node.ProbeRefusals` (persisted, so they survive a server restart). An absent or empty `probe_methods` means an agent older than M2a, which runs exactly `tcp` and `http` (`model.EffectiveProbeMethods`). Unknown kinds are dropped. Node reads (`GET /api/nodes` and the node view) carry `probe_methods` as the effective list and `probe_refusals` as stored.
+
+**Gating.** The server hands a source a check only if the check's kind is in the source's effective methods, and an http check with a status set other than the default or with any header only to a source that reports `probe_methods` at all, since an older agent would judge it by the old rule and send it without its headers. `GET /api/agent/monitors` and the path matrix apply the same rule. A path whose source does not run its kind reads unknown with reason `agent_too_old`, or with the refusal's code when the kind is in `probe_refusals`. It never reads down for that reason. An M2a agent that is still handed a kind it does not know reports a result with reason `agent_too_old` and no failure.
+
+**Check fields** (`model.Monitor`):
+
+| Field | JSON | Kinds | Bounds and default | Set by | Read by |
+|---|---|---|---|---|---|
+| TargetNode | `target_node` | icmp, tcp | an existing node id | operator on create (immutable on edit), planner on generated checks | server resolution, visibility; agents only to skip the private-range refusal |
+| Target | `target` | all | icmp: an IPv4 literal; tcp: host:port; http: URL | operator, or the server when `target_node` is set | agents dial it |
+| Packets | `packets` | icmp | 1 to 10, zero reads as 5; echoes 200 ms apart | operator, planner (5) | agents |
+| ExpectStatus | `expect_status` | http | comma list of codes and ranges 100 to 599, at most 16 entries; empty reads as `200-399`; stored canonical (sorted, merged) | operator | agents |
+| Headers | `headers` | http | at most 8, `{name, value, secret, set}`; names are tokens up to 64 bytes, unique without regard to case, stored canonical (`X-Api-Key`); values 1 to 4096 bytes, no control characters but tab; `Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Upgrade`, `TE`, `Trailer`, `Expect` and every `Proxy-*` are refused | operator | agents |
+| SecretsOrigin | `secrets_origin` | http | `scheme://host:port`, lower case, port always written (`model.MonitorOrigin`) | server, whenever any header is secret | agents |
+
+**Resolution of `target_node`.** The server resolves per kind each time it hands a check to an agent (operator checks in the agent monitor list, generated checks in the planner every two minutes), so a moved address or a new line follows without an edit. icmp resolves to the node's public IPv4. tcp resolves to the node's public TCP line port by the rule the latency planner already uses (never SSH, never a knock-gated port). A check whose node cannot be resolved for its kind is refused on create with the reason, and is left out of the agent's list later, its paths reading unknown with `not_probeable`. http does not take `target_node` in M2a; beacon adds its own resolution in M2b.
+
+**Generated checks.** The path set (the latency configuration) gains `method` (`""`, `tcp`, `icmp` or `auto`; empty reads as `tcp`, so a stored configuration keeps today's paths and history) and `source_methods` (source node id to the same values, overriding `method`). `auto` picks per source the first kind both ends support: icmp when the source runs it and the target has a public IPv4, else tcp when the target has a TCP line. A pin never falls back: a pinned icmp pair whose source does not run icmp reads unknown `agent_too_old`. Generated ids are `mon_lat_<target>` for tcp (unchanged) and `mon_lati_<target>` for icmp; each is assigned the sources that use its kind for that target, carries `target_node`, never carries headers, and is kept paused with its history while no source uses it. The pair state gains `method` and `reason`; the plan's node gains `icmp_target` and `icmp_monitor_id`. A target whose enabled pairs are all held by their sources' methods reads paused with target reason `source_method` (added in lattice-sdk da0390e). The path series by (source, target node) joins both ids and marks the switch in `method_changes`.
+
+**Validation on save** (create, edit, and the path set):
+
+- Creating or editing a check or the path set needs `monitor:admin`, admin on every source, and `monitor:read` on every node it names as a target.
+- icmp: the target is a node reference or a global IPv4 literal. The interval floor is 10 s, and a run, (packets minus 1) times 200 ms plus the timeout, must end before the next one starts. Per (source, target address), the packets per second of every enabled icmp check together, operator and generated, packets over interval summed, may not exceed 2.
+- tcp: a node reference, or host:port whose host is a name or a global IP literal.
+- http: an absolute http or https URL with a host and no user info; a literal host must be global, and `localhost` and names under `.localhost` are refused. A check with any secret header must use https. There is no skip-verify option, so certificates are always verified.
+- A host whose last label is a number (`2130706433`, `127.1`, `0x7f.1`) is refused, because some resolvers read it as an address and no DNS name ends in a number; so is a host with a zone. An edit does not judge the stored target again, so a check saved before these rules stays editable; the agent still refuses its destination at dial time.
+- Destination refusal (`model.MonitorDestinationRefused`, lattice-sdk c9739fa): loopback, link-local, metadata (169.254.0.0/16, fd00:ec2::254), multicast, private (RFC 1918, fc00::/7), carrier-grade NAT (100.64.0.0/10), 0.0.0.0/8, 192.0.0.0/24, 192.88.99.0/24, 198.18.0.0/15, 240.0.0.0/4 (broadcast included) and unspecified; NAT64 (64:ff9b::/96), 6to4 (2002::/16) and IPv4-translated (::ffff:0:0:0/96) addresses judged by the IPv4 address they embed; local-use NAT64 (64:ff9b:1::/48), IPv4-compatible (::/96), site-local (fec0::/10), Teredo (2001::/32) and discard-only (100::/64) refused outright (lattice-sdk f268902). Documentation ranges stay allowed for monitors. An IPv4-mapped address is judged as IPv4 and a zone never changes the verdict. A node reference resolved by the server is exempt at the agent; the server judges the node's public address by the same rule when it resolves it.
+- `packets` only on icmp, `expect_status` and `headers` only on http; tls takes none of them.
+
+**Secret headers.**
+
+- A secret header's value is encrypted at rest as notification channel secrets are, and every response the server gives (create, edit, list, audit) carries `{"name", "secret": true, "set": true}` with no `value`. Plain headers are returned with their value. Audit records name the headers that changed, never a value.
+- Only the agents assigned the check receive values, in `GET /api/agent/monitors`. Generated checks never carry headers.
+- Secrets are bound to `secrets_origin`. Because a check's target cannot change on edit (a new target is a new check), a new origin always starts without secrets; the console cannot carry them across because it never holds them.
+- Edits use `MonitorUpdate.headers`, a list of `{name, op, value, secret}` applied in order. `keep` asserts the header exists (the edit is refused when it does not, so a stale editor notices). `set` adds the header or replaces its value and secrecy and needs a value. `delete` removes it and is a no-op when it is absent. A header the list does not name is kept, and a name may appear once per edit. Absent or empty leaves the headers unchanged. An echoed read therefore can neither wipe nor leak a secret.
+
+**What the agent enforces.**
+
+- Every kind: resolve the target once, judge every address with `MonitorDestinationRefused` unless `target_node` is set, refuse the run when any address is refused, and dial only an address it judged (no second lookup, no proxy from the environment). A refused run reports reason `destination_refused`.
+- http: GET only. Redirects are never followed for any http check; a 3xx is the answer and is judged against `expect_status`. Latency is the time to the response headers, and the body is closed unread. Secret headers are sent only when the request's origin equals `secrets_origin` and the scheme is https; otherwise the run reports `destination_refused` without sending anything. Error text never carries a header value.
+- icmp: unprivileged `udp4` echo sockets, `packets` echoes 200 ms apart, a fixed 32-byte payload carrying 16 random bytes per echo, and a reply counts only if its payload and source address match. Each echo waits `timeout_sec`. When the kernel refuses the socket, the run reports `icmp_not_permitted` with `sent` zero, and the agent moves icmp to `probe_refusals`.
+- Error text: URL user info and query are removed. The server removes them again before storing. This is a second layer, not a promise: a token belongs in a secret header, never in a URL, because the URL is returned to everyone who can read the check.
+
+**Results** (`model.MonitorResult`):
+
+| Field | JSON | Meaning |
+|---|---|---|
+| Sent | `sent` | echoes sent by a multi-packet run, 1 to 10; zero for tcp and http |
+| Lost | `lost` | echoes with no matching reply, 0 to `sent` |
+| RTTsMs | `rtts_ms` | RTT of each echo that came back, in send order; length `sent` minus `lost`, at most 10 |
+| LatencyMs | `latency_ms` | a multi-packet run's median RTT (mean of the two middle values when even) |
+| Success | `success` | for a multi-packet run, true when at least one echo came back |
+| Reason | `reason` | a code (`[a-z0-9_]`, at most 40) for a run that could not measure the path: `agent_too_old`, `icmp_not_permitted`, `destination_refused`; `success` is false |
+
+tcp and http results carry `sent` 0 and no `rtts_ms`; the server counts each such run as one probe. An icmp run that fails before any echo leaves (a lookup or socket error other than permission) carries `success` false, `sent` 0, an error and no reason, and is an ordinary failed run. `cert_not_after` is tagged `omitzero` and is absent unless a tls handshake read a certificate. The server refuses a result whose packet fields are out of bounds or inconsistent and zeroes them on single-probe kinds. The batch route decodes entries one by one: an entry that does not decode or fails the bounds is listed in `dropped` with reason `invalid` and the rest of the batch is stored, because an agent drops the whole batch on a 400. It keeps refusing results for checks not assigned to the authenticated node, and a result that names another node is now dropped as `wrong_node` instead of being rebound to the posting node. A result with a reason is stored raw and as the pair's latest, counts as neither success nor failure in rollups and fail streaks, and makes the path read unknown with that reason while it is the latest.
+
+**Rollups and reads.** Buckets gain `sent` and `lost`, counting probes: every echo of a multi-packet run, and one per run of tcp or http. Loss is `lost / sent` where `sent` is above zero, and `fail / n` in buckets written before M2a. A multi-packet run counts once in `n`, and its median RTT enters the histogram and the jitter figure (the difference between consecutive successful runs, as in M1). Series buckets carry `sent` and `lost`.
+
+**States and reasons.** New unknown reasons: `agent_too_old`, `icmp_not_permitted`, `icmp_filtered`, `destination_refused`. icmp all-loss runs on a path that has never had an echo back read unknown `icmp_filtered` and do not page. Once a path has succeeded, all-loss runs count as failures, so `alert_after` of them in a row read down and page as any other failure.
+
 ## Slices
 
 | Slice | Contents | Repos | Ships as |
