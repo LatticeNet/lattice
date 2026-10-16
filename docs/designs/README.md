@@ -50,7 +50,7 @@ the design was ratified but the build is not confirmed complete here;
 | 26 | [Evidence retention, selective collection and an encrypted archive](design-26-evidence-retention.md) | 2026-10-04 | accepted 2026-10-05 | R1 built (a118, agent 0.3.10-alpha.4); R0 and R2 to R4 not built; the log-storage decision `PROGRAM.md` KI-10 waits on |
 | 27 | [Outbound probe](design-27-outbound-probe.md) | 2026-10-08 | accepted, P0 and P1 shipped | lattice-probe beside lattice-server since alpha-0.2.2a122, the vpn-core Probe layer in 0.11.0-alpha.4; P2 (Lines-row tests and history) and P3 (node vantage) not built |
 | 28 | [Native Sub-Store](design-28-native-substore.md) | 2026-10-08 | accepted, S0 landed server side | S0 server work on lattice-server integration with its scope recorded under "S0 scope as landed"; S1 to S6 follow its slice list; the program log records each release |
-| 29 | [Monitoring paths](design-29-monitoring-paths.md) | 2026-10-16 | proposed | operator-defined checks between nodes, an opt-in authenticated agent beacon, a week of five-minute history; slices M1 to M4 not built |
+| 29 | [Monitoring paths](design-29-monitoring-paths.md) | 2026-10-16 | accepted 2026-10-16 after architecture and security review | operator-defined checks between nodes, an opt-in authenticated agent beacon, a week of five-minute history; slices M1, M2a, M2b, M3, M4 not built |
 
 Two different designs carry the number 18. That was a mistake and it is left in
 place because both filenames are cited elsewhere; distinguish them by their
