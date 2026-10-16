@@ -269,6 +269,18 @@ After any release wave: update `docs/.vitepress/data/versions.ts`, run
 workflow token, so a stale `verify`-marked pin fails the deploy rather than
 quietly misinforming readers.
 
+### 6.5 Auto-approve rules and Sub-Store plans
+
+An operator can configure auto-approve rules in `LATTICE_APPROVAL_AUTO_RULES`
+(off by default). A rule that names no `plugin` matches the approvals of
+every plugin except a Sub-Store plan: the server approves a `substore-plan`
+approval by rule only when the rule's `plugin` field is exactly
+`substore-plan`. A rule with only `writer` or `action_prefix` leaves a
+Sub-Store plan pending for a human, and so does a rule naming the plugin id
+`latticenet.sub-store`, which is not the approval's plugin column. A plan
+changes what existing identity holders receive across the fleet, so the rule
+that approves one has to say so.
+
 ## 7. Self-help before reporting
 
 - Server race suite "deadlocks": you forgot `-timeout 40m`. Grep for
