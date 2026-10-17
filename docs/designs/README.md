@@ -52,10 +52,11 @@ the design was ratified but the build is not confirmed complete here;
 | 28 | [Native Sub-Store](design-28-native-substore.md) | 2026-10-08 | accepted, S0 landed server side | S0 server work on lattice-server integration with its scope recorded under "S0 scope as landed"; S1 to S6 follow its slice list; the program log records each release |
 | 29 | [Monitoring paths](design-29-monitoring-paths.md) | 2026-10-16 | shipped in part | operator-defined checks between nodes, an opt-in authenticated agent beacon, a week of five-minute history; M1 to M3 shipped; M4 is the Monitoring section of `../architecture.md` and `../tutorials/monitoring.md`; the program log records each release |
 | 30 | [Plugin process isolation](design-30-plugin-process-isolation.md) | 2026-10-16 | proposed 2026-10-16, revised the same day after architecture and security review | a per-plugin uid under the plugin runner so a compromised signed plugin cannot read `master.key`, the state tree, the audit WAL or the probe socket, nor signal the server; closes `PROGRAM.md` KI-22; slices S1 to S3 not built |
+| 31 | [Agent binary distribution](design-31-agent-binary-distribution.md) | 2026-10-17 | proposed 2026-10-17 | ordered download sources per node sharing one digest-pinned partial, with a speed cutoff; a mirror registry; a global mirror on Cloudflare R2; a mainland mirror served by the agent on cd-hs-sh behind a `node.mirror` plan; S1 (resumable download, lattice-server #204) merged into `integration` 2026-10-17; S2 to S6 not built |
 
 Two different designs carry the number 18. That was a mistake and it is left in
 place because both filenames are cited elsewhere; distinguish them by their
-slug, not their number. Number 21 is the Astra approval-device proposal, whose design is in this folder while its code waits on unmerged branches. The next unused number is 31.
+slug, not their number. Number 21 is the Astra approval-device proposal, whose design is in this folder while its code waits on unmerged branches. The next unused number is 32.
 
 ## Shared architecture
 
