@@ -1,6 +1,6 @@
 # Design 29: Monitoring paths, operator-defined checks between nodes with a week of history
 
-Status: accepted 2026-10-16 after an architecture review and a security review the same day (their findings are folded into D1 to D6, D10, Slices and Risks); the operator asked for this work and granted release authority the same day (`PROGRAM.md` Decisions 2026-10-16). Built: M1 shipped in server alpha-0.2.2a126 (2026-10-16); M2a was built as a128 and shipped inside a129 (2026-10-17); M2b shipped in a129 (2026-10-17) with node agent prerelease v0.3.10-alpha.6, whose rollout to nodes `PROGRAM.md` tracks; M3 shipped in a130 (2026-10-17); M4 is the Monitoring section of `docs/architecture.md` and the operator guide `docs/tutorials/monitoring.md`, both written from the code. Where the code and the text below differ, those two documents follow the code. `PROGRAM.md` says what is live now.
+Status: accepted 2026-10-16 after an architecture review and a security review the same day (their findings are folded into D1 to D6, D10, Slices and Risks); the operator asked for this work and granted release authority the same day (`PROGRAM.md` Decisions 2026-10-16). Built: M1 shipped in server alpha-0.2.2a126 (2026-10-16); M2a was built as a128 and shipped inside a129 (2026-10-17); M2b shipped in a129 (2026-10-17) with node agent prerelease v0.3.10-alpha.6, whose rollout to nodes `PROGRAM.md` tracks; M3 shipped in a130 (2026-10-17); M4 is the Monitoring section of `docs/architecture.md` and the operator guide `docs/tutorials/monitoring.md`, both written from the code. Where the code and the text below differ, those two documents follow the code, and [As built](#as-built-2026-10-17) lists each difference by decision. `PROGRAM.md` says what is live now.
 Date: 2026-10-16.
 Reference: lattice-server `integration` at a6caff4 (alpha-0.2.2a124), lattice-dashboard `integration` at 2ce7dd2, lattice-node-agent `integration` at c8c3a8f, lattice-sdk `integration`, umbrella at 4608e85.
 
@@ -409,6 +409,90 @@ The evaluator opens `path.degraded` for a pair when the record is degraded (not 
 - SDK: `ValidateDegradedRule` at and beyond every bound, NaN, infinities and negatives; the canonical form (defaults stored as zero, rounding, nil when all default); `DegradedLossTrigger` and `DegradedLatencyTrigger` on both arms (base p50 20 ms gives 50 ms, 100 ms gives 200 ms; base loss 0 gives the floor); `EffectiveMonitorAlert` for empty, each value, generated and not; JSON round trips in which a check and a path set without the new fields encode exactly as before.
 - Server: the evaluator's table tests: entering only on the second consecutive evaluation, leaving only after ten minutes absent, a found condition during clearing cancelling it; the gate at 23 and 24 hourly buckets; the probe floor at 29 and 30; strict comparison at exactly the trigger; the latency floor at 4 and 5 runs; per-check thresholds over the defaults and the path set's over generated checks; tls never judged; a method switch starting a new gate; down and unknown winning over degraded in the matrix; the cell's reason and evidence; `degraded_at` null before the first run. Restart: a degraded record and a clearing record written by one server and read by a new one on the same files keep `since` and `clear_since`, and the new server opens no second incident and sends nothing. Incidents: `path.degraded` only under `down_and_degraded` (check or path set) and only for a record that entered while the path read up; an outage-made record sending nothing for its episode; the recovery only after the open was sent; a flap within 30 minutes reopening the same record; a policy change, a pause and a removed source closing it without a recovery; the default path set paging nothing; a path set on `down` paging `monitor.down` for generated paths after `alert_after` failures while `off` keeps the M1 skip. The catalogue and icon tests (`TestNotifyCatalogueCoversEveryEmittedType`, `TestNotifyIconManifestMatchesCatalogue`, `TestNotifyIconsCoverCatalogue`, `TestNotifyCatalogueCriticalMatchesRouting`) pass with the new entries. Series: `baseline` not ready under 24 hours and its triggers computed with the check's thresholds; `previous` aligned to the buckets, falling back to the coarse tier, null where empty, refused for an unknown `compare`, and scoped as the series is. Saves: `alert` and `degraded` on create, edit and the path set, with bounds, the tls refusals, absent keeping, `{}` resetting, and `normalizeLatencyProbeConfig` keeping the three new fields; audit records name the changed fields. Store: `MonitorRollupBaselines` merging as `MonitorRollupSummaries` does and counting hours; the new bucket deleted with a monitor's and a node's history. A benchmark, `BenchmarkPathDegradedEvaluate`, of one evaluation at 600 paths on `newBenchFleet` while ingest runs, reporting milliseconds per evaluation and ingest p99. Golden responses: `TestM3GoldenResponses` builds a fleet with a path degraded on loss, one on latency, one on both, one clearing, one down, one unknown with its reason and a tls check, runs the evaluator, and holds what the real handlers send to the files in `internal/server/testdata/m3-golden/` (`paths-1h.json`, `paths-7d.json`, `series-degraded-latency-1h-previous.json`, `monitors.json`, `path-set.json`, `notify-catalogue-path-entries.json`), regenerated with `LATTICE_UPDATE_M3_GOLDEN=1`; the console's M3 fixtures are copied from them, never written by hand. `go test -race` on the evaluator and the files it touches, and the full non-race `internal/server` suite once.
 - Dashboard: `pathsModel` tests for the degraded state, counts, rank, attention order, reach and the `state:degraded` query; a new `triangulationModel.test.ts` (added to the `test:navigation` file list) for both families, rule order, the two-source and corroboration requirements, a single source always reading "this path", unknown paths never counting as fresh, and the evidence inputs; `pathSeriesModel` tests for reading `baseline` and `previous`, the ceiling covering the trigger, the not-ready note and null previous steps; `topologyModel` tests for edges from matrix states, a fan per drawn source, the default of the first four sources in path set order, `topo.sources` round trips and state tones only; `checksModel` tests for the three policies, the tls refusal, threshold bounds and the diff (unchanged thresholds not sent, `{}` for a reset); `notifyCatalogueModel` and `incidentSeverity` tests for the new types and glyphs. Then `pnpm type-check`, `pnpm test:navigation` and `pnpm build`, and the harness driven at 1440 and 375 in light and dark (degraded cells, the attention list with verdicts, the reach strip, the chart with guides and the overlay, Topology fans and the picker, the thresholds disclosure, the single-source case), followed by a design review.
+
+## As built (2026-10-17)
+
+D1 to D13 stay as they were accepted; this section lists where the shipped code differs from them. It was read against lattice-server `integration` 15eb07d, lattice-dashboard 85ee786 and lattice-sdk f5ab5eb, whose differences umbrella PR 25 listed, and corrected by the monitoring follow-ups in lattice-server PR 201, lattice-sdk PR 31 and lattice-dashboard PR 120, which were open and not merged when this was written; an entry that depends on one of them names it. "Intended" means the code is the behaviour to keep and the text above is the stale part; "known gap" names the follow-up that would close it. D2 has no entry because neither reading found a difference there. `docs/architecture.md` and `docs/tutorials/monitoring.md` describe the code in full.
+
+### D1
+
+- The server refuses an edit that changes kind or target with 400, and the console creates the new check and pauses the old one; intended, since one series still never mixes two methods.
+- Create, edit and the path set save share one `alert_after` rule, 1 to 20 or 0 for the default of 2, with one error message (lattice-server PR 201); intended, where an edit used to refuse the 0 a create accepted.
+
+### D3
+
+- Nothing re-plans the source set automatically: an added source reads `firewall_pending` under NetGuard, or `beacon_source_pending` without it, and under NetGuard a removed source stays in the allow set, until an operator files a `node.beacon` change plan (without NetGuard a removed source leaves the table at the target's next config pull); intended, because every change to the approved set goes through an approval.
+- `GET /api/nodes/beacon` returns `replan` and `GET /api/monitors/paths` returns `beacon_replans`, each naming the node, the reason, the added and removed sources, any open approval and the request `{node_id, action: change}` that the existing plan route takes as it is (lattice-server PR 201, lattice-sdk PR 31); intended.
+- The console offers that request as one action on the path and check sheets, the Overview and the node's Beacon card, which opens the change plan sheet on the applied settings and files nothing until the operator submits it (lattice-dashboard PR 120); intended.
+- Epochs overlap by time, not by pull cycles: sources switch 20 s after the target first pulls the new table, and the old epoch is accepted for 2 minutes and then held 10 minutes as retired, as D12 states; intended.
+- The agent binds the plan's bind address, by default the primary interface address (private behind NAT), not the public IPv4, as D12 states; intended.
+- A tag-verified request that is not fresh gets a signed `stale` reply, at most one a second per source, as D12 states; intended.
+
+### D4
+
+- The server projects size at the stored retention only, and the console extrapolates to the chosen retention at about 60 KB per path per day and owns the 300-path warning; intended, since the page shows what D4 asks for.
+- The server's per-key fallback of 260 bytes projects about 22 MB of coarse rollups for 100 paths, not 7 MB; intended, since the text's figure used the 85-byte logical value size rather than size on disk.
+
+### D5
+
+- The matrix returns `prev`, the p50 and loss of the same window one period earlier, and the console computes the delta; intended.
+- Series buckets carry no `method`, because `method_changes` marks each switch, and their fields are `min_ms`, `p50_ms`, `p95_ms`, `max_ms` and `jitter_ms` with `expected` and `loss`; intended.
+- The latency series route is a separate implementation (its own shape, 1h, 24h and 7d, one check) with no removal date; known gap, follow-up: retire it once no supported console reads it.
+- The server accepts 14d whatever the fine retention and reads hourly buckets for it, and only the console hides the button; intended, since the coarse tier can always answer.
+- A series step is never shorter than the check's interval, so a check that runs every 5 minutes reads 5-minute steps even over 1h; intended.
+- A series of span at step holds ceil(span/step) steps, the last one in progress, and that step expects the larger of the runs certainly due and the runs heard (lattice-server PR 201); intended, where a 1h series used to hold 61 steps.
+- A matrix window is the span/resolution whole buckets of its tier before the bucket in progress, so a path that ran every interval reads 60 of 60 runs over 1h and the figures lag by at most one bucket of the tier (lattice-server PR 201); intended, where it used to read 61 of 60.
+
+### D6
+
+- A path reads down after `alert_after` failed runs whatever its alert policy, so a path on `off` still reads down; intended, since the policy decides paging, not state.
+- `pendingIncidents` and the startup adoption skip paths that read beacon-filtered as well as icmp-filtered, so a beacon path that never answered is no longer listed as a pending `monitor.down` that could never page (lattice-server PR 201); intended.
+
+### D7 to D9
+
+- `?view=latency` redirects to Paths with no expiry; intended, so old links keep working.
+- The chart's band falls back to the p50 for a bucket with no min; intended.
+- Min and max ticks follow the series step (raw or 5-minute buckets) rather than the drag zoom; intended, since the step decides whether the ticks mean anything.
+- The canvas labels a gap "no data" without its reason; known gap, follow-up: buckets carry no reason, so naming it needs a series field first.
+- Loss bars and loss figures take the path's tone: red when down, amber when degraded, the foreground ink at lower strength when up, muted when unknown or paused (lattice-dashboard PR 120); intended, where an up path's loss used to be red.
+- The path set has its own sheet, `PathSetSheet.vue`, as D13 already names; intended.
+- The editor's endpoint preview lists the first 8 sources and counts the rest; intended.
+- The editor bounds the timeout at 60 s, mirrored from lattice-sdk `model.MonitorTimeoutMaxSec` and pinned by a test (lattice-dashboard PR 120); intended, where it accepted up to 300 s that the server refused.
+- Copy noted in umbrella PR 25 and outside lattice-dashboard PR 120: Topology's empty state says "Open Latency" and "Open Monitors", the Checks query hint omits beacon, an up path with no p50 prints "down" in its cell, and a paused path's sheet badge reads "unknown"; known gap, follow-up: a console copy change, not yet opened.
+
+### D10
+
+- The agent reports the icmp refusal on every hello and heartbeat and rechecks it every 10 minutes, not once; intended, since the server replaces the facts on every report (D11).
+
+### D11
+
+- The packets-per-second budget is summed per (source, resolved target string) over icmp and beacon checks, so icmp to a node's address and beacon to its endpoint are separate budgets; intended, matching D11 and D12 kind by kind.
+- Only a save judges the budget, never the planner's re-plans of generated checks; known gap, follow-up: judge it when the planner re-plans.
+- Saving the path set needs `monitor:admin` from a caller with no node allowlist, rather than per-node checks of every source and target; intended, since that is the stricter test for a fleet-wide rule.
+- The 10 s interval floor applies to every kind, tls included, and every save bounds the interval at 10 s to 86400 s and the timeout at 1 to 60 s and below the interval, read from lattice-sdk constants (lattice-sdk PR 31, lattice-server PR 201); intended.
+- `packets` is accepted on icmp and beacon and `target_node` on icmp, tcp and beacon, as D12 extends this table, and the save errors now say so (lattice-server PR 201); intended.
+- An edit's audit record lists every current header name, not only the changed ones, and never a value; known gap, follow-up: name only the headers that changed.
+- An http run's latency includes name resolution, connect and TLS, and failed runs record one too; intended, as the time until the answer.
+
+### D12
+
+- The reachability check is deleted with its history once a verdict is stored, not paused, and a result such as `beacon_no_key` keeps it running until one is; intended.
+- The server re-syncs the reachability check whenever the target's reported state, bind or port changes, so a change plan that moves the port or the bind starts one (lattice-server PR 201); intended, where only a state change did before.
+- Rotation is immediate only at the decision of a change plan that drops a source, and any other removal rotates at the target's next config pull; intended.
+- Reading a beacon approval also needs `monitor:read` and `network:plan` on the node; intended, as the stricter rule.
+- The agent ignores `responder.limits` and applies the SDK's 20 requests a second; intended while the limits are constants.
+- The facts' `sources` is a count, not a list of source ids; intended.
+- `beacon_not_listening` needs refusals on two requests, or on the only one sent, so one stray refusal does not decide it; intended.
+- `responder` is also withheld while the NetGuard companion is pending or has failed, as the source set paragraph already requires; intended.
+- Each source's egress address is kept in the durable beacon registry and written only when it moves, so a server restart no longer changes a re-rendered plan and refuses its pending approval as stale (lattice-server PR 201); intended.
+
+### D13
+
+- There is no `monitorPages`: paging is `notifyMonitorTransition` reading `monitorPolicy`; intended, only the name differs.
+- `pathStateOf` has a no-result step after agent offline, and the degraded overlay is applied in `pathMatrixFor`, not in `pathStateOf`; intended.
+- The console's alert and verdict labels are worded differently from the examples above, and its locale files hold the shipped wording; intended.
+- The CI job `m3 golden drift` (`scripts/check-m3-golden-drift.sh`) fails when the console's copies at `dashboard.ref` differ from `internal/server/testdata/m3-golden/` (lattice-server PR 201); intended, since it enforces the copy rule above.
+- A path whose 7-day loss is 100 percent shows a loss trigger of 200 percent, because the trigger has no cap; known gap, follow-up: cap the trigger at 100 percent or say that the loss arm cannot fire.
 
 ## Slices
 
