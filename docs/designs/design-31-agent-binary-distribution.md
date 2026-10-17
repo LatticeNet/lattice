@@ -1,199 +1,326 @@
-# Design 31: agent binary distribution, ordered sources and mirrors for nodes on very different networks
+# Design 31: agent binary distribution for nodes on very different networks
 
-Status: proposed 2026-10-17 for the operator's decision. Slice S1 (resumable download, lattice-server #204) is merged into lattice-server `integration` and reaches production with the next server release, which `PROGRAM.md` records; S2 to S6 below are not built. This is a design produced from the `integration` checkouts below; the facts in "How the download works today" were read in source before anything was decided.
+Status: proposed 2026-10-17. Revised the same day after an architecture review and a security review. The first revision placed the four slow nodes in mainland China, which was wrong, and its recommendation rested on that; this revision is rebuilt on the corrected evidence, and the findings of both reviews are addressed in the text and listed with their dispositions at the end. S1 (resumable download, lattice-server #204) is in production since 2026-10-17; `PROGRAM.md` records the release. S2 to S7 are not built.
 Date: 2026-10-17.
-Reference: lattice-server `integration` at ee57011 (the merge of #204, commits a3df24e and c595837), lattice-node-agent `integration` at 29871e8, lattice-sdk `integration` at d7dd412, lattice-dashboard `integration` at 3f7ff8c, umbrella at 420ff17. Production versions live only in `PROGRAM.md`.
+Reference: lattice-server `integration` at ee57011 (the merge of #204), lattice-node-agent `integration` at 29871e8, lattice-sdk `integration` at d7dd412, lattice-dashboard `integration` at 3f7ff8c, umbrella at 420ff17. Production versions live only in `PROGRAM.md`, which also identifies the nodes this design describes by class.
 
 ## Summary
 
-An agent update downloads one 14 MB binary inside a fixed 480 s budget, from the control plane first and from the upstream release URL if that fails. On 2026-10-17 that reached 28 of 32 Linux nodes. The other four, in Chengdu, fetch from the control plane at 15 to 18 KB/s, so no attempt can finish, and their fallback, GitHub, is the one source mainland China reaches worst. S1 made a download resumable, which turns "never" into "two or three operator approvals". This design removes the cause instead: the approved plan carries an ordered list of sources chosen for the node, the script walks the list with one shared digest-pinned partial, a source that cannot keep up is left after 30 s for the next one, and the bytes it delivered are kept. The sources come from a mirror registry: a global mirror on Cloudflare R2, published from the operator's machine as a release step, and a mainland mirror served by the agent on cd-hs-sh, which already fetches from the control plane in under a minute. Every mirror is untrusted transport: the digest decides, no mirror ever sees a credential, and every source is HTTPS, with a pinned key standing in for a public certificate where a mainland node cannot get one cleanly.
+An agent update downloads one 14 MB binary inside a fixed 480 s budget, from the control plane in Hong Kong and, if that fails, from the upstream release URL. On 2026-10-17 four nodes could not finish. None of them is in mainland China: three sit on one residential network far from Asia, and one is a laptop whose own last hop is the bottleneck. Resumable downloads (S1) went live the same day and fixed three of the four within two attempts. What remains is narrower than the first revision claimed. Every slow attempt costs an operator approval. A node whose own line is the bottleneck cannot finish inside any task. The script has no way to leave a slow source for a faster one. And GitHub, the only fallback, is unreachable from mainland networks.
 
-The recommendation, in order of value: ship ordered sources with the speed cutoff (S2), publish to R2 (S3), and let the agent on cd-hs-sh serve verified binaries behind a reviewed `node.mirror` plan with a NetGuard companion (S4). Measured on the real binary, gzip shrinks it 2.6 times; that is cheap enough to keep as an optional slice (S6) rather than reject, and the section on alternatives says why it does not replace the mirrors.
+The recommendation, in order of value against that evidence:
+
+1. **S2:** a summary line that records what each source delivered, and a speed cutoff that leaves a slow source early. S2 is keyed on a plan line, so it retires no open approval.
+2. **S3:** compressed transfer. gzip shrinks the binary 2.6 times, which puts the slow residential nodes inside one attempt.
+3. **S4:** prefetch outside the task. The agent downloads the binary for its open update in the background with no deadline, so the task itself takes seconds and the laptop finishes too.
+4. **S5 and S6:** ordered sources, a small reviewed mirror registry and a global mirror on Cloudflare R2, with install on new nodes using the same sources. These are what the operator asked for. The evidence for them is weaker, but real: a non-GitHub fallback for mainland nodes, and room for the architectures the control plane cannot store.
+5. **S7:** a mainland copy. It stays conditional on a measurement that would justify it, and it would come from a domestic bucket rather than a listener in the agent.
 
 ## What the operator asked
 
-Translated from the operator's words: keep a copy in mainland China on cd-hs-sh that China nodes can fall back to, add a Cloudflare CDN for global download and install, and make distribution work across network environments in general.
+Translated from the operator's words: keep a copy in mainland China on the fleet's mainland node that China nodes can fall back to, add a Cloudflare CDN for global download and install, and make distribution work across network environments in general.
 
-## What happened on 2026-10-17
+## What the evidence shows
 
-The agent 0.3.10-alpha.6 rollout reached 28 of 32 Linux nodes, every one fetching from the control plane (hkg, Hong Kong). Four nodes in Chengdu, mainland China VDS, fetched at 15 to 18 KB/s and failed at the 480 s budget holding 7 to 9 MB of 14,037,154 bytes, which is what 480 s at those rates delivers. cd-hs-sh, in Shanghai on Volcengine, fetched the same binary from the control plane in under a minute. A Japan NAT node fetched at about 34 KiB/s, from GitHub and the control plane alike: its bottleneck is its own uplink, not the path. HTTPS from mainland China to the control plane also drops connections intermittently.
+The rollout on 2026-10-17 reached most of the fleet from the control plane in Hong Kong. Four nodes failed at the 480 s budget. Three sit on one residential ISP far from Asia. The fourth is a laptop on a home line, and another node on that same line updated in under two minutes, so the laptop's slowness is its own last hop. The fleet's one mainland node fetched the same binary from the control plane in under a minute. The first revision of this design placed the four in Chengdu, from a tag in their names that is the operator's tenant tag, not a city. Every mainland-specific claim it built on that is withdrawn here.
 
-Two facts frame everything below. A failed update task returns its approval to pending (`handleAgentUpdateTaskResult`), so every further attempt is an operator approval, not an automatic retry. And the four stuck nodes are not slow in general: they are slow to Hong Kong. A source inside mainland China is the fix the evidence points at; a longer budget is not available (see "Alternatives").
+S1 (resumable downloads) went live the same afternoon. One of the three residential nodes then finished in 13 s on its first attempt. The other two kept 11,770,876 and 11,041,770 bytes on attempt 1, at about 23 to 25 KB/s, and finished on attempt 2. The laptop kept 302,058 bytes in 480 s, about 0.6 KB/s, and needs dozens of attempts at that rate. Earlier, a NAT node fetched at about 34 KiB/s from GitHub and the control plane alike, because its own uplink is the limit (the comment above `agentFetchBudgetSec` in lattice-server records it).
+
+Three conclusions follow. Resume already fixed most of the incident. No node in it is helped by a mainland source. The remaining costs are the extra approvals, and the nodes whose own line makes any in-task budget too short. The operator's request for a mainland copy and a CDN still stands. This design keeps both, and says plainly how strong the evidence is for each.
 
 ## How the download works today
 
-Read in lattice-server `internal/server/server_agent_update.go` and `server_agent_artifacts.go` at ee57011.
+Read in lattice-server `internal/server/server_agent_update.go`, `server_agent_artifacts.go` and `server.go` at ee57011.
 
-1. **The control plane is always first when it holds the digest.** `withControlPlaneBinarySource` and `resolveOfficialAgentUpdatePayload` point `binary_url` at `/api/agent/agent-binary/<version>/<os>/<arch>/<sha256>` whenever the stored artifact matches the pin, and move the policy URL or the GitHub release URL into `fallback_url`. The choice is written into the payload, shown in the plan as `binary_source`, and bound by the approval.
-2. **The fallback gets only what the first attempt left.** `agentUpdateResumableDownloadStep` runs the control-plane fetch with `--max-time 480`; if it fails, the fallback runs with `--max-time "$FETCH_LEFT"`, the budget minus the elapsed time, and is skipped below 20 s. A control-plane fetch that trickles for 480 s leaves the fallback nothing. That is the Chengdu failure: the first source is not dead, it is slow, and slow eats the whole budget.
-3. **The budget cannot grow.** The server gives an agent update task 600 s (`approvalApplyTaskTimeoutSec`); the steps after the download take seconds, so the download gets 480 s. The agent caps a task at ten minutes (`maxTaskTimeout` in lattice-node-agent `internal/taskexec`): agents from v0.3.10-alpha.1 clamp a larger value to 600 s, and older agents fall back to their 30 s default (fixed in c8de23e).
-4. **The credentialed fetch is narrow.** The control-plane fetch presents the task lease (`X-Lattice-Task-Id`, `X-Lattice-Task-Lease`), is HTTPS only, and never follows a redirect (no `-L` for curl, `--max-redirect=0` for wget), because curl strips only the standard `Authorization` header on a cross-host redirect and would forward the lease. The upstream fetch follows redirects, because release assets legitimately land on CDN storage, and carries no lease.
-5. **S1, merged as #204.** The binary route answers byte ranges with `ETag` set to the pinned SHA-256 and honours `If-Range`, and its write deadline is extended to the task timeout so a slow download is not cut at the server's 60 s write timeout. The script keeps the partial beside the install path as `.lattice-agent-download-<sha256>`, root-only, continues it with `curl -C -` or `wget -c` on the next attempt and across the fallback, deletes it on a digest mismatch, and deletes it on curl exit 33 (a server that ignored the range). The payload field `resume_download` gates this, so an approval planned before S1 renders the script it was approved with.
+1. **Sources.** When the control plane holds the pinned digest, `withControlPlaneBinarySource` and `resolveOfficialAgentUpdatePayload` point `binary_url` at `/api/agent/agent-binary/<version>/<os>/<arch>/<sha256>` and move the policy URL or the GitHub release URL into `fallback_url`. Otherwise the plan names the upstream URL alone.
+2. **The budget.** The server gives an agent update task 600 s (`approvalApplyTaskTimeoutSec`) and the download 480 s of it. The agent caps a task at ten minutes (`maxTaskTimeout` in lattice-node-agent `internal/taskexec`): agents from v0.3.10-alpha.1 clamp a larger value to 600 s, and older agents fall back to their 30 s default (c8de23e). The fallback runs with `--max-time "$FETCH_LEFT"`, whatever the first fetch left, so a control-plane fetch that trickles for 480 s leaves the fallback nothing.
+3. **The credential.** The control-plane fetch presents the task lease (`X-Lattice-Task-Id`, `X-Lattice-Task-Lease`). It is HTTPS only and never follows a redirect, because curl strips only the standard `Authorization` header across hosts. `handleAgentBinary` authorizes it through `authorizeAgentBinaryRequest`, which requires a live lease, an approved agent-update approval for the same node, an exact version, digest and platform match, and `binary_source` equal to `control-plane` (`server_agent_artifacts.go:853`). The upstream fetch follows redirects and carries no lease.
+4. **S1.** The binary route answers byte ranges, with the pinned SHA-256 as `ETag` and `If-Range` honoured, and its write deadline is extended to the task timeout. The script keeps the partial beside the install path as `.lattice-agent-download-<sha256>`, root-only. It continues the partial only when it is a regular file owned by the script's user, continues it across attempts and across the fallback, deletes it on a digest mismatch or on curl exit 33, and runs the candidate only after the digest check.
+5. **Approvals are identified by their payload.** The approval action is the base64 of the whole payload (`agentUpdateApprovalAction`). Whenever a fresh plan computes a different payload, the planner retires every pending approval, and every approved one with no live task: `createAgentUpdateApproval` calls `rejectSupersededAgentUpdateApprovals`, gated by `agentUpdateApprovalCanAutoReject`. The auto-plan sweep (`evaluateAgentUpdatePolicies`) runs that continuously for online nodes. At decision time `requireCurrentAgentUpdateApproval` refuses an approval whose payload differs from the recomputed one, and the approvals listing applies the same check (`rejectLocallyStaleAgentUpdateApprovals`). The apply script is rendered at decision time, so a task already dispatched carries its own script. The consequence matters for every slice below. A slice that adds or changes a payload field retires every open approval that is not running, once, when it deploys; S1 did exactly that, because every new plan sets `resume_download`. A slice keyed on a plan line, the way the keepalive and update-guard steps are, leaves the payload equal and retires nothing.
+6. **Failure output.** `taskFailureSummary` keeps the last 640 characters of stderr and of stdout. A successful task's output lives only in the task result.
+7. **The store.** The control plane's agent artifact store is capped at 128 MiB, because it is read into memory at startup. It has already filled once, and an architecture that does not fit fetches from GitHub.
 
-S1 already carries the idea this design generalizes: the bytes are pinned by digest, so which source sent them does not matter, and one partial can be filled from more than one place.
+## D1. Seeing and leaving a slow source (S2)
 
-## D1. Ordered sources with one shared partial
+**The summary line.** The fetch step ends every exit path with one stderr line in a fixed compact format, printed by an `EXIT` trap: `lattice-agent-fetch v1` followed by one field per fetch, `index:kind:exit:bytes:seconds` (kind `cp`, `up`, or `m.<mirror id>` from S5 on; a second-pass fetch is marked `p2`), and then the result. Four sources and a second pass fit well inside the 640 characters `taskFailureSummary` keeps. `handleAgentUpdateTaskResult` parses the last such line into the task's audit record and into a `last_fetch` field on the policy, for success and failure alike, and the console's Agent updates page shows, per node, which source delivered and at what rate. Today the only record of a slow download is a truncated error, so this is the measurement every later slice depends on.
 
-The payload gains `sources`, an ordered list of at most four entries, each with `kind` (`control-plane`, `mirror` or `upstream`), `url`, `mirror` (the registry id, for a mirror), `pin` (an SPKI SHA-256 for a mirror that has no public certificate, D4) and `reason` (one line saying why this source is here and in this place). The server computes the list when it plans (D3), the plan prints it, and the approval binds it, because the payload is bound into the approval action and the plan text is hashed. A plan for a Chengdu node would read:
+**The cutoff.** Every fetch in the first pass runs with `--speed-limit 32768 --speed-time 30` and at most an equal share of the time left, which is the time left divided by the number of sources not yet tried. When the first pass ends incomplete with at least 20 s left, a second pass gives everything that remains, without the cutoff, to the source that added the most bytes in this attempt, retried up to three times on a transient failure with a 2 s pause. A source that added nothing is never retried. With a single source there is nothing to switch to, so it gets no cutoff, only the retry. Every fetch continues the same partial, as S1's fetches already do.
 
-```
-sources:
-1. mirror cn-sh    https://203.0.113.10:47443/<version>/linux/amd64/<sha256>
-   reason: preferred for country CN (node geo CN, looked up); TLS key pinned sha256//<pin>; holds this digest
-2. control-plane   https://<control-plane>/api/agent/agent-binary/<version>/linux/amd64/<sha256>
-   reason: holds the pinned bytes; the only source that receives the task lease
-3. mirror r2       https://<name>.<zone>/<version>/linux/amd64/<sha256>
-   reason: global mirror
-4. upstream        https://github.com/LatticeNet/lattice-node-agent/releases/download/v<version>/lattice-agent-linux-amd64
-   reason: the release asset; last, so it runs to the budget
-```
+Every source gets the cutoff, the last one included. The first revision left the last source uncut, and the last source is GitHub for an official release, which some nodes cannot reach at all. Uncut, a GitHub trickle would hold the budget while the source that was actually best sat idle. The equal share bounds what any one source can take before the second pass. That matters again in S5, where a source can be a mirror that streams wrong bytes above the cutoff.
 
-The script renders one fetch line per source, unrolled rather than a loop over data, so a reviewer reading the approved script sees exactly which line carries the lease (the control-plane line and no other), which line follows redirects (the upstream line, HTTPS to HTTPS only) and which lines carry a pin. Every line writes to the same `.lattice-agent-download-<sha256>` with `-C -`, uses the existing 20 s connect timeout, and gets `--max-time` set to what is left of the 480 s budget. Every line except the last also gets the speed cutoff of D2, so a source that cannot keep up is left for the next one and the bytes it delivered stay in the partial. The last source has no cutoff and runs to the budget, which keeps a node whose own uplink is the bottleneck from being starved by the threshold.
+Why 32 KiB/s for 30 s:
 
-Exit statuses decide the walk. 0 is done. 22 (an HTTP error, typically a 404 from a mirror that does not hold this version), 28 (a timeout, the cutoff included), 60 and 90 (a certificate or pin failure) and any other failure move to the next source. 33 (the source ignored the range) also moves on, but keeps the partial, because another source can continue it; only when every source the attempt reached answered 33 is the partial deleted, which is S1's single-source behaviour generalized. After the list, if the file is incomplete and at least 20 s remain, one more pass retries the single source that added the most bytes in this attempt, without the cutoff, up to three times with a 2 s pause, so an intermittent drop on the best path does not end the attempt with budget unused. A source that added nothing is never retried. The script ends by printing one summary line naming each source it tried, its outcome and the bytes it added; the task output carries that line to the console, which gives the next tuning of the cutoff real data instead of a guess.
+- At the raw size of 14,037,154 bytes, a download from byte zero needs 29,244 B/s (28.6 KiB/s) to finish inside 480 s, so a source below 32 KiB/s cannot finish alone in one attempt.
+- The observed paths fall on both sides with room. The residential nodes at 23 to 25 KB/s are below it. The mainland node, under a minute from Hong Kong, is above 228 KiB/s, seven times the threshold.
+- The NAT node at about 34 KiB/s sits just above it. When its uplink dips, it moves to a source limited by the same uplink, and loses one reconnect and nothing it received.
+- A false cut costs one connect and handshake. The bytes from the window are kept, and the second pass returns to a cut source when that source was the best one, so the threshold can afford to be quick.
+- 30 s is curl's own default window. Cross-border paths stall for seconds at a time, so a window much shorter would cut a good path on one stall. At 24 KB/s the window keeps about 0.7 MB before moving on.
 
-The rest is unchanged. The digest check, the version check, the atomic install, the guard and the keepalive steps run exactly as today. The lease preflight renders only when the list contains a control-plane source. The wget branch keeps today's flags, walks only the unpinned sources (wget cannot pin a key), wraps each fetch in `timeout "$LEFT"` when the `timeout` utility exists so the budget holds there too, and makes no second pass; wget has no speed cutoff, so a node without curl still finishes on S1's resume, only more slowly.
+Once S3 lands, the finish line drops to about 11 KB/s for the compressed file. The threshold then no longer marks finishability; it separates the healthy paths from the slow ones seen so far. The summary line will show whether it needs to move, and per-line thresholds computed from what is left (architecture review L1) wait for that data.
 
-An approval whose payload has no `sources` renders S1's script byte for byte. `binary_url` keeps the control-plane or upstream URL it carries today, so every existing view still means what it meant; `fallback_url` is left empty on new plans, because the list supersedes it.
+Exit statuses decide the walk. 0 is done. 22 (an HTTP error), 28 (a timeout, the cutoff included) and any other failure move to the next source. 33 (the source ignored the range) moves on but keeps the partial, because another source can continue it; only when every source the attempt reached answered 33 is the partial deleted, which is S1's single-source rule generalized. The wget branch has no speed cutoff. It walks the same sources with today's flags, wraps each fetch in `timeout "$LEFT"` when the utility exists, and makes no second pass.
 
-**Staleness.** The list is part of the approved payload, so the existing stale check (`agentUpdateApprovalLocalStaleness`, `agentUpdatePayloadChangeSummary`) sees it. A change that only adds a source or reorders the list does not invalidate an approved plan: the approved order still works. Removing or disabling a listed mirror, or a change to a listed mirror's pin, does: the approved script would contact a source the operator has withdrawn, or present a pin that now fails. A pending approval is re-planned on any change to its list, which costs nothing because nobody has approved it yet. The list depends only on stable inputs (the registry, applied mirror plans, reported pins and held digests), never on whether a mirror is online at this moment, so a mirror that restarts does not churn pending approvals.
+**How it ships.** S2 changes no payload field. New plans carry one more Safety line, which names the cutoff, the equal share and the second pass, and the renderer adds the new fetch step only to an approval whose plan carries that line, exactly as the keepalive step is keyed. Open approvals are therefore not retired, and they keep their old step until they are re-planned; the next release's plans get the new one. S2 also corrects the code comments the architecture review lists. The one above `agentFetchBudgetSec` still says a long task makes its node read offline, which stopped being true when 0.3.10-alpha.1 moved the heartbeat onto its own goroutine. That comment and the one in `approvalApplyTaskTimeoutSec` also describe only the older agents' fall-back to 30 s, not the newer agents' clamp. The 600 s ceiling is reason enough on its own.
 
-## D2. The speed cutoff, from the evidence
+**What S2 does for the nodes in the incident.** It is not yet known. If GitHub is fast from the residential network, the cutoff moves those nodes off the slow control-plane path within 30 s and they finish in one attempt. If it is not, they finish as they do now, minus a couple of reconnects. The laptop is not helped by any source. The measurement that settles this is a step for the operator or the lead to run, because it is a task on production nodes: a read-only task, approved through the usual task plan, on the two residential nodes that needed a second attempt. It times a 2 MiB ranged GET (`curl -r 0-2097151 -w '%{speed_download}'`) from the GitHub release asset, and from a public file the control plane already serves (the whole file if it is smaller). After S2 ships, its summary line takes this measurement on every update without a separate task.
 
-Every source but the last runs with `--speed-limit 32768 --speed-time 30`: curl abandons it when it stays below 32 KiB/s for 30 consecutive seconds, and the next source continues the partial.
+## D2. Compressed transfer (S3)
 
-- **The finish line.** The binary is 14,037,154 bytes. From byte zero inside 480 s it needs 29,244 B/s on average, 28.6 KiB/s. 32 KiB/s is the first power of two above that line: at 32 KiB/s a full download takes 428 s and leaves about 50 s for connects and handshakes. A source slower than that cannot finish the job alone in one attempt, so trying the next source is the right default.
-- **Where the evidence falls.** The Chengdu nodes from hkg, at 15 to 18 KB/s (14.6 to 17.6 KiB/s), are about half the threshold and leave hkg after 30 s holding about half a megabyte. cd-hs-sh from hkg, under a minute, is above 228 KiB/s, seven times the threshold. The Japan NAT node, at about 34 KiB/s, sits just above it; when its uplink dips below for 30 s it moves to a source that is limited by the same uplink, loses one reconnect and nothing it received, and its last source runs uncut. At 34 KiB/s the whole binary takes about 403 s, inside one budget.
-- **Why the cutoff can be aggressive.** A false abandon costs one connect and handshake; the bytes received during the 30 s window are kept. The asymmetry favours leaving early.
-- **Why 30 s.** It is curl's own default window. Cross-border paths stall for several seconds at a time, and a window under about 10 s would abandon a good path on one stall. At the Chengdu rate, 30 s keeps 450 to 540 KB, under 4 percent of the binary, before moving on, so the cutoff spends at most 30 s of the 480 s on a source that cannot finish.
-- **The worst case.** With four sources, three can each spend a 20 s connect timeout plus a 30 s window, 150 s in all, and the last still gets at least 330 s. That bound is why the list is capped at four; the upstream source is always kept as the last, and lower-priority mirrors are dropped first.
+Measured on the 0.3.10-alpha.6 linux/amd64 release asset (14,037,154 bytes, verified against the release's `SHA256SUMS`):
 
-The constant is tied to the binary's size. If the agent grows past 15.7 MB (32 KiB/s for 480 s), the threshold has to rise with it; the code comment carries the derivation, the plan prints the value from the same constant, and "Risks" records the coupling.
+| Compressor | Bytes | Share of the original |
+|---|---|---|
+| gzip -9 | 5,426,900 | 38.7% |
+| zstd -19 | 4,504,069 | 32.1% |
+| xz -9 | 4,141,880 | 29.5% |
 
-## D3. The mirror registry and the order per node
+gzip is the one to use: every Linux node has it, and xz and zstd are not on minimal images. At 24 KB/s the gzip file takes about 226 s, so the two residential nodes that needed a second attempt finish in one; the NAT node takes about 156 s. The laptop still needs about 2.5 hours, which is S4's job.
 
-A mirror is any HTTPS server that holds release binaries at `<base_url>/<version>/<os>/<arch>/<sha256>`, which is the control plane's own object path. There is one layout, not a template: a fixed content-addressed path is all three mirror kinds in this design need, and a template is a feature with no user yet.
+The node-agent release workflow publishes `lattice-agent-linux-<arch>.gz`, built with `gzip -n -9` so the bytes are reproducible, with its own `SHA256SUMS` line. A plan for a version with a compressed asset pins both digests. The script fetches the `.gz` into a partial named by the compressed digest, verifies that digest before decompressing, decompresses with `gzip -dc` into the candidate, and then holds the candidate to the release digest exactly as today. Verifying before decompressing keeps unverified input away from a decompressor running as root. A release cut before the workflow change has no compressed asset, and its plans fall back to the raw one.
 
-The registry is server state, edited through `GET`, `POST`, `PUT` and `DELETE /api/agent/mirrors`, gated by `requireFleetAgentAdmin` (where nodes fetch the bytes they install as root is a fleet-wide decision, like importing an artifact), and audited as `agent.mirror.create`, `.update` and `.delete`. An entry holds:
+When a release has a compressed asset, the control-plane store keeps the `.gz` instead of the raw binary and serves it to plans that pin it, so the store holds about 2.6 times as many versions. That relieves the pressure that has already sent an architecture to GitHub.
 
-| Field | Meaning |
-|---|---|
-| `id`, `name` | stable id and display name |
-| `kind` | `static` (an operator-entered base URL) or `node` (a mirror served by an agent, D6; its URL and pin come from the node's applied plan and facts and are not hand-edited) |
-| `base_url` | HTTPS only; no userinfo, query or fragment; loopback, unspecified, link-local and multicast literals and `localhost` refused; private ranges allowed, because an overlay address can be the right path to a mirror node |
-| `pin` | optional SPKI SHA-256 (`sha256//` base64) for a server without a public certificate; always set for `node` |
-| `prefer_for` | optional affinity: country codes, node ids, group ids |
-| `global` | whether the mirror is listed for nodes it is not preferred for |
-| `priority` | ascending order among mirrors in the same position |
-| `enabled` | a disabled mirror is never listed |
+HTTP `Content-Encoding` on the wire is not the way to do this, because ranges then apply to the encoded stream and resume becomes unreliable. S3 adds a payload field, so its deploy retires every open approval that is not running, once (How it works, item 5); the operator re-approves.
 
-URL checks match what `normalizeAgentUpdateURL` already enforces for a policy `binary_url`, plus the refused literals. A policy URL can already point a node anywhere on HTTPS, so the registry adds no reach a fleet agent admin does not have today; the refused literals catch the obviously wrong entries.
+## D3. Prefetch outside the task (S4)
 
-**How the server orders sources for one node**, at plan time:
+The architecture review proposed staging the download outside the task. This design takes it, ahead of any mirror. It is the only change that helps a node whose own line is the bottleneck, it needs no listener and no doctrine change, and it removes the 480 s coupling for every node that runs the agent which ships it.
 
-1. Mirrors whose `prefer_for` matches the node, by `priority`. A country matches the node's stored geo record (`model.NodeGeo.Country`, either looked up by the server or set by the operator), never a location the agent claims, which is the rule the fleet map already follows. A group matches by the server's own resolution of static members and selectors. A mirror on the node itself is skipped.
-2. The control plane, when it holds the pinned digest.
-3. Mirrors marked `global` and not already listed, by `priority`.
-4. The upstream source: the policy's own `binary_url`, or the GitHub release asset for an official release.
+**Mechanism.**
 
-Identical URLs are listed once, and the list is cut to four by dropping the lowest-priority mirrors. A `node` mirror is listed only when its applied plan enables it, it has reported a key pin, and it reports holding the pinned digest; a `static` mirror is listed without a check, because a missing copy costs one request that answers 404. Each entry's `reason` names the rule that placed it. `GET /api/agent/mirrors/order?node_id=` returns the list a plan would get now, with reasons, so the console can preview it before anyone plans.
+- The config pull gains `agent_update.prefetch` for a node with an open agent-update approval, pending or approved but not yet running: the approval id, version, platform, digest (both digests once S3 lands) and size.
+- The agent fetches that file in the background, one at a time, resumable and with no deadline, from a new route, `GET /api/agent/prefetch-binary/<version>/<os>/<arch>/<sha256>`.
+- The route authenticates the node with its agent credential. It authorizes only the digest named by that node's open approval, and otherwise applies the same checks as `authorizeAgentBinaryRequest`, keyed on the node credential instead of a lease. It shares the binary handler's body (integrity re-verification, ranges, the extended write deadline) and audits as `agent.binary.prefetch`.
+- The agent writes the file the update script will continue: `.lattice-agent-download-<digest>`, beside the install path the script will resolve, which the agent computes by the script's own rule (its own executable for the default and legacy targets).
+- It reports progress in its facts (`prefetch`: approval id, bytes, size, state), and the console shows it beside the approval. An operator can see that a node has the whole file before approving.
 
-For the fleet as it stands, that gives a Chengdu node the mainland mirror, the control plane, R2 and GitHub in that order, and every other node the control plane, R2 and GitHub. Putting the control plane ahead of a global mirror keeps the authenticated, audited, re-verified fetch as the default for the 28 nodes it already serves well; an operator who wants a region to prefer R2 says so with `prefer_for`.
+**Hand-off.** Tasks carry `approval_id`. When the agent leases the task for the approval it is prefetching for, it stops the fetch and closes the file before it runs the script. S1's script then finds a regular, root-owned file and continues it; when the file is complete, one ranged request answers 416, and the task goes straight to the digest check and the install. The script itself does not change.
 
-## D4. Mirrors are untrusted transport, and every source is HTTPS
+**Why prefetch starts on a pending approval.** A digest-pinned download into a root-only file is not a change to what the node runs. Nothing executes until the approved task runs the digest and version checks. Starting only after approval would make the operator wait out the slow download after deciding, which is the cost S4 exists to remove. The auto-plan sweep cuts pending plans for every online node on each release, so prefetch also pre-positions the bytes fleet-wide; that is one fetch per node, which the control plane serves already today.
 
-A mirror decides nothing. The node holds the bytes to the digest in the approved plan, so a mirror can deliver the right bytes or fail; it cannot make a node install anything else. No mirror receives a credential: the lease goes only to the control-plane line, and the mirror lines carry no header beyond curl's defaults. Mirror lines do not follow redirects either. No credential is at stake, but a redirect would let a mirror point root on every node at an address of its choosing, and none of the mirrors here needs one.
+**Safe defaults.**
 
-**May a mirror be plain HTTP, given the pin?** The case for is real: integrity does not depend on transport once the digest is pinned, plain HTTP needs no certificate on a mainland node, and Debian has distributed packages over HTTP mirrors for decades under signed indexes. The case against wins here, for a reason specific to this design. The partial is shared across sources. An on-path party that alters one byte of a plain HTTP response cannot get a bad binary installed, but it makes the finished file fail the digest, and the failure deletes the whole partial, including everything honest sources delivered in that attempt. Plain HTTP would turn every on-path device into a way to erase an attempt's progress, and content-rewriting middleboxes on plain HTTP are a documented class of interference on mainland networks. apt does not face this because it verifies per file and never splices one file from several mirrors. Plain HTTP also tells every observer on the path, in clear text, that this host runs Lattice and which version it is fetching, and caching proxies that ignore or mangle `Range` turn into restarts. Against that, the price of TLS is small once a pin can stand in for a certificate.
+- The config carries digests and sizes, never URLs. The agent builds the fetch URL from its enrolled server address.
+- The file name comes from the validated 64-hex digest alone.
+- A free-space check refuses a prefetch that would leave the disk short, and reports the refusal; one node in this fleet has already run its disk to 99 percent.
+- The agent deletes every `.lattice-agent-download-*` whose digest no open approval names. That also cleans up the partials S1 leaves behind when a policy moves on, which today are cleaned only by a next attempt that may never come.
+- An agent running as a non-root user skips prefetch, because the script discards a partial it does not own.
 
-So every source is HTTPS, and a mirror without a public certificate is reached through a pinned key: the line carries `-k --pinnedpubkey 'sha256//<pin>'`, which skips the certificate chain and host name checks and accepts exactly one public key. That is a stronger check than the public CA system, not a weaker one. Checked 2026-10-17 with curl 8.7.1: with `-k`, a wrong pin fails with exit 90 before any byte is exchanged, and the right pin completes. The renderer emits `-k` only together with a pin, and a test fails the build if it ever renders one without the other. The credentialed control-plane fetch stays HTTPS with normal certificate verification, as today.
+**Limits.** Prefetch helps from the agent release that ships it onward. The update to that release still goes through the task path, where S1 to S3 apply. It fetches from the control plane only, so an artifact the control plane does not hold is not prefetched. Walking S5's sources is a later refinement. The node credential is long-lived, unlike a lease, but the route hands out only a public binary named by the node's own open approval, so the wider credential buys nothing beyond what a lease would.
 
-## D5. A global mirror on Cloudflare R2
+## D4. Ordered sources, a reviewed registry and a global mirror on R2 (S5)
 
-A public R2 bucket behind a custom domain on the operator's existing Cloudflare zone. R2 is already enabled on the account, which holds one bucket, for backups (checked 2026-10-17). The bucket is public through the custom domain only; the `r2.dev` development URL stays disabled, because Cloudflare rate-limits it and does not support it for production. The custom domain is served through Cloudflare's network, and a cache rule on that host name makes the objects cacheable at the edge with a long TTL for 200 and 206 responses and no caching for 404, since a content-addressed object never changes but a request that arrives before publication must not be cached as missing. Objects sit at `<version>/linux/<arch>/<sha256>` with `Content-Type: application/octet-stream` and `Cache-Control: public, max-age=31536000, immutable`.
+This is the CDN the operator asked for. Against the evidence its value is real but secondary:
 
-**Publishing is a release-ritual step run from the operator's machine**, `publish-agent-mirror.sh <tag>` beside the other release scripts. It downloads `SHA256SUMS` and the Linux assets from the GitHub release, verifies each asset against `SHA256SUMS` and refuses on any mismatch or missing line, uploads each verified asset to its content-addressed path through R2's S3-compatible API, then downloads each one back through the public custom domain and verifies its digest again, the same re-download check the plugin release ritual already runs. The token is an R2 API token scoped to object read and write on that one bucket, kept in a local env file outside every repository and passed to the upload tool through a file, never on a command line. No R2 credential lives on the server: the server only renders URLs that point at the bucket. The step runs after the GitHub release is published and before the version is imported on the control plane, so plans never reference an object that is not there yet. Pruning is the same script with an explicit list; nothing is deleted automatically.
+- a non-GitHub fallback for mainland nodes, which cannot reach GitHub but can reach Cloudflare, slowly;
+- a source for an architecture the control plane cannot store;
+- the public source that install on new nodes needs (S6).
 
-**Cost.** R2 charges for storage only: $0.015 per GB-month for standard storage, nothing for egress, and reads are Class B operations with 10 million a month free (Cloudflare's pricing page, last updated 2026-10-01). Ten releases for two architectures at about 14 MB each is about 0.28 GB, about 5 cents a year at list price. Cloudflare rounds an account's monthly usage up to whole GB-months, so the most this bucket can add is one GB-month a month, 18 cents a year, and it adds nothing while the account stays inside its 10 GB-month free tier. A fleet-wide update is about a hundred reads.
+**Sources in the payload.**
 
-**The known limit.** Cloudflare's global network is often slow or lossy from mainland China; its China network requires an ICP filing and a separate contract. R2 is the world's mirror, not China's, which is why it sits after the mainland mirror for Chengdu nodes and why D6 exists.
+- The payload gains `sources`: at most four entries, each with `kind` (`control-plane`, `mirror` or `upstream`), `url`, `mirror` (the registry id) and `reason`.
+- The server computes the list when it plans, the plan prints it with the reasons, and the approval binds it.
+- The order is fixed: mirrors preferred for this node, then the control plane when it holds the digest, then mirrors marked global, then upstream, always last. Lower-priority mirrors are dropped first to stay within four.
+- The script renders one fetch line per source, unrolled, so a reader of the approved script sees which line carries the lease and which follows redirects. D1's walk, cutoff, equal share, second pass and summary line apply unchanged.
+- The Safety lines are derived from the list. A plan that lists a mirror or GitHub never prints today's "the node needs no third-party egress" line, and a test pins that.
 
-## D6. A mainland mirror, first on cd-hs-sh
+**The lease follows the server, not a label.** `agentUpdatePayloadFromApproval` validates `sources`:
 
-cd-hs-sh already reaches the control plane at datacenter speed and sits inside mainland China. Three ways to make it, or something near it, a source:
+- at most four entries, upstream last, kinds from the enum, and every URL passing `normalizeAgentUpdateURL`;
+- at most one `control-plane` entry. When present, it must equal the URL the server computes for this version, platform and digest under its own base, which extends today's prefix check in `agentUpdateApplyScript`.
 
-| | (a) the agent serves verified artifacts | (b) a static HTTPS server installed by a task | (c) a domestic object store |
-|---|---|---|---|
-| Listening surface | a TLS port inside the agent, opened by a reviewed `node.mirror` plan with a NetGuard companion and a node veto, as the beacon is (design 29 D3, D12) | a separate, unprivileged service on the node | none on any node |
-| Software lifecycle | ships and updates with the agent | a second server package on the node, patched outside Lattice; installing it on a mainland node meets the same distribution problem this design exists to solve | the provider's |
-| Population and pruning | server-driven: the desired set arrives in the config pull, the agent fetches from the control plane and verifies each digest | one task plan per change; what the node holds is known only from task output | an ops step with a new mainland account credential on the operator's machine |
-| The server knows what it holds | yes, from facts | after each task | no; a miss costs one request |
-| Spend | none; the node is already paid for | none | storage and egress, small but new, plus a new account |
-| Doctrine | amended: a second inbound socket an agent may open | the agent is unchanged, but Lattice puts a listener on a node outside the agent's veto | unchanged |
+The renderer attaches the lease headers only to that exact entry. `authorizeAgentBinaryRequest` authorizes on that entry instead of on `binary_source`. A registry `base_url` on the control plane's own host is refused, and a golden test renders a mirror entry that points at the control-plane host and checks that it carries no lease.
 
-**Recommendation: (a).** The strongest case against it is that the agent runs as root, so a bug in the listener's request handling is a bug in a root process, and the listener is an HTTP-over-TLS parser, a larger surface than the beacon's fixed 96-byte datagram. (b)'s one real advantage is that it would run unprivileged. Against that, (b) puts software on a node that Lattice neither ships nor updates nor can veto, and needs a task for every change in what it holds. The listener in (a) is Go's standard library server, which is memory-safe, so the realistic failure class is denial of service rather than code execution; it serves HTTP/1.1 only, with HTTP/2 disabled to remove that protocol's denial-of-service class; it matches the exact path against an in-memory set of held digests before touching any file; and the NetGuard companion lets only fleet nodes reach it at all. If a later review wants the listener out of the root process, the agent can run the same code as a subcommand under a sandboxed systemd unit without changing the plan, the facts or the populate path, and that is noted rather than built. (c) avoids the listening surface entirely and is the right answer if the operator would rather not open a port: it needs no code beyond S2, since a domestic bucket's default HTTPS endpoint is just a `static` mirror with `prefer_for: [CN]`. It is not recommended now because the operator asked for the copy on cd-hs-sh, and because it adds a spend and a mainland account credential where (a) adds neither.
+Nothing operator-entered or node-reported reaches the script except through validation and `shellQuote`. That is a design rule here, with an injection test table over URL, version and mirror id.
 
-**The port and the certificate.** A mainland cloud provider will not serve an unfiled domain on ports 80 and 443 without an ICP filing. The mirror needs neither the ports nor a domain: it listens on a high port the operator chooses and is addressed as `https://<public IPv4>:<port>`, the same endpoint rule the beacon uses (the address must be one of the node's own, judged at every render, so a node that moves off it stops being listed until a change plan). It serves the operator's own fleet, not the public; whether that needs a filing under the provider's terms is the operator's judgment, and if the provider ever blocks the port, nodes fail over in one request. For TLS there are three choices. A public certificate by DNS-01 on the operator's Cloudflare zone needs an ACME client and a zone-edit credential either on the node, which would put a fleet-wide DNS credential on one machine, or on the server, which would add an ACME dependency and ship a private key to the node, and it puts a domain name back into the picture. Plain HTTP is ruled out by D4. A key the agent generates for itself, pinned in every plan that lists the mirror, needs no domain, no CA, no credential and no renewal. The pin wins: the agent generates an ECDSA P-256 key and self-signed certificate (P-256 rather than Ed25519, which older OpenSSL builds of curl cannot verify) the first time an applied plan enables its mirror, keeps it root-only in its state directory, and reports the SPKI SHA-256 in its facts over its authenticated channel. The server stores it with the mirror state and writes it into each update plan that lists the mirror. If the key changes, old approved plans fail over on exit 90, new plans pin the new key, and the console and the audit log say the key changed. The certificate's subject is random and names no product.
+**Staleness is strict.** `sources` is a payload field like any other, so any change to the list re-plans an approval that is not running. To keep that from churning, the list is derived only from stable inputs:
 
-**The `node.mirror` plan** follows the beacon's shape. `POST /api/nodes/mirror/plan` with `enable`, `disable` or `change` and optional port, bind address and advertised endpoint answers an approval with plugin `agentmirror` and action `node.mirror`, whose plan states the resulting settings, the previous ones, the source set (the nodes for which this mirror would be listed, each with the addresses it may come from), the exposure (`netguard` or `internet`), the NetGuard companion and its SHA-256, and the base version; the server re-renders it at decision time and refuses it as stale if any covered field moved. Planning and deciding need `node:admin` on the node and fleet agent admin, `network:plan` and `network:apply` because it opens a port, and `netguard:admin` when it carries a companion. The companion admits TCP to the port from exactly the source set, from each source's public and WireGuard addresses and the egress address the server sees it connect from; unlike the beacon it stays connection-tracked, because TCP cannot be answered by a spoofed datagram the way the beacon's UDP can. Until the companion applies, the mirror reads `firewall_pending` and is listed for nobody. Without NetGuard the port is open to the internet, protected by the properties below, and the node page says so. A new agent flag `-no-mirror`, checked before any bind and not overridable by configuration, makes the agent refuse and report `refused_by_node`.
+- the registry;
+- the control plane's own held set;
+- node ids and static group members, never group selectors, stored geo or whether a mirror is online now.
 
-**What the mirror serves, and how.** `GET` and `HEAD` of `/<version>/<os>/<arch>/<sha256>` for a digest it holds and has verified since it started, answered with `http.ServeContent` from the file (ranges, `ETag` set to the digest), and an empty 404 for everything else: no index, no listing, no banner, no version header. It binds exactly the planned address and port, never the wildcard. Header reads time out at 10 s and idle connections at 30 s, headers are capped at 4 KiB, the write deadline is the update task's 600 s, and connections are capped at 16 in all and 2 per source address. Files are served from disk, never buffered whole, and the listener runs apart from the agent's outbound report loop, so a saturated mirror cannot make its node read as offline.
+A slice field makes the payload struct incomparable, so the `!=` comparisons in `requireCurrentAgentUpdateApproval` and `agentUpdateApprovalLocalStaleness` become an explicit equality function. `sources` joins `agentUpdatePayloadChangeSummary`, and joins the console's `AGENT_UPDATE_STALE_FIELDS` (lattice-dashboard `approvalsModel.ts`), which already lacks `resume_download`. Like S3, S5's deploy retires every open approval that is not running, once.
 
-**Population and pruning.** The config pull carries `mirror.desired`, the list of every artifact the control plane holds (version, platform, digest, size), but only while an applied plan enables the mirror and the agent reports no refusal. The control-plane store is capped at 128 MiB, roughly four versions for both architectures, and is pruned only by operator action, so the mirror is a bounded replica that follows it with no policy of its own. The agent fetches each missing artifact in the background from a new route, `GET /api/agent/mirror-binary/<version>/<os>/<arch>/<sha256>`, which authenticates the node with its agent credential and authorizes it only when the node has an applied, enabled mirror plan and the digest is in its desired set. The route shares the binary handler's body: integrity re-verification, ranges, the extended write deadline, and an audit record (`agent.mirror.fetch`). The agent resumes an interrupted fetch, verifies the digest, renames the file into place, and reports `held` in its facts. On every pull it deletes any file no longer in the desired set. A disable plan stops the listener and deletes the held files and the key, so a later enable gets a new key and new pins. Filling a new mirror moves at most 128 MiB from hkg once, and about 28 MB per release afterwards.
+**The registry is small.** An entry is `id`, `name`, `base_url`, `prefer_for` (node ids and static group ids), `global`, `priority` and `enabled`. A mirror is any HTTPS server holding binaries at `<base_url>/<version>/<os>/<arch>/<sha256>`, the control plane's own object path. Country affinity is left out. It fails for a node without a public address, which the server cannot geolocate, and a static group of mainland nodes says the same thing explicitly. There is no key pin, because every mirror this slice builds has a public certificate. `base_url` must be HTTPS, with no userinfo, query or fragment, and its host is canonicalized with `netip`. Non-canonical numeric forms, loopback, unspecified, link-local and multicast addresses, `localhost` and the control plane's host are refused. That list is hygiene, not a boundary: a fleet agent admin can already point a policy at any HTTPS URL.
 
-**Security analysis.** The new surface is one TLS port on one node, reachable under NetGuard only from the fleet nodes that list it.
+**Registry changes are reviewed plans.** A mirror steers which host every listed node contacts, learns those nodes' addresses and update timing, and could deny their updates. So creating, changing or deleting an entry is an approval of kind `agent.mirrors`, gated by `requireFleetAgentAdmin`. Its plan shows the diff and every node whose order would change. Each update plan also prints how its source list differs from the node's last successful update, and the notify path alerts the first time a mirror appears in any plan.
 
-- *What it can serve:* only agent release binaries it fetched from the control plane over its authenticated channel and verified against their digests. These are public release assets; nothing on the node is exposed through the mirror, and no credential is involved in serving.
-- *An attacker on the path between a node and the mirror* sees a pinned TLS session and can read nothing, not even which version is fetched. It can delay or drop the connection, and the node moves to its next source within the cutoff. Even if it could alter bytes, the digest check would refuse them; the most it could cost is that attempt's progress. It gains nothing beyond a denial.
-- *An attacker who controls the mirror node* can refuse service or serve wrong bytes, which makes nodes that prefer the mirror fail the digest and lose that attempt's progress until the operator disables the mirror. The summary line in the task output names every source that contributed bytes, so the cause is visible. It learns which fleet nodes fetch and when. It cannot make any node run different bytes, and it holds no lease or token that works for any other node.
-- *An internet scanner* sees a filtered port under NetGuard. Without NetGuard it sees a TLS service with a random self-signed certificate that answers 404 to every path except exact digest paths of public binaries, and the connection caps bound what it can make the node spend.
+**Mirrors are untrusted transport, and every source is HTTPS.** The node holds the bytes to the digest in the approved plan, so a mirror can deliver the right bytes or fail. No mirror receives a credential. Mirror lines do not follow redirects: curl gets no `-L`, and wget gets `--max-redirect=0`, which today's wget upstream line does not set, so a test pins it. No credential is at stake, but a redirect would let a mirror point root on every node at an address of its choosing.
 
-**Doctrine.** `PRODUCT-VISION.md` currently says the beacon is the one inbound socket an agent may open. With S4, and only once the operator ratifies it, it becomes: the inbound sockets an agent may open are the measurement beacon of design 29 and the artifact mirror of design 31, each off by default, enabled per node by an approved plan, answering only what it was built to answer, and vetoable on the node. This PR does not edit the doctrine; S4 does, in the same change that ships the listener.
+Plain HTTP is rejected even with the pin. Integrity would hold, but an on-path party that changes one byte makes the finished file fail the digest, and today that failure deletes the whole partial, including what honest sources delivered. Content-rewriting middleboxes on plain HTTP are a known class of interference. Plain HTTP would also tell every observer which product and version a host fetches.
 
-## D7. Install on new nodes
+**A chunk manifest keeps a bad mirror from erasing honest progress.** The security review showed that a mirror listed first can append wrong bytes, fast enough to pass the cutoff. The digest would then fail and delete everything, and that would repeat on every re-approval. So any plan that lists a mirror also carries a chunk manifest:
 
-The operator also asked for global install. Two paths install the agent today, and both reach GitHub first. The enrollment command the console renders fetches the installer from `raw.githubusercontent.com` at a pinned ref, and the installer downloads the binary and `SHA256SUMS` from the GitHub release and verifies one against the other. The control plane's public `/install.sh`, which updates an existing agent, renders the version and the digests into the script it serves but downloads the binary from GitHub.
+- The server records the SHA-256 of every 256 KiB chunk of the pinned bytes when it imports an artifact. That is 54 chunks for the current binary, about 3.5 KB of hex in the payload, and the plan prints the manifest's own digest.
+- After each fetch, the script hashes the chunks that fetch completed and truncates the partial from the first chunk that fails. A bad source loses its own bytes and at most the chunk in flight, never what came before.
+- The summary line names the source or sources that wrote a failing chunk, and the console flags a mirror with chunk failures. That count never feeds the ordering, so the list's inputs stay stable.
+- The second pass counts only bytes that survived the check, so a fast liar is never "the best source". D1's equal share bounds how long it can hold the budget first.
+- The whole-file digest stays the authority.
 
-S5 brings both onto the same sources. The control plane serves the pinned installer itself at a public path, as it already vendors and serves the knock client at `/tools/knock/`. The installer accepts an ordered list of base URLs and a table of expected digests per platform, both rendered by the server into the enrollment command and into `/install.sh`, and verifies the binary against the rendered digest rather than against a `SHA256SUMS` fetched from the same mirror, because a mirror must never supply the digest it is checked against; without a rendered table it keeps today's GitHub-plus-`SHA256SUMS` behaviour, so it still works stand-alone. Install sources are the internet-reachable mirrors (R2, and any `static` mirror) followed by GitHub. A NetGuard-restricted `node` mirror is not an install source, because the machine being installed is not in its allow set yet, and the control-plane binary route stays lease-only rather than accepting the long-lived node token. The installer has no 480 s budget, so a new mainland machine still finishes through R2, slowly, with the same `-C -` resume.
+An artifact the control plane does not store still needs a manifest, so S5 adds a verify-and-record import. The server fetches the release asset, checks it against `SHA256SUMS`, records the manifest, and keeps the bytes only if they fit. R2 can then serve an architecture the store has no room for.
+
+The alternative the review listed first, a private partial for each mirror promoted only after a full digest match, was rejected. It gives up splicing across sources, and it doubles the disk a download takes on nodes that are already short.
+
+**The R2 mirror.**
+
+- **The bucket and the domain.** A new bucket, dedicated to the mirror, public only through a custom domain on the operator's existing Cloudflare zone; the domain is never attached to any other bucket on the account. The `r2.dev` development URL stays disabled, since Cloudflare rate-limits it and does not support it for production. A public R2 bucket does not list its contents at the domain root.
+- **Caching.** A cache rule on the host name caches 200 and 206 responses with a long edge TTL and never caches 404, so a request that arrives before publication is not remembered as missing.
+- **Object layout.** Objects sit at `<version>/linux/<arch>/<sha256>`, compressed assets included, with `Cache-Control: public, max-age=31536000, immutable`. Because a wrong object would then stay at the edge for a year, the runbook gains an edge-purge step for that case.
+- **Publishing.** `publish-agent-mirror.sh <tag>` runs on the operator's machine as a release-ritual step:
+  - it downloads the Linux assets and `SHA256SUMS` from the GitHub release;
+  - it checks each asset against `SHA256SUMS`, and against the digest the control plane recorded at import when there is one;
+  - it uploads through R2's S3-compatible API with a token scoped to object read and write on that one bucket, kept in a local env file outside every repository and passed through a file, never on a command line;
+  - it never overwrites an existing key;
+  - it re-downloads each object through the custom domain and verifies its digest.
+- **What `SHA256SUMS` proves.** It shows the assets are consistent with their release, not that the release is authentic. The blast radius stays the same either way, because nodes verify against the server's pin, so a bad R2 object can only deny service. No R2 credential lives on the server.
+- **Ordering and pruning.** The step runs after the GitHub release is published and before the control-plane import. Pruning is the same script with an explicit list.
+- **Cost.** R2 charges for storage only: $0.015 per GB-month for standard storage, nothing for egress, and reads are Class B operations with 10 million a month free (Cloudflare's pricing page, last updated 2026-10-01). Ten releases for two architectures, compressed and raw, is under 0.4 GB, about 7 cents a year at list price. Cloudflare rounds an account's monthly usage up to whole GB-months, so the most this can add is 18 cents a year, and it adds nothing inside the 10 GB-month free tier.
+- **The known limit.** Cloudflare's global network is often slow or lossy from mainland China, and its China network requires an ICP filing and a separate contract.
+
+## D5. Install on new nodes (S6)
+
+Both install paths reach GitHub first today. The enrollment command fetches the installer from `raw.githubusercontent.com`, and the installer downloads the binary and `SHA256SUMS` from the GitHub release. The control plane's public `/install.sh` renders the digests into the script it serves, but it too downloads from GitHub.
+
+S6 serves the pinned installer from the control plane, as it already serves the knock client at `/tools/knock/`. The installer then takes an ordered list of base URLs and a table of expected digests per platform, both rendered by the server into the enrollment command and into `/install.sh`. It verifies against the rendered digest, because a mirror must never supply the digest it is checked against. Without a rendered table it keeps today's behaviour, so it still works stand-alone.
+
+The install sources are the registry's global mirrors and then GitHub; the compressed asset applies here too. The control-plane binary route stays lease-only and does not accept the long-lived node token. The installer has no 480 s budget, so a new mainland machine finishes through R2, slowly, with `-C -` resume.
+
+## D6. A mainland copy, conditional (S7)
+
+**The evidence today.** The fleet's one mainland node fetches from the control plane in under a minute, and nothing in this incident is helped by a mainland source. S4 weakens the case further: once prefetch ships, a slow update path finishes in the background whatever the source. The case that remains is installing a new mainland machine, which S6 serves through R2 slowly but surely.
+
+**The measurement that would justify it.** It is a step for the operator or the lead, because it runs on production nodes. When S2's summary line shows a mainland node fetching from the control plane below the cutoff, run a read-only task on that node. It times a 2 MiB ranged GET from the control plane, and from a test object in a mainland-region bucket on the cloud account the operator already holds. Build S7 when the domestic rate is above the cutoff and at least four times the control-plane rate.
+
+**How it would be built: a domestic bucket.** S7 means option (c), a bucket in a mainland region of that account. It is registered as a `static` mirror preferred for a static group of mainland nodes, and published by the same script. It needs no code beyond S5. Before choosing, check two things: that the bucket's default HTTPS endpoint serves ranged GETs to curl without a filed domain, and that its S3-compatible API accepts the upload tool. The cost is storage and egress, small but not zero, plus a credential for that account on the operator's machine.
+
+**Option (b) is rejected.** A static server installed on the node by a task puts software there that Lattice neither ships nor updates nor can veto.
+
+**Option (a) is not recommended.** The first revision of this design recommended it: the agent itself serving verified artifacts on a port. It reverses design 29's recorded rejection of an HTTP or TLS endpoint on the agent, and it would loosen the doctrine's "authenticated, silent to anything unsigned" to fit. It is kept only as a contingency, in case (c) fails its two checks, and it would then need its own design revision covering all of the following:
+
+- the NetGuard companion is required, and internet exposure is refused;
+- the provider's own security group becomes an explicit operator step, and the mirror is listed only after a reachability verdict, because NetGuard cannot see a provider's group;
+- the listener runs as a sandboxed unprivileged subcommand from the start;
+- TLS uses a certificate with an IP SAN, rendered into the plan and passed with `--cacert`, instead of `-k` with a key pin, which can fail open on a TLS backend that does not enforce pins;
+- per-address limits are bucketed by /64 for IPv6, with a minimum write rate, a daily byte budget, no keep-alives and capped headers;
+- `-no-mirror` reads an environment veto the way `-no-beacon` does;
+- population carries digests only, and files are named by digest alone;
+- every node-reported value is validated, with the URL built on the server from a validated address and port;
+- the plan text states that a NAT source address may admit other tenants behind it;
+- the operator ratifies a doctrine amendment.
+
+This revision asks for none of that.
 
 ## Alternatives
 
-- **Raising the task timeout.** Every agent on the fleet refuses a task timeout above 600 s: agents from v0.3.10-alpha.1 clamp it to 600 s and older ones fall back to 30 s. Changing that in a new agent does not help the nodes that cannot fetch the new agent, and a longer task holds the agent's report loop for longer, during which its node reads as offline. Rejected.
-- **Compression.** Measured on 0.3.10-alpha.6 linux/amd64 (14,037,154 bytes): gzip -9 gives 5,426,900 bytes (38.7 percent), zstd -19 4,504,069, xz -9 4,141,880. That is better than this design expected, and it is not rejected: at 15 KB/s the gzip file takes about 362 s, so compression alone would have brought the four Chengdu nodes inside one budget at their observed rates. It is not the fix, for three reasons. It leaves those nodes about a quarter of the budget as headroom on a path that also drops connections, so a bad hour still fails them. It is a constant factor that the binary's growth erodes, while a domestic source changes the path itself: cd-hs-sh's own fetch from hkg ran more than ten times faster than Chengdu's, though Chengdu to cd-hs-sh is still to be measured (see "Risks"). And it costs a second asset per platform in every release, a second digest in every plan (the compressed bytes are what the partial resumes, so they need their own pin, and the decompressed result is then held to the release digest), and a decompression step on the node; gzip is on every Linux node, while xz and zstd are not, so gzip is the one to use. It is S6: optional, independent of the mirrors, and worth pulling forward if S4 slips. HTTP `Content-Encoding` on the wire is not the way to do it, because ranges then apply to the encoded stream and curl's resume becomes unreliable.
-- **Peer-to-peer.** Every node would become a listener, multiplying the surface D6 accepts for one node by the size of the fleet, and would need peer discovery and NAT traversal. A chosen peer can be as slow as the source it replaces. For a 32-node fleet with clear regional clusters, one mirror per region chosen by the operator is peer-to-peer with the peer picked by someone who knows the network. Rejected.
-- **Proxying through vpn-core lines.** A line from mainland China to hkg may well be faster than direct HTTPS, but routing agent updates through it couples the repair path to the data plane it may be repairing: a broken line or a vpn-core outage would block the updates that fix nodes. The task environment would need a line's client credentials on the node, which are user credentials rather than an update credential. And core distribution would depend on a plugin, against design 14's ownership split. Rejected.
+- **Raising the task timeout.** Every agent on the fleet refuses more than 600 s: newer agents clamp, and older ones fall back to 30 s. A new agent cannot help the nodes that fail to fetch it. S4 removes the need anyway, by taking the download out of the task.
+- **Peer-to-peer.** Every node would become a listener, which multiplies the surface option (a) was rejected for by the size of the fleet, and it would need peer discovery and NAT traversal. A chosen peer can be as slow as the source it replaces. Rejected.
+- **Proxying through vpn-core lines.** Routing agent updates through a line couples the repair path to the data plane it may be repairing. It puts a line's user credentials into a task, and it makes core distribution depend on a plugin, against design 14's ownership split. Rejected.
+- **A private partial per mirror.** Rejected in D4, in favour of the chunk manifest.
+- **An agent listener as the mainland mirror.** See D6.
+
+Compression, which the first revision deferred, is now S3.
 
 ## Slices
 
-| Slice | Server | Agent | SDK | Console | Ops | Tests |
-|---|---|---|---|---|---|---|
-| S1, done | resumable binary route and script (#204, merged into `integration` 2026-10-17) | none | none | none | none | in #204 |
-| S2, ordered sources and the registry | `sources` in the payload, order computation, registry model, API and audit, unrolled renderer with the cutoff, best-source pass and summary line, plan text, staleness rules | none: the script runs on any agent from v0.2.0 that exports its lease | registry and order types in `model`; bump the SDK pin in the same slice | a Mirrors section under Agent updates: list, add or edit a static mirror, per-node order preview; plans already show their text | none | below |
-| S3, the global mirror | none beyond S2 | none | none | none | the operator creates the bucket, custom domain, cache rule and token once; `publish-agent-mirror.sh` and its runbook step; register R2 as a global `static` mirror | publish one release and re-download it through the custom domain |
-| S4, the mainland mirror | `node.mirror` plan and NetGuard companion, mirror-binary route, mirror facts, registry kind `node` | listener, key, populate and prune, `-no-mirror`, a capability in `-compat-json`, facts | config block, facts and plan model | a mirror card on the node page: state, pin, held versions, exposure, firewall pending | an agent prerelease and a server release; enabling cd-hs-sh is an ordinary `node.mirror` approval | below |
-| S5, install | serve the pinned installer; render sources and digests into the enrollment command and `/install.sh` | the installer takes ordered sources and rendered digests | none | none | none | installer integrity script extended |
-| S6, optional, compressed transfer | pin the compressed digest beside the release digest; import the `.gz` asset | release workflow publishes `.gz` assets with `SHA256SUMS` lines | none | none | the publish step uploads the `.gz` too | a plan with and without the compressed asset |
+Ordered by value against the evidence above.
 
-Order: S1, then S2, then S3, then S4, then S5. S3's one-time setup and first publish can run while S2 is built, since an object nobody references is harmless. S6 is independent of all of them.
+| Slice | What it changes | Retires open approvals on deploy | Tests |
+|---|---|---|---|
+| S1, shipped | resumable binary route and script (#204) | yes, done | in #204 |
+| S2, see and leave a slow source | server: the summary line and its parsing into audit and `last_fetch`, the cutoff with equal share and second pass, keyed on a plan line, and the three stale comments; console: per-node source and rate | no | below |
+| S3, compressed transfer | node-agent: the release workflow publishes reproducible `.gz` assets and `SHA256SUMS` lines; server: the second digest, the compressed store copy, the verify-then-decompress step; ops: the publish step uploads `.gz` too | yes | a plan with and without a compressed asset; the gzip input is never decompressed before its digest passes |
+| S4, prefetch outside the task | SDK: config and facts fields; agent: background fetch, hand-off on `approval_id`, free-space check, pruning; server: prefetch route and config; console: progress beside the approval | no | below |
+| S5, ordered sources, registry, R2 | SDK: registry and order types, with the SDK pin bumped in the same slice; server: `sources`, validation, equality, the manifest and the verify-and-record import, the `agent.mirrors` plan, derived Safety lines; console: Mirrors section, order preview, stale fields; ops: bucket, domain, cache rule and token once, `publish-agent-mirror.sh`, runbook steps including purge | yes | below |
+| S6, install | node-agent installer: ordered sources, rendered digests; server: serve the pinned installer, render both into enrollment and `/install.sh` | no | installer integrity script extended |
+| S7, mainland copy, conditional | ops and one registry entry, if option (c) passes its checks | no | the measurement above, then one publish and a ranged GET from a mainland node |
 
-**S2 tests.** An approval planned before S2 renders S1's script byte for byte (golden). The lease headers appear exactly once, on the control-plane line, and never on a mirror or upstream line. Mirror and control-plane lines carry `--proto '=https'` and no `-L`; the upstream line keeps `-L --proto-redir '=https'`. Every non-last line carries the cutoff and the last does not. `-k` never renders without a pin. The order computation is table-tested: country, node and group affinity (static member and selector), a node with no geo record, a mirror on the node itself, duplicate URLs, the cap of four with upstream kept last, a node mirror without a pin or without the digest. Registry validation refuses non-HTTPS, userinfo, query, fragment and the refused literals. Staleness follows D1's rules. A script-level test runs the rendered fetch block under `sh` with curl against local test servers: a source throttled below 32 KiB/s is left within its window and the next completes from the shared partial; a source that drops mid-stream is continued by the next; a source that ignores ranges is skipped with the partial kept; a source that serves wrong bytes ends in a digest failure that deletes the partial; the best-source pass retries only a source that added bytes.
+**S2 tests.**
 
-**S4 tests.** The listener answers only exact held-digest paths and only `GET` and `HEAD`, serves ranges with the digest `ETag`, lists nothing, refuses HTTP/2, enforces the header, idle and connection limits, binds only the planned address, and never binds under `-no-mirror`; a fuzz test of the path parser fails on any panic. Populate resumes, verifies, refuses a digest mismatch and prunes what left the desired set. The mirror-binary route denies a node without an applied mirror plan and a digest outside its desired set. The plan re-renders as stale when a covered field moves, the companion admits exactly the source set, and update plans pin the reported key.
+- An approval without the new plan line renders exactly today's script.
+- The summary line is printed on every exit path, including a digest failure, a version mismatch and a missing service, and it parses.
+- A script-level test runs the rendered fetch step under `sh` with curl against local test servers. It checks that:
+  - a source throttled below 32 KiB/s is left within its window, and the next continues the shared partial;
+  - every source, the last included, is cut;
+  - the equal share stops a source that stays above the cutoff;
+  - the second pass picks the source that added the most;
+  - a source that ignores ranges is skipped with the partial kept.
 
-## Risks and checks before building
+**S4 tests.**
 
-- **The domestic throughput from Chengdu to cd-hs-sh is assumed, not measured.** Domestic paths are usually good, but cross-carrier paths inside mainland China can be poor. The first update after S4 for one Chengdu node is the measurement, and the summary line records it. If the path is poor, the cutoff moves those nodes on and nothing is lost, and the operator learns to put the mirror elsewhere.
-- **Key pinning depends on the node's curl.** sha256 pins have been in curl since 7.44 for the common TLS backends. A curl that predates them fails the line with an unknown option and moves to the next source; a node without curl skips pinned mirrors. Before S4, run `curl --version` across the fleet and one pinned fetch on the OpenSSL-backed curl of a Debian node.
-- **The cutoff is tied to the binary's size.** Past 15.7 MB the threshold must rise (D2).
-- **A hostile or broken mirror can deny updates** to the nodes that prefer it, as in D6, until the operator disables it; the summary line shows which source contributed.
-- **Provider terms.** Whether a fleet-internal endpoint on a high port needs a filing is the operator's call; the design depends on the port only as one source among several.
-- **Edge caching of a miss.** A cache rule that cached 404 would hide a just-published object; D5's rule caches only 200 and 206, and publishing precedes import.
+- The route serves only the digest of the node's own open approval, and refuses another node's digest and a digest outside any open approval.
+- A prefetch survives an agent restart and resumes.
+- The hand-off stops the fetch before the script runs.
+- Pruning removes partials no open approval names.
+- The free-space check refuses and reports.
+- A non-root agent never prefetches.
+
+**S5 tests.**
+
+- The lease appears exactly once, on the server-computed control-plane entry, and never on a mirror entry that points at the control-plane host.
+- A payload with two control-plane entries, a wrong control-plane URL, more than four entries or upstream not last is refused.
+- The injection table covers URL, version and mirror id.
+- wget mirror lines carry `--max-redirect=0`.
+- The equality function and the change summary cover `sources`.
+- Order computation is table-tested over preferred, global and upstream, static group members, duplicates and the cap.
+- Registry validation refuses each class in D4, non-canonical numeric hosts included.
+- A mirror serving wrong bytes after honest progress loses only its own bytes and the chunk in flight, and the next source finishes.
+- A fast liar never wins the second pass.
+- No plan that lists a mirror or GitHub prints the no-egress line.
+
+## Risks
+
+- **S2's value for the residential nodes depends on GitHub's rate from their network**, which nobody has measured yet. The measurement step in D1 settles it.
+- **Prefetch writes to the node's disk before approval.** The free-space check and the pruning bound it. An operator who rejects an approval leaves at most one partial, which is pruned when no open approval names it.
+- **Each payload-changing slice (S3, S5) retires open approvals once.** Deploy them when few approvals are open, and expect a round of re-approvals.
+- **The cutoff constant was derived for the raw binary.** After S3, the summary data decides whether it moves.
+- **A Cloudflare cache rule that cached 404 would hide a just-published object.** D4's rule caches only 200 and 206, and publishing precedes import.
+
+## Review findings and their dispositions
+
+Architecture review (changes requested), in its numbering.
+
+| Finding | Disposition |
+|---|---|
+| C1 stuck nodes misidentified | Accepted. The evidence section is corrected, the mainland mirror is now conditional (D6), and the measurement is a step for the operator or lead (D1, D6). `PROGRAM.md` was already corrected by the lead. |
+| H1 uncut last source | Accepted. Every source is cut, and the rest goes to the best source (D1). |
+| H2 staleness contradicts the code | Accepted. Staleness is strict, the inputs are stable, there is an equality function, and the change summary and console fields are updated (D4, item 5 of How it works). |
+| H3 option (a) reverses a recorded rejection | Accepted. (a) is demoted to a contingency with conditions, and (c) is the mainland route (D6). |
+| H4 stage the download outside the task | Accepted, as S4, ahead of any mirror (D3). |
+| H5 slices not ordered by value | Accepted. Compression is S3, before every mirror. |
+| M1 old approvals do not render unchanged | Accepted. Item 5 of How it works states it, and each slice says whether it retires approvals. |
+| M2 false Safety lines | Accepted. They are derived from the list, with a test (D4). |
+| M3 the lease guard must follow the list | Accepted (D4). |
+| M4 observability | Accepted. The summary line, `last_fetch` and the console column (D1). |
+| M5 stale offline argument | Accepted. Dropped here and corrected in the code comments in S2. |
+| M6 registry too large | Accepted. No country, kind or pin (D4). |
+| L1 adaptive threshold | Mostly covered by the second pass. The adaptive threshold waits for the S2 data. |
+| L2 attribution | Covered by the chunk manifest and the console flag, kept out of the ordering (D4). |
+| L3 upstream not content-addressed | Noted. The tag policy guards it, and the manifest bounds the damage. |
+| L4 leftover partials | Accepted. Prefetch pruning (D3). |
+| L5 `-no-mirror` environment veto | Accepted within (a)'s contingency conditions (D6). |
+
+Security review (approve with required changes), in its numbering.
+
+| Finding | Disposition |
+|---|---|
+| H1 a mirror can erase honest progress and capture the budget | Accepted. The chunk manifest, the equal share, and a second pass on surviving bytes only (D1, D4). No mirror is listed without a manifest. |
+| H2 node-reported values reaching a root script | Accepted as a design rule with an injection table (D4). The node-reported pin and endpoint exist only in (a)'s contingency, where the rule is restated (D6). |
+| M1 `-k` with a pin can fail open | Accepted. No pins in S5, whose mirrors have public certificates; `--cacert` with an IP SAN in (a)'s contingency; `--max-redirect=0` for wget mirror lines (D4, D6). |
+| M2 the lease line derived from the server | Accepted (D4). |
+| M3 the registry is an instant setting | Accepted. Registry changes are `agent.mirrors` plans, plans show the diff against the last success, and an alert fires on a first appearance (D4). |
+| M4 weak exposure controls on an agent mirror | Accepted within (a)'s contingency conditions; this revision does not build (a) (D6). |
+| M5 R2 bucket separation and cache lifetime | Accepted. A dedicated bucket and token, the domain on no other bucket, no listing, never overwrite, an edge-purge step (D4). |
+| L1 publish integrity anchor | Accepted. A check against the control plane's recorded digest, and a plain statement of what `SHA256SUMS` proves (D4). |
+| L2 denylist bypass | Accepted. `netip` canonicalization, and the list called hygiene, not a boundary (D4). |
+| L3 population defaults | Accepted for prefetch (D3) and within (a)'s contingency (D6). |
+| L4 fleet reconnaissance in a public document | Accepted. Node names, providers, cities, counts and exact limits tied to a node are removed. Rates stay without identities, because the cutoff is derived from them; `PROGRAM.md` holds the identities. |
 
 ## Decisions for the operator
 
-1. **The custom domain name** for the R2 mirror on the existing Cloudflare zone, and approval of the public bucket. This is a spend, storage only: about 5 cents a year, at most 18 cents with Cloudflare's rounding, nothing inside the free tier, no egress charge.
-2. **The mirror port on cd-hs-sh**, any port from 1024 to 65535 (the server will suggest a random one in 40000 to 59999, as it does for beacons), and the judgment that serving the fleet from it is acceptable under the provider's terms.
-3. **The doctrine amendment** of D6: a second inbound socket an agent may open, the artifact mirror, off by default, plan-gated and vetoable on the node.
-4. **Whether to take S6**, compressed transfer, which changes the node-agent release workflow.
+1. **Which slices to build.** The recommendation is S2, S3 and S4 now, in that order. S5 and S6 come when the global CDN and install are wanted. S7 comes only after the measurement in D6 justifies it.
+2. **For S5: the custom domain name** for the R2 mirror on the existing Cloudflare zone, and approval of a new dedicated public bucket. That is a storage-only spend, about 7 cents a year and at most 18 with Cloudflare's rounding, with no egress charge.
+3. **For S7, if it is ever justified:** a bucket on the existing mainland cloud account (small storage and egress charges) and a credential for it on the operator's machine.
+4. **Running the measurements.** The read-only tasks in D1 and D6 are production actions for the operator or the lead.
+5. **No mirror port and no doctrine change are requested.** Both would arise only if option (a) were ever chosen over (c), and that would come back as its own revision.
 
-Everything else an agent may decide and build: the registry fields, the cutoff values, the order rule, the limits and the test shape. Enabling the mirror on cd-hs-sh is an ordinary `node.mirror` approval, and switching the live image to the release that carries S2 or S4 rides the standard precheck, backup, health and rollback gates.
+Everything else an agent may decide and build: the cutoff values, the summary format, the registry fields, the manifest chunk size and the tests. Switching the live image to a release that carries any slice rides the standard precheck, backup, health and rollback gates.
