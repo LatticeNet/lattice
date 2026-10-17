@@ -14,6 +14,7 @@ and what is still not production-ready.
 - [Agent updates](./agent-updates.md)
 - [Storage migration drills](./storage-migration.md)
 - [Network guard](./network-guard.md)
+- [Monitoring paths](./monitoring.md)
 - [Static and KV](./static-and-kv.md)
 - [Plugins](./plugins.md)
 - [Reference projects](./reference-projects.md)

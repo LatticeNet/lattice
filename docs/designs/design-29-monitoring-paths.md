@@ -1,6 +1,6 @@
 # Design 29: Monitoring paths, operator-defined checks between nodes with a week of history
 
-Status: accepted 2026-10-16 after an architecture review and a security review the same day (their findings are folded into D1 to D6, D10, Slices and Risks); the operator asked for this work and granted release authority the same day (`PROGRAM.md` Decisions 2026-10-16). Slices M1 to M4 below; none built.
+Status: accepted 2026-10-16 after an architecture review and a security review the same day (their findings are folded into D1 to D6, D10, Slices and Risks); the operator asked for this work and granted release authority the same day (`PROGRAM.md` Decisions 2026-10-16). Built: M1 shipped in server alpha-0.2.2a126 (2026-10-16); M2a was built as a128 and shipped inside a129 (2026-10-17); M2b shipped in a129 (2026-10-17) with node agent prerelease v0.3.10-alpha.6, whose rollout to nodes `PROGRAM.md` tracks; M3 shipped in a130 (2026-10-17); M4 is the Monitoring section of `docs/architecture.md` and the operator guide `docs/tutorials/monitoring.md`, both written from the code. Where the code and the text below differ, those two documents follow the code. `PROGRAM.md` says what is live now.
 Date: 2026-10-16.
 Reference: lattice-server `integration` at a6caff4 (alpha-0.2.2a124), lattice-dashboard `integration` at 2ce7dd2, lattice-node-agent `integration` at c8c3a8f, lattice-sdk `integration`, umbrella at 4608e85.
 

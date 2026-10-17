@@ -42,7 +42,9 @@ and carries its date.
   explains how the components pin each other.
 - [`tutorials/`](./tutorials/): operator how-to, from server install to the
   operator guide. [`tutorials/operator-guide.md`](./tutorials/operator-guide.md)
-  is the broadest one.
+  is the broadest one; [`tutorials/monitoring.md`](./tutorials/monitoring.md)
+  covers the Monitoring section of the console: paths, checks, the path set,
+  the measurement beacon, retention and degraded alerts.
 
 ## What is planned
 
