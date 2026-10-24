@@ -1,6 +1,6 @@
 # Design 32: network and monitoring console, one model per concept
 
-Status: accepted 2026-10-24 after an architecture review. Not built; S0 and S1 are in progress.
+Status: accepted 2026-10-24 after an architecture review. S0, S1, S2a, S2b and S3a are built and shipped (see "As built"); S3b, S4 and S5 are not started.
 Date: 2026-10-24.
 Reference: lattice-server `integration` at bd335aa, lattice-dashboard `integration` at da8eb50, lattice-sdk `integration` at fbe4441, lattice-plugin-netguard at 1b37d1b, lattice-plugin-wireguard at 408e399. Production versions live only in `PROGRAM.md`.
 
@@ -231,6 +231,17 @@ The operator's DNS plan (kept in their private notes) is an encrypted forwarding
 | S5 | D8 DNS check method, external deployments, allowed client networks | sdk, server, node-agent, dashboard | no |
 
 S0 and S1 need no model change and ship first. S2a ships before S2b and can ship any time. S2b and S3a are independent of each other. S3b follows S3a so it can list selector-scoped policies. S4 needs only node group ids, so it can follow S0; it must extend D4 and the D7 refusal in the same slice. S5 depends on S2b.
+
+## As built
+
+S0, S1 and S2a shipped first, S2b and S3a together a release later; the program log at the workspace root names the releases. The NetGuard and WireGuard page names from D3 shipped as signed plugin releases. Where the build differs from the sections above:
+
+- S2b and S3a were built in parallel and share one selector: the SDK `TargetSelector`, the server's `groups.ResolveTargets`, and the console's `SelectorPicker`, each a single copy after the two slices merged.
+- The picker never lets a node be both named and excluded, while the server lets an exclusion win. Saving a check definition therefore stores its selectors in a canonical form that resolves to the same nodes, so editing a definition made through the API in the console cannot start measuring a node its exclusion kept out.
+- The scope rule in D5 reverses an earlier server decision: a token confined to some nodes could define a group policy for a group it fully reached at write time. A group or fleet target, a group remote, and editing or deleting a policy that has either now need an unrestricted principal, because a group can grow with no write to carry a reach check. Stored policies keep working and are not migrated; the console says why their edit controls are off.
+- A group delete is refused while an outbound policy or a check definition names it, through one refusal in both state stores. The refusal and the group's Used by name only what the caller may read and count the rest. Used by lists policies and checks; security-group bindings (S4) and mesh membership rules arrive when those slices store group references.
+- A group deleted under a definition built before the refusal resolves to no nodes: its monitors pause, and the sweep continues.
+- Left on purpose: a refused check save does not yet point at the field at fault; a version conflict on save closes the editor and reloads, as the single-check editor does; a group row in the policy matrix does not show its exclusions; Used by is not polled while a sheet is open.
 
 ## Tests
 
