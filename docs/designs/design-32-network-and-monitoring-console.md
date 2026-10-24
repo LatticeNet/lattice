@@ -1,6 +1,6 @@
 # Design 32: network and monitoring console, one model per concept
 
-Status: accepted 2026-10-24 after an architecture review, revised the same day after the operator reviewed what shipped (see "Revision after the operator review"). S0, S1, S2a, S2b and S3a are built and shipped (see "As built"); S2c, S3b, S4 and S5 are not started.
+Status: accepted 2026-10-24 after an architecture review, revised the same day after the operator reviewed what shipped (see "Revision after the operator review"). S0, S1, S2a, S2b and S3a are built and shipped; S2c, S3b and S4 are built and merged for the next release (see "As built"); S5 is not started.
 Date: 2026-10-24.
 Reference: lattice-server `integration` at bd335aa, lattice-dashboard `integration` at da8eb50, lattice-sdk `integration` at fbe4441, lattice-plugin-netguard at 1b37d1b, lattice-plugin-wireguard at 408e399. Production versions live only in `PROGRAM.md`.
 
@@ -242,7 +242,18 @@ S0, S1 and S2a shipped first, S2b and S3a together a release later; the program 
 - The scope rule in D5 reverses an earlier server decision: a token confined to some nodes could define a group policy for a group it fully reached at write time. A group or fleet target, a group remote, and editing or deleting a policy that has either now need an unrestricted principal, because a group can grow with no write to carry a reach check. Stored policies keep working and are not migrated; the console says why their edit controls are off.
 - A group delete is refused while an outbound policy or a check definition names it, through one refusal in both state stores. The refusal and the group's Used by name only what the caller may read and count the rest. Used by lists policies and checks; security-group bindings (S4) and mesh membership rules arrive when those slices store group references.
 - A group deleted under a definition built before the refusal resolves to no nodes: its monitors pause, and the sweep continues.
-- Left on purpose: a refused check save does not yet point at the field at fault; a version conflict on save closes the editor and reloads, as the single-check editor does; a group row in the policy matrix does not show its exclusions; Used by is not polled while a sheet is open.
+- Left on purpose: a refused check save does not yet point at the field at fault; a version conflict on save closes the editor and reloads, as the single-check editor does; a group row in the policy matrix does not show its exclusions; Used by is not polled while a sheet is open. S2c and S3b closed all four.
+
+S2c, S3b and S4 were built after the revision, S2c and S3b in parallel, S4 after S3b. Where the build differs from the sections above:
+
+- Fleet mesh is the definition `chk_fleet_mesh`, plus `chk_fleet_mesh_<method>` for each distinct per-source method pin. Adopted monitors keep their `mon_lat*` ids and record their definition in a new monitor field. A migrated definition is stored paused, with its real state in a side map the previous release does not read, so a rollback resumes the path set on the same ids without duplicates; rolling forward again migrates the same way and writes nothing new. Each monitor goes to the definition holding most of the sources it measured from. When a pin splits a shared monitor, the pair the other definition takes reads that source's earlier runs through the adoption records, never through the Fleet mesh name, so an operator's own check on the pair does not pick them up.
+- After a rollback, the path set as the previous release left it wins over Fleet mesh edits made before the rollback; the audit record names what it replaced. A definition's path count counts measured pairs only, so a paused definition reads 0.
+- The list shows one row per check on a pair; the graph draws one edge per pair.
+- The node network read is `GET /api/nodes/network?node_id=&rules=1`. Each section (inbound, outbound, access, mesh, groups) is either filled or refused naming the missing scope, never partly filled. It covers `lattice_guard`, `lattice_policy` and `lattice_knock`; knock rules are never returned. WireGuard handshakes, transfer and live peers are not shown, because no agent reports them; the peer count is what a plan would render.
+- An outbound policy gained a version, so a stale save is refused; a policy stored before versions loads as version 1.
+- S4 adds derived security groups only for managed bindings. A binding change is planned as one batch whose approvals are written in one store commit or not at all. The KI-29 fixes shipped with it: one classification of `lattice_guard` writers in the store, refusals that keep NetGuard and the legacy writers from interleaving while either side's task is unfinished, a re-check of the owner when the agent leases the task (a stale one is superseded with `guard_owner_changed`), and a NetGuard compile refused while it would close an applied self-host DNS deployment's ports. A NetGuard rerun now asks for a new plan.
+- The approvals endpoint applies node reach to NetGuard and legacy firewall plans, which it did not before.
+- Left on purpose: the conflict panel names the fields that changed but does not show the server's values; a confined token can see opaque definition ids it cannot open; a line metadata plan names a downstream node's display name outside reach; old `nodes.sort=network` links fall back to the default sort.
 
 ## Revision after the operator review
 
