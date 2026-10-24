@@ -55,6 +55,11 @@ by that repo's CI double-pack byte-compare gate. Two signing waves reached this 
   non-empty; that is not evidence of a selected `min_server` floor. All five signed manifests
   omitted `min_server` at the snapshot, and the later first train therefore mirrors none. Closing
   G1 requires assigning and signing real floors first; train assembly cannot invent them.
+  Update 2026-10-24: the loader now enforces both fields (lattice-server #231). It maps the
+  server's release tag to semver (alpha-0.2.2a147 is 0.2.2-alpha.147) and rejects a bundle whose
+  `compatibility.server` or `min_server` floor the server does not meet; a development build, an
+  unrecognised tag or a floor that does not parse enforces nothing. Manifests already write
+  `compatibility.server` as a `>=` floor, and netguard 0.2.0-alpha.8 is the first to need it.
 - **G2 — CLOSED.** At the snapshot, `dashboard.ref` pointed at the reconciled tip `8e6c206`,
   verified in production via the image label `dashboard-revision` on `alpha-0.2.2a4`. The gap
   was caught by that label after `alpha-0.2.2a3` shipped the pre-reconciliation ref — the label is
