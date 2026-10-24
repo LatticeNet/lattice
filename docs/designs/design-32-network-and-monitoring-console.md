@@ -1,6 +1,6 @@
 # Design 32: network and monitoring console, one model per concept
 
-Status: accepted 2026-10-24 after an architecture review. S0, S1, S2a, S2b and S3a are built and shipped (see "As built"); S3b, S4 and S5 are not started.
+Status: accepted 2026-10-24 after an architecture review, revised the same day after the operator reviewed what shipped (see "Revision after the operator review"). S0, S1, S2a, S2b and S3a are built and shipped (see "As built"); S2c, S3b, S4 and S5 are not started.
 Date: 2026-10-24.
 Reference: lattice-server `integration` at bd335aa, lattice-dashboard `integration` at da8eb50, lattice-sdk `integration` at fbe4441, lattice-plugin-netguard at 1b37d1b, lattice-plugin-wireguard at 408e399. Production versions live only in `PROGRAM.md`.
 
@@ -64,11 +64,11 @@ Three code surveys and one live walk, all on 2026-10-24 at the references above.
 
 **Alerts.** Two checks measuring one pair are two alerts; that is deliberate, since they test different things. The incident names its check, and the pair's sheet lists both.
 
-**The path set becomes Fleet mesh.** The existing `LatencyProbeConfig` is listed as the built-in check named Fleet mesh, in the same list as every definition, and keeps its own editor: rebuilding its automatic method, per-source pins, disabled pairs and ICMP fallback (`latency_probes.go:758-800`) inside the definition editor is work with no operator gain until it is migrated. Its stored form and its `mon_lat*` ids do not change, so its history survives. A later slice may migrate it into a `CheckDefinition`; nothing in this design depends on that.
+**The path set becomes Fleet mesh.** The existing `LatencyProbeConfig` is listed as the built-in check named Fleet mesh, in the same list as every definition, and keeps its own editor: rebuilding its automatic method, per-source pins, disabled pairs and ICMP fallback (`latency_probes.go:758-800`) inside the definition editor is work with no operator gain until it is migrated. Its stored form and its `mon_lat*` ids do not change, so its history survives. A later slice may migrate it into a `CheckDefinition`; nothing in this design depends on that. Superseded by R1: Fleet mesh becomes an ordinary definition.
 
 **Single checks stay.** An existing operator check is a definition with one source set and one target. The console lists it the same way. Nothing is migrated on deploy.
 
-**Path identity in URLs.** Fleet mesh paths keep `<source>~<target node>`. Paths of every other check use `<source>~@<monitor id>`, which already resolves, so two checks probing the same pair never collide. The matrix contract keeps `PathCell.Managed` meaning "Fleet mesh" only: the console keys a managed cell with a target node as `<source>~<target>` (lattice-dashboard `pathsModel.ts:564-578`) and the series route resolves that key through path-set prefixes only (`monitor_paths.go:233-242`), so a definition cell marked managed would collide with Fleet mesh. When two checks measure the same pair, the graph draws one edge (D2) and its sheet lists each check.
+**Path identity in URLs.** Fleet mesh paths keep `<source>~<target node>`. Paths of every other check use `<source>~@<monitor id>`, which already resolves, so two checks probing the same pair never collide. The matrix contract keeps `PathCell.Managed` meaning "Fleet mesh" only: the console keys a managed cell with a target node as `<source>~<target>` (lattice-dashboard `pathsModel.ts:564-578`) and the series route resolves that key through path-set prefixes only (`monitor_paths.go:233-242`), so a definition cell marked managed would collide with Fleet mesh. When two checks measure the same pair, the graph draws one edge (D2) and its sheet lists each check. Superseded by R1: a path is keyed by its pair whichever check measures it.
 
 **The editor.** One "New check" flow, reachable from the Network view header and the Checks list:
 
@@ -91,7 +91,7 @@ The preview is computed by the server from the stored selectors (a dry-run endpo
 
 ## D2. One Network view (Topology absorbs Paths)
 
-**Layers.** Monitoring keeps Overview, Network (today's Topology, renamed), Checks and Incidents. `?view=paths` redirects to `?view=network&as=list` and `?view=topology` to `?view=network`, keeping every other parameter, so old links and bookmarks keep working, `?path=` included.
+**Layers.** Monitoring keeps Overview, Network (today's Topology, renamed; R4 names it Topology again), Checks and Incidents. `?view=paths` redirects to `?view=network&as=list` and `?view=topology` to `?view=network`, keeping every other parameter, so old links and bookmarks keep working, `?path=` included.
 
 **One search bar for both modes.** The Paths query grammar moves up to the view: source, target, state, reason, region, country, method, check, latency and loss fields, plus free text. In list mode it filters rows, as today. In graph mode matching edges and their end nodes stay at full strength and the rest fade to the muted tone, with the shown/total count in the bar. Sorting becomes a real control in list mode (worst first by default) instead of a grammar term with no effect.
 
@@ -226,11 +226,12 @@ The operator's DNS plan (kept in their private notes) is an encrypted forwarding
 | S2a | D1 groundwork: one owner classifier routed through every `ManagedBy` site (refactor, no behaviour change); `managedMonitorEqual` compares every field | server | no |
 | S2b | D1 check definitions: SDK type, store, expansion through `SyncManagedMonitors` with hashed ids and pause on leave, selector scope rule, batched sync, sweep-time packet budget, beacon pending, dry-run preview, CRUD, forget paused targets, audit; editor with selectors; Fleet mesh listed as a check | sdk, server, dashboard | no |
 | S3a | D3 and D5 outbound and naming: `GroupNetPolicy` selector scope, policy targets and group remote, convert for manual policies, names, nav, selector component, policy form warnings, group Used by | sdk, server, dashboard, both plugin UIs | no |
-| S3b | D4 node network read endpoint and section | server, dashboard | no |
+| S2c | R1 to R3, R5, and R6 for check editors: Fleet mesh migrated into a definition, skipped pairs out of the default views, checks named on the path sheet, the view named Topology, upload and download columns | sdk, server, dashboard | no |
+| S3b | D4 node network read endpoint and section; R6 for the outbound policy editor; the policy matrix shows a group target's exclusions; Used by refreshes | server, dashboard | no |
 | S4 | D3 security-group bindings to node groups (no adoption, derived in the compile snapshot, defined order, batch plan), group remote expansion, D7 coverage through group bindings, D4 shows derived bindings | server, netguard plugin | NetGuard applies once, through a plan |
 | S5 | D8 DNS check method, external deployments, allowed client networks | sdk, server, node-agent, dashboard | no |
 
-S0 and S1 need no model change and ship first. S2a ships before S2b and can ship any time. S2b and S3a are independent of each other. S3b follows S3a so it can list selector-scoped policies. S4 needs only node group ids, so it can follow S0; it must extend D4 and the D7 refusal in the same slice. S5 depends on S2b.
+S0 and S1 need no model change and ship first. S2a ships before S2b and can ship any time. S2b and S3a are independent of each other. S3b follows S3a so it can list selector-scoped policies. S4 needs only node group ids, so it can follow S0; it must extend D4 and the D7 refusal in the same slice. S5 depends on S2b. After the operator review, S2c and S3b run in parallel, then one NetGuard lane takes the KI-29 races and S4, and S5 comes last.
 
 ## As built
 
@@ -242,6 +243,31 @@ S0, S1 and S2a shipped first, S2b and S3a together a release later; the program 
 - A group delete is refused while an outbound policy or a check definition names it, through one refusal in both state stores. The refusal and the group's Used by name only what the caller may read and count the rest. Used by lists policies and checks; security-group bindings (S4) and mesh membership rules arrive when those slices store group references.
 - A group deleted under a definition built before the refusal resolves to no nodes: its monitors pause, and the sweep continues.
 - Left on purpose: a refused check save does not yet point at the field at fault; a version conflict on save closes the editor and reloads, as the single-check editor does; a group row in the policy matrix does not show its exclusions; Used by is not polled while a sheet is open.
+
+## Revision after the operator review
+
+The operator used S0 to S3a in production on 2026-10-24 and changed six things. Where these conflict with the sections above, these win.
+
+**R1. Fleet mesh is an ordinary check.** It measures what any check measures, and the operator can name a check; a built-in second kind in the same list is the split D1 set out to remove. D1 kept it apart to bound S2b, not on principle. S2c migrates the stored path set into one `CheckDefinition`:
+
+- The definition gains what the path set has and a check lacks. Method `auto`, for node targets only, is the planner's per-pair choice (TCP to the port rule's endpoint, ICMP when TCP has nothing to dial, `latency_probes.go:508-557`). Excluded pairs carry the path set's disabled pairs and are what "Stop measuring this pair" writes. Per-source method pins become one definition per distinct method, so no third field is needed.
+- The region rule (every node outside mainland China) becomes the whole fleet minus the nodes it left out at migration time. A node that joins later is measured unless excluded, and the migration's audit line says so. Selectors do not filter by region (D5), and a group serves anyone who wants a regional set.
+- History survives. The migration writes, once, an adoption map from (method, target) to the existing `mon_lat*` id on the definition, and expansion uses that id for exactly those keys. Ids stay opaque.
+- Expand, then contract. The stored path set stays in place, marked migrated, so the previous release still reads it after a rollback and re-owns the same ids; rolling forward again adopts them again and changes nothing. For one release the path set API reads as migrated, names the definition, and refuses writes with that pointer; it is removed after that.
+- A fresh install seeds the same definition from today's defaults, named Fleet mesh and editable, renamable and deletable like any check.
+- A path is a (source, target) pair whichever check measures it. Every node pair is keyed `<source>~<target>`, the series route returns each check's series on that pair, and the path sheet lists each check. External targets keep `<source>~@<monitor id>`. The console stops keying by `PathCell.Managed`; that field is deprecated in the SDK, still sent for one release. Old links resolve.
+
+**R2. A pair that is not measured is not a path on the page.** A check skips a pair when the method has nothing to dial on the target, the source cannot run the method, a beacon approval is pending or the pair is over the packet budget, and a pair is paused when its target left the set or its check is paused. Those are facts about configuration, not the health of a path. The graph, the list and every count show measured paths only. One quiet line under the list or graph says how many pairs are not measured and reveals them, and `state:skipped` and `state:paused` search for them. The check's sheet lists its skipped pairs grouped by reason, each reason with its fix: switch to Auto, exclude the targets, or approve the beacon plan. "Unknown" remains only for a measured path with no fresh result.
+
+**R3. The path sheet names its checks.** It opens with "Checks on this path": name, method, state, p50 and last run for each check, the name opening that check's sheet, and "Stop measuring this pair", which adds an excluded pair through the check's normal save. The list's check column shows the check's name; "path set" leaves the interface.
+
+**R4. The view is called Topology.** "Network" is also the navigation section that holds outbound policy, the inbound firewall and the mesh, and the operator's own word for the merged view was Topology. `?view=network` redirects to `?view=topology` with every other parameter kept, as `?view=paths` already does.
+
+**R5. Upload and download are two columns.** D6 shipped them as one cell. The Nodes list shows Upload and Download as separate right-aligned columns with tabular figures, each sortable, over the same window as before; cards keep both values, each labelled.
+
+**R6. Editors keep the operator's work.** A refused save names the field at fault: the error body gains `field`, a JSON path into the request (additive), and the editor focuses and marks that field. A version conflict keeps the editor open with the draft, names the fields that changed on the server, and offers to reload theirs or to save the draft over the new version. This applies to the check, definition and outbound policy editors.
+
+Tests for S2c: a path set shaped like production's (one source, the region rule, five excluded targets, TCP, alerts on down) migrates to one definition whose expansion equals the path set's plan pair for pair, with every monitor id and run history unchanged; the previous release, given the migrated state, resumes the path set with the same ids; running the migration twice changes nothing; a skipped pair is absent from the default counts and lists and present under the reveal with its reason; a refused save returns `field` and a conflict keeps the draft.
 
 ## Tests
 
