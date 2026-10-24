@@ -62,7 +62,7 @@ jobs:
         run: make test-check-clean
       - name: gosec
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.29.0
           gosec ./lattice-server/... ./lattice-node-agent/...
       - name: workspace stays clean
         working-directory: lattice
